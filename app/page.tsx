@@ -341,6 +341,11 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite}) {
           <div style={{position:"absolute",bottom:10,left:12,right:12}}>
             <div style={{color:"#fff",fontWeight:700,fontSize:14,fontFamily:"'Playfair Display',serif",lineHeight:1.3}}>{recipe.title}</div>
           </div>
+          {recipe.sourceUrl && (
+            <span style={{position:"absolute",bottom:10,right:10,background:"rgba(13,15,23,.85)",color:"#a0c0f0",fontSize:10,padding:"2px 7px",borderRadius:7,fontWeight:700}}>
+              {/tiktok/.test(recipe.sourceUrl)?"📱 TikTok":/youtu/.test(recipe.sourceUrl)?"▶ YT":/instagram/.test(recipe.sourceUrl)?"📸 IG":"🌐 Web"}
+            </span>
+          )}
         </div>
         <div style={{padding:"10px 12px 12px"}}>
           <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:7}}>
@@ -1063,27 +1068,82 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems}) {
 
       {tab==="shopping" && (
         <div>
-          <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"14px 18px",marginBottom:18,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"14px 18px",marginBottom:14,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
             {[["People",people,setPeople,1,20],["Weeks",weeks,setWeeks,1,4]].map(([lbl,val,fn,mn,mx])=>(
-              <div key={lbl} style={{display:"flex",alignItems:"center",gap:10}}>
+              <div key={lbl} style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{color:"#c8d0dc",fontSize:13}}>{lbl}</span>
                 <button onClick={()=>fn(v=>Math.max(mn,v-1))} style={{...GB,padding:"3px 11px"}}>−</button>
                 <span style={{color:"#fff",fontWeight:700,fontSize:18,minWidth:22,textAlign:"center"}}>{val}</span>
                 <button onClick={()=>fn(v=>Math.min(mx,v+1))} style={{...GB,padding:"3px 11px"}}>+</button>
               </div>
             ))}
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{color:"#c8d0dc",fontSize:13}}>Budget $</span>
+              <input type="number" value={budget} onChange={e=>setBudget(+e.target.value)} style={{...IS,width:70,padding:"4px 8px",fontSize:13}}/>
+              <span style={{color:"#6a7a90",fontSize:12}}>/week</span>
+            </div>
+            <button onClick={()=>setBySection(s=>!s)} style={{...GB,background:bySection?"rgba(58,125,94,0.22)":"rgba(255,255,255,0.05)",color:bySection?"#5aad8e":"#8a9bb0"}}>
+              {bySection?"📋 All Items":"🏪 By Section"}
+            </button>
             <button onClick={()=>{const txt=shoppingList.map(i=>i.name+": "+i.amount.toFixed(1)+" "+i.unit).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));a.download="shopping-list.txt";a.click();}} style={{...GB,marginLeft:"auto"}}>📄 Export</button>
           </div>
+
+          {shoppingList.length>0 && (
+            <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",gap:12,flexWrap:"wrap",alignItems:"center"}}>
+              <div style={{flex:1}}>
+                <span style={{color:"#c8d0dc",fontSize:13}}>Estimated Total: </span>
+                <span style={{color:"#ffd580",fontWeight:700,fontSize:15}}>${totalCost.toFixed(2)}</span>
+                <span style={{color:"#6a7a90",fontSize:12}}> / {budget} budget</span>
+              </div>
+              <span style={{fontWeight:700,fontSize:13,color:totalCost<=budget?"#5aad8e":"#f08080"}}>
+                {totalCost<=budget?"Under budget ✓":"Over budget ✗"}
+              </span>
+            </div>
+          )}
+
+          {shoppingList.length>0 && (
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+              {[
+                ["🛒 Instacart","https://www.instacart.com/store/"+encodeURIComponent(shoppingList[0]?.name||"")],
+                ["📦 Amazon Fresh","https://www.amazon.com/s?k="+shoppingList.slice(0,3).map(i=>encodeURIComponent(i.name)).join("+")+"grocery"],
+                ["🏪 Walmart","https://www.walmart.com/search?q="+shoppingList.slice(0,3).map(i=>encodeURIComponent(i.name)).join("+")],
+              ].map(([label,url])=>(
+                <a key={label} href={url} target="_blank" rel="noreferrer"
+                  style={{...GB,textDecoration:"none",display:"inline-flex",alignItems:"center",background:"rgba(90,143,212,0.1)",border:"1px solid rgba(90,143,212,0.25)",color:"#7ab0e8",fontSize:12}}>
+                  {label}
+                </a>
+              ))}
+            </div>
+          )}
+
           {shoppingList.length===0
             ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:38,marginBottom:10}}>🛒</div><div style={{fontSize:14,color:"#8a9bb0"}}>Add meals to your plan first</div></div>
-            : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
-                {shoppingList.map((item,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",background:"rgba(255,255,255,0.04)",borderRadius:9,padding:"8px 12px",border:"1px solid rgba(255,255,255,0.06)"}}>
-                    <span style={{color:"#c8d0dc",fontSize:13}}>🟢 {item.name}</span>
-                    <span style={{color:"#5aad8e",fontWeight:700,fontSize:13}}>{item.amount.toFixed(1)} {item.unit}</span>
-                  </div>
-                ))}
-              </div>
+            : bySection
+              ? SECTION_INFO.map(sec=>{
+                  const items = shoppingList.filter(item=>categorizeItem(item.name)===sec.key);
+                  if (!items.length) return null;
+                  return (
+                    <div key={sec.key} style={{marginBottom:14}}>
+                      <div style={{color:sec.color,fontWeight:700,fontSize:13,marginBottom:8}}>{sec.icon} {sec.label}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+                        {items.map((item,i)=>(
+                          <div key={i} style={{display:"flex",justifyContent:"space-between",background:"rgba(255,255,255,0.04)",borderRadius:9,padding:"8px 12px",border:"1px solid "+sec.color+"25"}}>
+                            <span style={{color:"#c8d0dc",fontSize:13}}>{item.name}</span>
+                            <span style={{color:sec.color,fontWeight:700,fontSize:13}}>{item.amount.toFixed(1)} {item.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              : <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+                  {shoppingList.map((item,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",background:"rgba(255,255,255,0.04)",borderRadius:9,padding:"8px 12px",border:"1px solid rgba(255,255,255,0.06)"}}>
+                      <span style={{color:"#c8d0dc",fontSize:13}}>🟢 {item.name}</span>
+                      <span style={{color:"#5aad8e",fontWeight:700,fontSize:13}}>{item.amount.toFixed(1)} {item.unit}</span>
+                    </div>
+                  ))}
+                </div>
           }
         </div>
       )}
@@ -1196,6 +1256,12 @@ export default function App() {
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
   const [pexelsKey, setPexelsKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('pexels_key') || '' : '');
+  const [tipIdx, setTipIdx] = useState(0);
+
+  useEffect(() => {
+    const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
+    return () => clearInterval(iv);
+  }, []);
 
   const filtered = recipes.filter(r => {
     if (catF!=="all" && r.category!==catF) return false;
@@ -1212,6 +1278,7 @@ export default function App() {
     {id:"recipes",label:"Recipes",icon:"📖"},
     {id:"mix-match",label:"Mix & Match",icon:"🔀"},
     {id:"meal-plan",label:"Meal Plan",icon:"📅"},
+    {id:"optimizer",label:"Optimizer",icon:"⚡"},
     {id:"ingredient-search",label:"Ingredients",icon:"🔍"},
     {id:"favorites",label:"Favorites",icon:"♥"},
   ];
@@ -1315,6 +1382,21 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              {/* Tips Carousel */}
+              {(() => {
+                const TIPS = ["Start your rice cooker first — it frees up stove space","Chop all vegetables before turning on any heat","Use oven & stovetop simultaneously to halve your prep time","Batch cook proteins on Sundays for the whole week"];
+                return (
+                  <div style={{background:"rgba(90,173,142,0.07)",border:"2px solid rgba(90,173,142,0.3)",borderRadius:14,padding:"14px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:12}}>
+                    <span style={{fontSize:22,flexShrink:0}}>💡</span>
+                    <div style={{flex:1,color:"#c8d0dc",fontSize:14,lineHeight:1.5}}>{TIPS[tipIdx]}</div>
+                    <div style={{display:"flex",gap:6,flexShrink:0}}>
+                      <button onClick={()=>setTipIdx(i=>(i-1+TIPS.length)%TIPS.length)} style={{...GB,padding:"4px 10px",fontSize:14}}>‹</button>
+                      <span style={{color:"#6a7a90",fontSize:11,alignSelf:"center"}}>{tipIdx+1}/{TIPS.length}</span>
+                      <button onClick={()=>setTipIdx(i=>(i+1)%TIPS.length)} style={{...GB,padding:"4px 10px",fontSize:14}}>›</button>
+                    </div>
+                  </div>
+                );
+              })()}
               <h3 style={{color:"#c8d0dc",fontSize:14,fontWeight:700,marginBottom:14}}>Recent Recipes</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18,marginBottom:28}}>
                 {recipes.slice(-4).reverse().map(r=>(
@@ -1396,6 +1478,8 @@ export default function App() {
           {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])}/>}
 
           {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems}/>}
+
+          {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])}/>}
 
           {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing}/>}
 
