@@ -1256,6 +1256,7 @@ export default function App() {
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
   const [pexelsKey, setPexelsKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('pexels_key') || '' : '');
+  const [anthropicKey, setAnthropicKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_key') || '' : '');
   const [tipIdx, setTipIdx] = useState(0);
 
   useEffect(() => {
@@ -1325,13 +1326,13 @@ export default function App() {
           <div>
             <div style={{color:"#4a5a70",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>🤖 AI Key (Anthropic)</div>
             <input type="password" placeholder="sk-ant-…"
-              defaultValue={typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_key')||'' : ''}
-              onChange={e => setPexelsKey(e.target.value)}
+              value={anthropicKey}
+              onChange={e => setAnthropicKey(e.target.value)}
               onBlur={e => localStorage.setItem('anthropic_key', e.target.value)}
-              onKeyDown={e => { if (e.key==='Enter') localStorage.setItem('anthropic_key', (e.target as HTMLInputElement).value); }}
+              onKeyDown={e => { if (e.key==='Enter') { localStorage.setItem('anthropic_key', anthropicKey); (e.target as HTMLInputElement).blur(); } }}
               style={{...IS, fontSize:11, padding:"6px 10px"}}
             />
-            {typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key')
+            {anthropicKey
               ? <div style={{color:"#5aad8e",fontSize:10,marginTop:3}}>✓ AI extraction &amp; images enabled</div>
               : <div style={{color:"#4a5a70",fontSize:10,marginTop:3}}>console.anthropic.com → API Keys</div>}
           </div>
