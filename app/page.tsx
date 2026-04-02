@@ -1257,6 +1257,7 @@ export default function App() {
   const [ratingTarget, setRatingTarget] = useState(null);
   const [pexelsKey, setPexelsKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('pexels_key') || '' : '');
   const [anthropicKey, setAnthropicKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_key') || '' : '');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [tipIdx, setTipIdx] = useState(0);
 
   useEffect(() => {
@@ -1322,32 +1323,9 @@ export default function App() {
             </button>
           ))}
         </div>
-        <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.05)",flexShrink:0,display:"flex",flexDirection:"column",gap:10}}>
-          <div>
-            <div style={{color:"#4a5a70",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>🤖 AI Key (Anthropic)</div>
-            <input type="password" placeholder="sk-ant-…"
-              value={anthropicKey}
-              onChange={e => setAnthropicKey(e.target.value)}
-              onBlur={e => localStorage.setItem('anthropic_key', e.target.value)}
-              onKeyDown={e => { if (e.key==='Enter') { localStorage.setItem('anthropic_key', anthropicKey); (e.target as HTMLInputElement).blur(); } }}
-              style={{...IS, fontSize:11, padding:"6px 10px"}}
-            />
-            {anthropicKey
-              ? <div style={{color:"#5aad8e",fontSize:10,marginTop:3}}>✓ AI extraction &amp; images enabled</div>
-              : <div style={{color:"#4a5a70",fontSize:10,marginTop:3}}>console.anthropic.com → API Keys</div>}
-          </div>
-          <div>
-            <div style={{color:"#4a5a70",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>📷 Photos (Pexels)</div>
-            <input type="password" placeholder="Pexels API key…"
-              value={pexelsKey}
-              onChange={e => setPexelsKey(e.target.value)}
-              onBlur={e => localStorage.setItem('pexels_key', e.target.value)}
-              onKeyDown={e => { if (e.key==='Enter') localStorage.setItem('pexels_key', pexelsKey); }}
-              style={{...IS, fontSize:11, padding:"6px 10px"}}
-            />
-            {pexelsKey
-              ? <div style={{color:"#5aad8e",fontSize:10,marginTop:3}}>✓ Real food photos enabled</div>
-              : <div style={{color:"#4a5a70",fontSize:10,marginTop:3}}>Free at pexels.com/api</div>}
+        <div style={{padding:"10px 16px",borderTop:"1px solid rgba(255,255,255,0.05)",flexShrink:0}}>
+          <div style={{color:"#4a5a70",fontSize:10,textAlign:"center"}}>
+            {anthropicKey ? <span style={{color:"#5aad8e"}}>✓ AI enabled</span> : <span style={{color:"#f08080"}}>⚠ Click ⚙️ to add API key</span>}
           </div>
         </div>
       </div>
@@ -1355,15 +1333,51 @@ export default function App() {
       {/* Main */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {/* Topbar */}
-        <div style={{height:56,background:"#0c0e16",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
+        <div style={{height:56,background:"#0c0e16",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0,position:"relative"}}>
           <button onClick={()=>setSidebar(s=>!s)} style={{background:"none",border:"none",color:"#6a7a90",cursor:"pointer",fontSize:18,padding:4,lineHeight:1}}>☰</button>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes or ingredients..."
             style={{...IS,flex:1,maxWidth:380,height:34,padding:"0 12px",fontSize:13,border:"1px solid rgba(255,255,255,0.08)"}}/>
           <div style={{flex:1}}/>
+          <button onClick={()=>setSettingsOpen(s=>!s)} title="API Keys & Settings"
+            style={{background:anthropicKey?"rgba(58,125,94,0.2)":"rgba(192,80,80,0.18)",border:"1px solid "+(anthropicKey?"rgba(90,173,142,0.3)":"rgba(192,80,80,0.35)"),borderRadius:10,color:anthropicKey?"#5aad8e":"#f08080",padding:"7px 12px",cursor:"pointer",fontSize:13,fontFamily:"inherit",whiteSpace:"nowrap"}}>
+            {anthropicKey?"⚙️ Keys ✓":"⚙️ Add API Key"}
+          </button>
           <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:10,color:"#fff",padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
             + Add Recipe
           </button>
         </div>
+
+        {/* Settings dropdown */}
+        {settingsOpen && (
+          <div style={{position:"absolute",top:56,right:16,zIndex:200,background:"#0c0e16",border:"1px solid rgba(255,255,255,0.12)",borderRadius:14,padding:20,width:300,boxShadow:"0 16px 48px rgba(0,0,0,0.7)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <span style={{color:"#fff",fontWeight:700,fontSize:14}}>⚙️ API Keys</span>
+              <button onClick={()=>setSettingsOpen(false)} style={{background:"none",border:"none",color:"#6a7a90",cursor:"pointer",fontSize:20,lineHeight:1}}>×</button>
+            </div>
+            <div style={{marginBottom:14}}>
+              <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:.8}}>🤖 Anthropic Key <span style={{color:"#f08080"}}>(required for AI)</span></div>
+              <input type="password" placeholder="sk-ant-api03-…" value={anthropicKey}
+                onChange={e=>setAnthropicKey(e.target.value)}
+                onBlur={e=>localStorage.setItem('anthropic_key',e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'){localStorage.setItem('anthropic_key',anthropicKey);setSettingsOpen(false);}}}
+                style={{...IS,fontSize:13,marginBottom:6}}/>
+              {anthropicKey
+                ? <div style={{color:"#5aad8e",fontSize:11}}>✓ AI extraction &amp; image generation enabled</div>
+                : <div style={{color:"#8a9bb0",fontSize:11}}>Get a free key at <span style={{color:"#5a8fd4"}}>console.anthropic.com</span> → API Keys</div>}
+            </div>
+            <div>
+              <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:.8}}>📷 Pexels Key <span style={{color:"#6a7a90"}}>(optional, for real photos)</span></div>
+              <input type="password" placeholder="Pexels API key…" value={pexelsKey}
+                onChange={e=>setPexelsKey(e.target.value)}
+                onBlur={e=>localStorage.setItem('pexels_key',e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'){localStorage.setItem('pexels_key',pexelsKey);setSettingsOpen(false);}}}
+                style={{...IS,fontSize:13,marginBottom:6}}/>
+              {pexelsKey
+                ? <div style={{color:"#5aad8e",fontSize:11}}>✓ Real food photos enabled</div>
+                : <div style={{color:"#8a9bb0",fontSize:11}}>Free at <span style={{color:"#5a8fd4"}}>pexels.com/api</span></div>}
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div style={{flex:1,overflowY:"auto",padding:24}}>
