@@ -109,14 +109,16 @@ function makeFoodSVG(title, category) {
 }
 
 async function aiGenerateHeroSVG(title, category, ingredients) {
+  const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
+  if (!key) return null;
   const ingredientList = (ingredients||[]).map(i=>i.name).slice(0,6).join(", ");
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST", headers:{"Content-Type":"application/json"},
+      method:"POST", headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify({
         model:"claude-sonnet-4-20250514", max_tokens:5000,
-        system:"You are a food SVG illustrator. Create a stunning overhead food illustration SVG (viewBox=\"0 0 800 520\"). Use marble background, white ceramic bowl/plate, realistic vibrant food colors, radialGradient fills, feDropShadow filters. Show actual ingredients. NO text. Return ONLY the SVG starting with <svg.",
-        messages:[{role:"user",content:`Create overhead food illustration for: ${title}. Ingredients: ${ingredientList}`}]
+        system:"You are a food SVG illustrator. Create a clean overhead studio shot SVG (viewBox=\"0 0 800 520\"). Style: direct overhead angle, soft studio lighting, marble or wood kitchen counter surface. Show ingredients realistically cut, chopped, or arranged in a white ceramic bowl or on a plate. Use radialGradient fills, feDropShadow filters, realistic vibrant food colors. NO text. Return ONLY the SVG starting with <svg.",
+        messages:[{role:"user",content:`Overhead studio food illustration for: ${title}. Show these ingredients cut and arranged naturally: ${ingredientList}`}]
       })
     });
     if (!res.ok) return null;
@@ -144,6 +146,8 @@ async function fetchPexelsImage(title) {
 
 // ─── AI EXTRACTION ────────────────────────────────────────────────────────────
 async function aiExtractRecipe(input) {
+  const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
+  if (!key) throw new Error("NO_KEY");
   const isUrl = input.trim().startsWith("http");
   const src = isUrl ? (input.includes("tiktok")?"TikTok video":input.includes("instagram")?"Instagram reel":input.includes("youtu")?"YouTube video":"recipe webpage") : "text description";
   const tagList = ALL_TAGS.join(", ");
@@ -187,7 +191,7 @@ RULES:
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST", headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:4000,
           system:"You are a culinary AI. Respond ONLY with a valid JSON object starting with { and ending with }. No markdown.",
@@ -290,13 +294,13 @@ const NutriBadge = ({n}) => (
 );
 
 // ─── SMART IMAGE ─────────────────────────────────────────────────────────────
-function SmartImage({recipe, style}) {
+function SmartImage({recipe, style, regen=0}) {
   const [src, setSrc] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    if (recipe.image) { setSrc(recipe.image); setLoading(false); return; }
+    if (recipe.image && regen === 0) { setSrc(recipe.image); setLoading(false); return; }
     setSrc(makeFoodSVG(recipe.title, recipe.category));
     setLoading(true);
     fetchPexelsImage(recipe.title).then(pexelsUrl => {
@@ -308,7 +312,7 @@ function SmartImage({recipe, style}) {
       });
     });
     return () => { cancelled = true; };
-  }, [recipe.id]);
+  }, [recipe.id, regen]);
 
   return (
     <div style={{position:"relative",...style}}>
@@ -365,17 +369,20 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
   const [genIdx, setGenIdx] = useState(null);
+  const [imgVer, setImgVer] = useState(0);
   const r = scale / (recipe.servings||1);
   const total = recipe.totalTime||(recipe.prepTime||0)+(recipe.cookTime||0);
   const diff = DIFFICULTIES[recipe.difficulty||"beginner"]||DIFFICULTIES.beginner;
   const myRating = ratings && ratings[recipe.id];
 
   const genStepImg = async i => {
+    const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
+    if (!key) return;
     setGenIdx(i);
     try {
       const step = recipe.steps[i];
       const prompt = step.imagePrompt || step.text;
-      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:3000,system:"Create a minimal overhead food SVG (viewBox=\"0 0 800 400\"). White marble background, show the cooking action with realistic food colors. Return ONLY the SVG.",messages:[{role:"user",content:prompt}]})});
+      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:3000,system:"Create a clean overhead studio shot SVG (viewBox=\"0 0 800 400\"). Marble kitchen counter, studio lighting, show exactly how the ingredient should look at this step — cut, mixed, or cooking in a pan. Realistic food colors, no text. Return ONLY the SVG.",messages:[{role:"user",content:prompt}]})});
       if (res.ok) {
         const d = await res.json();
         const text = (d.content||[]).map(c=>c.text||"").join("").trim();
@@ -395,10 +402,11 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
 
         {/* Hero */}
         <div style={{position:"relative",height:260}}>
-          <SmartImage recipe={recipe} style={{width:"100%",height:"100%",borderRadius:"24px 24px 0 0"}}/>
+          <SmartImage recipe={recipe} style={{width:"100%",height:"100%",borderRadius:"24px 24px 0 0"}} regen={imgVer}/>
           <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,#11141c 0%,transparent 55%)",borderRadius:"24px 24px 0 0"}}/>
           <div style={{position:"absolute",top:12,right:12,display:"flex",gap:7}}>
             {onFavorite && <button onClick={()=>onFavorite(recipe)} style={{background:isFavorite?"rgba(192,80,80,0.85)":"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",padding:"6px 12px",fontSize:13,fontFamily:"inherit"}}>{isFavorite?"♥ Saved":"♡ Save"}</button>}
+            <button onClick={()=>setImgVer(v=>v+1)} title="Regenerate image" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🔄</button>
             <button onClick={()=>exportRecipeToPDF(recipe,scale)} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 12px",fontSize:12,fontFamily:"inherit"}}>PDF</button>
             <button onClick={onClose} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",width:34,height:34,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
           </div>
@@ -505,7 +513,9 @@ function SmartAddModal({onClose, onAdd}) {
       setData({...result, id:Date.now()});
       setPhase("review");
     } catch(e) {
-      setError("Couldn't extract recipe. Try pasting the recipe text directly."); setPhase("input");
+      const noKey = e.message === "NO_KEY";
+      setError(noKey ? "Add your Anthropic API key in the sidebar first (🤖 AI Key)." : "Couldn't extract recipe. Try pasting the recipe text directly.");
+      setPhase("input");
     }
     setLoading(false);
   };
@@ -684,7 +694,7 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
 
       {combined.length>0 && (
         <div style={{background:"linear-gradient(135deg,rgba(58,125,94,0.1),rgba(90,143,212,0.06))",border:"1px solid rgba(58,125,94,0.28)",borderRadius:16,padding:20}}>
-          <div style={{color:"#5aad8e",fontWeight:700,fontSize:11,marginBottom:10,letterSpacing:.8}}>✨ COMBO · {portions} portion{portions!==1?"s":""}/person · {mealsPerDay}x/day</div>
+          <div style={{color:"#5aad8e",fontWeight:700,fontSize:11,marginBottom:10,letterSpacing:.8}}>✨ COMBO · {portions} portion{portions!==1?"s":""}/person · {mealsPerDay}x/day · <span style={{color:"#c8a8ff"}}>{portions*mealsPerDay} total serving{portions*mealsPerDay!==1?"s":""}/day</span></div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14}}>
             {combined.map(r=><span key={r.id} style={{background:"rgba(58,125,94,0.2)",color:"#5aad8e",border:"1px solid rgba(58,125,94,0.38)",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:600}}>{r.title}</span>)}
           </div>
@@ -1010,20 +1020,33 @@ export default function App() {
             </button>
           ))}
         </div>
-        <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.05)",flexShrink:0}}>
-          <div style={{color:"#4a5a70",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>📷 Photo API</div>
-          <input
-            type="password"
-            placeholder="Pexels API key…"
-            value={pexelsKey}
-            onChange={e => setPexelsKey(e.target.value)}
-            onBlur={e => localStorage.setItem('pexels_key', e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') localStorage.setItem('pexels_key', pexelsKey); }}
-            style={{...IS, fontSize:11, padding:"6px 10px"}}
-          />
-          {pexelsKey
-            ? <div style={{color:"#5aad8e",fontSize:10,marginTop:4}}>✓ Real photos enabled</div>
-            : <div style={{color:"#4a5a70",fontSize:10,marginTop:4}}>Free key at pexels.com/api</div>}
+        <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.05)",flexShrink:0,display:"flex",flexDirection:"column",gap:10}}>
+          <div>
+            <div style={{color:"#4a5a70",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>🤖 AI Key (Anthropic)</div>
+            <input type="password" placeholder="sk-ant-…"
+              defaultValue={typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_key')||'' : ''}
+              onChange={e => setPexelsKey(e.target.value)}
+              onBlur={e => localStorage.setItem('anthropic_key', e.target.value)}
+              onKeyDown={e => { if (e.key==='Enter') localStorage.setItem('anthropic_key', (e.target as HTMLInputElement).value); }}
+              style={{...IS, fontSize:11, padding:"6px 10px"}}
+            />
+            {typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key')
+              ? <div style={{color:"#5aad8e",fontSize:10,marginTop:3}}>✓ AI extraction &amp; images enabled</div>
+              : <div style={{color:"#4a5a70",fontSize:10,marginTop:3}}>console.anthropic.com → API Keys</div>}
+          </div>
+          <div>
+            <div style={{color:"#4a5a70",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4}}>📷 Photos (Pexels)</div>
+            <input type="password" placeholder="Pexels API key…"
+              value={pexelsKey}
+              onChange={e => setPexelsKey(e.target.value)}
+              onBlur={e => localStorage.setItem('pexels_key', e.target.value)}
+              onKeyDown={e => { if (e.key==='Enter') localStorage.setItem('pexels_key', pexelsKey); }}
+              style={{...IS, fontSize:11, padding:"6px 10px"}}
+            />
+            {pexelsKey
+              ? <div style={{color:"#5aad8e",fontSize:10,marginTop:3}}>✓ Real food photos enabled</div>
+              : <div style={{color:"#4a5a70",fontSize:10,marginTop:3}}>Free at pexels.com/api</div>}
+          </div>
         </div>
       </div>
 
@@ -1059,11 +1082,26 @@ export default function App() {
                 ))}
               </div>
               <h3 style={{color:"#c8d0dc",fontSize:14,fontWeight:700,marginBottom:14}}>Recent Recipes</h3>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18,marginBottom:28}}>
                 {recipes.slice(-4).reverse().map(r=>(
                   <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
                 ))}
               </div>
+              {(() => {
+                const suggested = recipes.filter(r=>(r.tags||[]).some(t=>["Anti-Inflammatory","Blood Sugar Stable"].includes(t)));
+                if (!suggested.length) return null;
+                return (
+                  <div style={{marginBottom:28}}>
+                    <h3 style={{color:"#5aad8e",fontSize:14,fontWeight:700,marginBottom:4}}>💚 Suggested for You</h3>
+                    <p style={{color:"#6a7a90",fontSize:12,marginBottom:14}}>Anti-inflammatory &amp; blood sugar-stabilizing meals</p>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18}}>
+                      {suggested.slice(0,4).map(r=>(
+                        <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               {recipes.length===0 && (
                 <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                   <div style={{fontSize:40,marginBottom:12}}>🥗</div>
