@@ -370,10 +370,69 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   const [scale, setScale] = useState(init.servings||1);
   const [genIdx, setGenIdx] = useState(null);
   const [imgVer, setImgVer] = useState(0);
+  const [timers, setTimers] = useState({});
+  const timerRefs = useRef({});
+  const [subFor, setSubFor] = useState(null);
+  const [subs, setSubs] = useState({});
+  const [subLoading, setSubLoading] = useState(null);
   const r = scale / (recipe.servings||1);
   const total = recipe.totalTime||(recipe.prepTime||0)+(recipe.cookTime||0);
   const diff = DIFFICULTIES[recipe.difficulty||"beginner"]||DIFFICULTIES.beginner;
   const myRating = ratings && ratings[recipe.id];
+
+  const startTimer = i => {
+    const step = recipe.steps[i];
+    const secs = (step.timeMin||1)*60;
+    setTimers(t=>({...t,[i]:{remaining:secs,running:true}}));
+    timerRefs.current[i] = setInterval(()=>{
+      setTimers(t=>{
+        const rem = (t[i]&&t[i].remaining)||0;
+        if (rem<=1) {
+          clearInterval(timerRefs.current[i]);
+          alert("Timer done for step "+(i+1)+": "+step.text.slice(0,40));
+          return {...t,[i]:{remaining:0,running:false}};
+        }
+        return {...t,[i]:{remaining:rem-1,running:true}};
+      });
+    },1000);
+  };
+
+  const resetTimer = i => {
+    clearInterval(timerRefs.current[i]);
+    setTimers(t=>({...t,[i]:null}));
+  };
+
+  const fmtTime = secs => {
+    const m = Math.floor(secs/60), s = secs%60;
+    return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+  };
+
+  const fetchSubs = async ing => {
+    const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
+    if (!key) return;
+    setSubFor(ing.name); setSubLoading(ing.name);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,messages:[{role:"user",content:"Suggest 4 substitutes for "+ing.name+" in "+recipe.title+". Consider common dietary needs. Reply ONLY with a JSON array of strings."}]})});
+      if (res.ok) {
+        const d = await res.json();
+        const text = (d.content||[]).map(c=>c.text||"").join("").trim();
+        const m = text.match(/\[[\s\S]*\]/);
+        if (m) { try { setSubs(s=>({...s,[ing.name]:JSON.parse(m[0])})); } catch(e){} }
+      }
+    } catch(e){}
+    setSubLoading(null);
+  };
+
+  const getContainerSections = () => {
+    const protein=[],grain=[],veggie=[];
+    (recipe.ingredients||[]).forEach(ing=>{
+      const n=(ing.name||"").toLowerCase();
+      if (/chicken|beef|salmon|tuna|fish|shrimp|egg|turkey|pork|lamb|meat|protein|tofu/.test(n)) protein.push(ing);
+      else if (/rice|oat|quinoa|pasta|flour|bread|noodle|cereal|tortilla|grain/.test(n)) grain.push(ing);
+      else veggie.push(ing);
+    });
+    return {protein,grain,veggie};
+  };
 
   const genStepImg = async i => {
     const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
@@ -412,10 +471,10 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           </div>
           <div style={{position:"absolute",bottom:18,left:20,right:60}}>
             <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",fontSize:22,margin:"0 0 6px",lineHeight:1.2}}>{recipe.title}</h2>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
               <span style={{background:diff.color+"20",color:diff.color,border:"1px solid "+diff.color+"40",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{diff.icon} {diff.label}</span>
               <span style={{color:"rgba(255,255,255,0.6)",fontSize:12}}>{total}min total · {recipe.servings} servings</span>
-              {myRating && <span style={{color:"#ffd580",fontSize:12}}>{"★".repeat(myRating.taste)}{"☆".repeat(5-myRating.taste)}</span>}
+              {myRating && <span style={{color:"#ffd580",fontSize:11}}>⭐{myRating.taste||0} 💪{myRating.difficulty||0} 🕐{myRating.timeAccuracy||0} 🌶{myRating.spice||0}</span>}
             </div>
           </div>
         </div>
@@ -446,9 +505,29 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             <div>
               <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>Ingredients</h3>
               {(recipe.ingredients||[]).map((ing,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
-                  <span style={{color:"#c8d0dc"}}>{ing.name}</span>
-                  <span style={{color:"#5aad8e",fontWeight:600}}>{scaleAmt(ing.amount,r)} {ing.unit}</span>
+                <div key={i}>
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13,alignItems:"center"}}>
+                    <span style={{color:"#c8d0dc"}}>{ing.name}</span>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <span style={{color:"#5aad8e",fontWeight:600}}>{scaleAmt(ing.amount,r)} {ing.unit}</span>
+                      <button onClick={()=>subFor===ing.name?setSubFor(null):fetchSubs(ing)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"#8a9bb0",padding:"1px 6px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}} title="Find substitutes">
+                        {subLoading===ing.name?"...":"↔"}
+                      </button>
+                    </div>
+                  </div>
+                  {subFor===ing.name && subs[ing.name] && (
+                    <div style={{background:"rgba(90,143,212,0.08)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:8,padding:"8px 10px",marginBottom:4,fontSize:12}}>
+                      <div style={{color:"#5a8fd4",fontWeight:600,marginBottom:5}}>Substitutes for {ing.name}:</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {(subs[ing.name]||[]).map((s,si)=>(
+                          <span key={si} style={{background:"rgba(90,143,212,0.15)",color:"#a0c0f0",borderRadius:12,padding:"2px 8px"}}>{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {subFor===ing.name && !subs[ing.name] && subLoading===ing.name && (
+                    <div style={{color:"#5a8fd4",fontSize:11,padding:"4px 0"}}>Finding substitutes...</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -466,15 +545,27 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
 
           {/* Steps */}
           <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:12}}>Preparation Steps</h3>
-          {(recipe.steps||[]).map((step,i)=>(
+          {(recipe.steps||[]).map((step,i)=>{
+            const timer = timers[i];
+            return (
             <div key={i} style={{background:STEP_COLORS[i%STEP_COLORS.length]+"0a",border:"1px solid "+STEP_COLORS[i%STEP_COLORS.length]+"22",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
               {step.image && <img src={step.image} alt="" style={{width:"100%",height:120,objectFit:"cover"}}/>}
               <div style={{padding:"12px 14px",display:"flex",gap:12,alignItems:"flex-start"}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,flexShrink:0}}>{i+1}</div>
                 <div style={{flex:1}}>
                   <div style={{color:"#c8d0dc",fontSize:13,lineHeight:1.5}}>{step.text}</div>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginTop:6}}>
-                    {step.timeMin && <span style={{color:"#6a7a90",fontSize:11}}>{step.timeMin}min</span>}
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginTop:6,flexWrap:"wrap"}}>
+                    {step.timeMin && !timer && (
+                      <button onClick={()=>startTimer(i)} style={{background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)",borderRadius:7,color:"#5aad8e",padding:"2px 9px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
+                        ▶ {step.timeMin}min
+                      </button>
+                    )}
+                    {timer && (
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{color:timer.remaining>0?"#ffd580":"#5aad8e",fontWeight:700,fontSize:14,fontVariantNumeric:"tabular-nums"}}>{fmtTime(timer.remaining)}</span>
+                        <button onClick={()=>resetTimer(i)} style={{background:"rgba(200,60,60,0.15)",border:"1px solid rgba(200,60,60,0.3)",borderRadius:7,color:"#f08080",padding:"2px 8px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>↺</button>
+                      </div>
+                    )}
                     <button onClick={()=>genStepImg(i)} disabled={genIdx!==null}
                       style={{background:"rgba(142,90,173,0.2)",border:"1px solid rgba(180,130,255,0.3)",borderRadius:7,color:"#c8a8ff",padding:"2px 9px",fontSize:11,cursor:genIdx===null?"pointer":"not-allowed",fontFamily:"inherit"}}>
                       {genIdx===i ? "Generating..." : "AI Image"}
@@ -483,12 +574,38 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
+
+          {/* Meal Prep Container Layout */}
+          {(() => {
+            const {protein,grain,veggie} = getContainerSections();
+            return (
+              <div style={{marginTop:20,marginBottom:16}}>
+                <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📦 Meal Prep Container Layout</h3>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,borderRadius:12,overflow:"hidden",border:"1px solid rgba(255,255,255,0.08)"}}>
+                  {[["Protein","#5aad8e",protein],["Grain","#e2d9c8",grain],["Veggies","#d4875a",veggie]].map(([label,color,items])=>(
+                    <div key={label} style={{background:color+"15",padding:"10px 12px",minHeight:80}}>
+                      <div style={{color,fontWeight:700,fontSize:11,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
+                      {items.length===0
+                        ? <div style={{color:"#4a5a70",fontSize:11}}>—</div>
+                        : items.map((ing,i)=><div key={i} style={{color:"#c8d0dc",fontSize:11,marginBottom:3}}>{ing.name} <span style={{color:"#6a7a90"}}>{scaleAmt(ing.amount,r)} {ing.unit}</span></div>)
+                      }
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Actions */}
           <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
             {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ Rate Recipe</button>}
-            {recipe.sourceUrl && <a href={recipe.sourceUrl} target="_blank" rel="noreferrer" style={{...GB,textDecoration:"none",display:"inline-block"}}>View Source</a>}
+            {recipe.sourceUrl && (
+              <a href={recipe.sourceUrl} target="_blank" rel="noreferrer" style={{...GB,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6,background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",color:"#5a8fd4"}}>
+                📺 View Original Source →
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -722,6 +839,89 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
   );
 }
 
+// ─── MEAL PREP OPTIMIZER ─────────────────────────────────────────────────────
+function MealPrepOptimizer({recipes, onAddToMealPlan}) {
+  const [selected, setSelected] = useState([]);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = id => setSelected(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]);
+
+  const optimize = async () => {
+    const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
+    if (!key) { alert("Add your Anthropic API key first."); return; }
+    const sel = recipes.filter(r=>selected.includes(r.id));
+    if (sel.length < 2) return;
+    setLoading(true); setResult(null);
+    try {
+      const list = sel.map((r,i)=>`${i+1}. ${r.title} (${r.totalTime||((r.prepTime||0)+(r.cookTime||0))}min, steps: ${(r.steps||[]).map(s=>s.text.slice(0,40)).join("; ")})`).join("\n");
+      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:"You are a meal prep expert. Given these recipes:\n"+list+"\n\nCreate an optimized parallel cooking workflow. List steps in order of execution. Mark steps that can happen simultaneously with [PARALLEL]. Format as numbered steps. Estimate total time saved."}]})});
+      if (res.ok) {
+        const d = await res.json();
+        setResult((d.content||[]).map(c=>c.text||"").join("").trim());
+      }
+    } catch(e){}
+    setLoading(false);
+  };
+
+  const PREP_TIPS = [
+    "Batch cook grains (rice, quinoa) all at once — they keep 5 days in the fridge.",
+    "Use a sheet pan for proteins while stovetop handles veggies simultaneously.",
+    "Pre-chop and store vegetables in airtight containers for 3-4 days.",
+  ];
+
+  return (
+    <div>
+      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚡ Meal Prep Optimizer</h2>
+      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:20}}>Select 2+ recipes and get an AI-optimized parallel cooking workflow.</p>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10,marginBottom:20}}>
+        {recipes.map(r=>(
+          <button key={r.id} onClick={()=>toggle(r.id)}
+            style={{background:selected.includes(r.id)?"rgba(58,125,94,0.2)":"rgba(255,255,255,0.03)",border:"1px solid "+(selected.includes(r.id)?"#3a7d5e":"rgba(255,255,255,0.08)"),borderRadius:12,padding:"10px 14px",cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:18}}>{selected.includes(r.id)?"✅":"⬜"}</span>
+            <div>
+              <div style={{color:"#e2d9c8",fontWeight:600,fontSize:13}}>{r.title}</div>
+              <div style={{color:"#6a7a90",fontSize:11,marginTop:2}}>{r.totalTime||((r.prepTime||0)+(r.cookTime||0))}min</div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <button onClick={optimize} disabled={selected.length<2||loading}
+        style={{background:selected.length>=2&&!loading?"linear-gradient(135deg,#5a8fd4,#3a5fa0)":"rgba(255,255,255,0.05)",border:"none",borderRadius:12,color:selected.length>=2&&!loading?"#fff":"#5a6a7a",padding:"12px 24px",fontWeight:700,fontSize:14,cursor:selected.length>=2&&!loading?"pointer":"not-allowed",fontFamily:"inherit",marginBottom:20}}>
+        {loading?"⏳ Optimizing...":"⚡ Optimize Workflow"}
+      </button>
+
+      {result && (
+        <div style={{background:"rgba(90,143,212,0.07)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:14,padding:18,marginBottom:20}}>
+          <div style={{color:"#5a8fd4",fontWeight:700,fontSize:13,marginBottom:12}}>⚡ Optimized Workflow</div>
+          {result.split("\n").filter(l=>l.trim()).map((line,i)=>{
+            const isParallel = line.includes("[PARALLEL]");
+            return (
+              <div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
+                <div style={{color:"#e2d9c8",fontSize:13,lineHeight:1.5,flex:1,background:isParallel?"rgba(90,143,212,0.12)":"transparent",borderRadius:isParallel?7:0,padding:isParallel?"4px 8px":"0",border:isParallel?"1px solid rgba(90,143,212,0.3)":"none"}}>
+                  {line}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{background:"rgba(90,173,142,0.07)",border:"1px solid rgba(90,173,142,0.2)",borderRadius:14,padding:18}}>
+        <div style={{color:"#5aad8e",fontWeight:700,fontSize:13,marginBottom:10}}>🥘 Prep Tips</div>
+        {PREP_TIPS.map((tip,i)=>(
+          <div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
+            <span style={{color:"#5aad8e",flexShrink:0}}>•</span>
+            <div style={{color:"#c8d0dc",fontSize:13,lineHeight:1.5}}>{tip}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── MEAL PLAN MANAGER ───────────────────────────────────────────────────────
 function MealPlanManager({recipes, mealPlanItems, setMealPlanItems}) {
   const [tab, setTab] = useState("plan");
@@ -730,7 +930,29 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems}) {
   const [addRec, setAddRec] = useState(null);
   const [addPortions, setAddPortions] = useState(1);
   const [addDay, setAddDay] = useState("Monday");
+  const [bySection, setBySection] = useState(false);
+  const [budget, setBudget] = useState(70);
   const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+  const SECTION_KEYWORDS = {
+    produce: /onion|garlic|tomato|pepper|spinach|carrot|celery|broccoli|mushroom|zucchini|avocado|lemon|lime|fruit|berry|apple|banana|herb|basil|cilantro|parsley/,
+    meat: /chicken|beef|salmon|tuna|fish|shrimp|egg|turkey|pork|lamb|meat|protein/,
+    dairy: /milk|cheese|yogurt|butter|cream|cheddar|mozzarella|feta|parmesan|whey/,
+    grains: /rice|oat|quinoa|pasta|flour|bread|noodle|cereal|tortilla|oil|sauce|vinegar|soy|salt|pepper|spice|cumin|paprika|oregano|sugar|honey|nut|almond|seed/,
+  };
+  const SECTION_INFO = [
+    {key:"produce",label:"Produce",icon:"🥦",color:"#5aad8e",cost:2},
+    {key:"meat",label:"Meat & Fish",icon:"🥩",color:"#d4875a",cost:8},
+    {key:"dairy",label:"Dairy",icon:"🧀",color:"#ffd580",cost:4},
+    {key:"grains",label:"Grains & Pantry",icon:"🌾",color:"#c8a8ff",cost:3},
+    {key:"other",label:"Other",icon:"🛒",color:"#8a9bb0",cost:2},
+  ];
+
+  const categorizeItem = name => {
+    const n = (name||"").toLowerCase();
+    for (const [key,rx] of Object.entries(SECTION_KEYWORDS)) if (rx.test(n)) return key;
+    return "other";
+  };
 
   const addItem = () => {
     if (!addRec) return;
@@ -753,6 +975,13 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems}) {
   };
 
   const shoppingList = mealPlanItems.length ? buildList() : [];
+
+  const estimateCost = list => list.reduce((total, item) => {
+    const sec = SECTION_INFO.find(s=>s.key===categorizeItem(item.name)) || SECTION_INFO[4];
+    return total + sec.cost * Math.max(0.5, item.amount/2);
+  }, 0);
+
+  const totalCost = estimateCost(shoppingList);
 
   return (
     <div>
@@ -919,6 +1148,9 @@ function IngredientSearch({recipes, onView}) {
 // ─── RATING MODAL ─────────────────────────────────────────────────────────────
 function RatingModal({recipe, existing, onSave, onClose}) {
   const [taste, setTaste] = useState((existing&&existing.taste)||0);
+  const [difficulty, setDifficulty] = useState((existing&&existing.difficulty)||0);
+  const [timeAccuracy, setTimeAccuracy] = useState((existing&&existing.timeAccuracy)||0);
+  const [spice, setSpice] = useState((existing&&existing.spice)||0);
   const Stars = ({val,set}) => (
     <div style={{display:"flex",gap:4}}>
       {[1,2,3,4,5].map(i=>(
@@ -933,11 +1165,13 @@ function RatingModal({recipe, existing, onSave, onClose}) {
           <h3 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>Rate: {recipe.title}</h3>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#6a7a90",cursor:"pointer",fontSize:22}}>×</button>
         </div>
-        <div style={{marginBottom:20}}>
-          <div style={{color:"#8a9bb0",fontSize:13,marginBottom:8}}>Taste</div>
-          <Stars val={taste} set={setTaste}/>
-        </div>
-        <button onClick={()=>{onSave(recipe.id,{taste});onClose();}} style={{width:"100%",background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
+        {[["⭐ Taste",taste,setTaste],["💪 Difficulty",difficulty,setDifficulty],["🕐 Time Accuracy",timeAccuracy,setTimeAccuracy],["🌶 Spice",spice,setSpice]].map(([label,val,set])=>(
+          <div key={label} style={{marginBottom:16}}>
+            <div style={{color:"#8a9bb0",fontSize:13,marginBottom:8}}>{label}</div>
+            <Stars val={val} set={set}/>
+          </div>
+        ))}
+        <button onClick={()=>{onSave(recipe.id,{taste,difficulty,timeAccuracy,spice});onClose();}} style={{width:"100%",background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
           Save Rating
         </button>
       </div>
