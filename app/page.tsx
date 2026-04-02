@@ -128,6 +128,20 @@ async function aiGenerateHeroSVG(title, category, ingredients) {
   return null;
 }
 
+async function fetchPexelsImage(title) {
+  const key = typeof localStorage !== 'undefined' && localStorage.getItem('pexels_key');
+  if (!key) return null;
+  const q = encodeURIComponent((title||'') + ' food meal');
+  try {
+    const res = await fetch(`https://api.pexels.com/v1/search?query=${q}&per_page=1&orientation=landscape`, {
+      headers: { Authorization: key }
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return d.photos?.[0]?.src?.medium || null;
+  } catch(e) { return null; }
+}
+
 // ─── AI EXTRACTION ────────────────────────────────────────────────────────────
 async function aiExtractRecipe(input) {
   const isUrl = input.trim().startsWith("http");
@@ -283,11 +297,16 @@ function SmartImage({recipe, style}) {
   useEffect(() => {
     let cancelled = false;
     if (recipe.image) { setSrc(recipe.image); setLoading(false); return; }
-    const fallback = makeFoodSVG(recipe.title, recipe.category);
-    setSrc(fallback);
-    aiGenerateHeroSVG(recipe.title, recipe.category, recipe.ingredients).then(url => {
-      if (!cancelled && url) setSrc(url);
-    }).finally(() => { if (!cancelled) setLoading(false); });
+    setSrc(makeFoodSVG(recipe.title, recipe.category));
+    setLoading(true);
+    fetchPexelsImage(recipe.title).then(pexelsUrl => {
+      if (cancelled) return;
+      if (pexelsUrl) { setSrc(pexelsUrl); setLoading(false); return; }
+      aiGenerateHeroSVG(recipe.title, recipe.category, recipe.ingredients).then(aiUrl => {
+        if (!cancelled && aiUrl) setSrc(aiUrl);
+        if (!cancelled) setLoading(false);
+      });
+    });
     return () => { cancelled = true; };
   }, [recipe.id]);
 
@@ -932,6 +951,7 @@ export default function App() {
   const [mealPlanItems, setMealPlanItems] = useState([]);
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
+  const [pexelsKey, setPexelsKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('pexels_key') || '' : '');
 
   const filtered = recipes.filter(r => {
     if (catF!=="all" && r.category!==catF) return false;
@@ -989,6 +1009,21 @@ export default function App() {
               {g||"All goals"}
             </button>
           ))}
+        </div>
+        <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.05)",flexShrink:0}}>
+          <div style={{color:"#4a5a70",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>📷 Photo API</div>
+          <input
+            type="password"
+            placeholder="Pexels API key…"
+            value={pexelsKey}
+            onChange={e => setPexelsKey(e.target.value)}
+            onBlur={e => localStorage.setItem('pexels_key', e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') localStorage.setItem('pexels_key', pexelsKey); }}
+            style={{...IS, fontSize:11, padding:"6px 10px"}}
+          />
+          {pexelsKey
+            ? <div style={{color:"#5aad8e",fontSize:10,marginTop:4}}>✓ Real photos enabled</div>
+            : <div style={{color:"#4a5a70",fontSize:10,marginTop:4}}>Free key at pexels.com/api</div>}
         </div>
       </div>
 
