@@ -1255,11 +1255,17 @@ export default function App() {
   const [mealPlanItems, setMealPlanItems] = useState([]);
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
-  const [pexelsKey, setPexelsKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('pexels_key') || '' : '');
-  const [anthropicKey, setAnthropicKey] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('anthropic_key') || '' : '');
+  const [pexelsKey, setPexelsKey] = useState('');
+  const [anthropicKey, setAnthropicKey] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tipIdx, setTipIdx] = useState(0);
-  const [darkMode, setDarkMode] = useState(() => typeof localStorage !== 'undefined' ? localStorage.getItem('dark_mode') !== 'false' : true);
+  const [darkMode, setDarkMode] = useState(true);
+
+  useEffect(() => {
+    setAnthropicKey(localStorage.getItem('anthropic_key') || '');
+    setPexelsKey(localStorage.getItem('pexels_key') || '');
+    setDarkMode(localStorage.getItem('dark_mode') !== 'false');
+  }, []);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
@@ -1388,9 +1394,8 @@ export default function App() {
             <div style={{marginBottom:16}}>
               <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🤖 Anthropic Key <span style={{color:"#f08080"}}>(required for AI)</span></div>
               <input type="password" placeholder="sk-ant-api03-…" value={anthropicKey}
-                onChange={e=>setAnthropicKey(e.target.value)}
-                onBlur={e=>localStorage.setItem('anthropic_key',e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter'){localStorage.setItem('anthropic_key',anthropicKey);setSettingsOpen(false);}}}
+                onChange={e=>{setAnthropicKey(e.target.value);localStorage.setItem('anthropic_key',e.target.value);}}
+                onKeyDown={e=>{if(e.key==='Enter') setSettingsOpen(false);}}
                 style={{...IS,fontSize:13,marginBottom:8}}/>
               {anthropicKey
                 ? <div style={{color:"var(--accent)",fontSize:11}}>✓ AI extraction &amp; image generation enabled</div>
@@ -1399,9 +1404,8 @@ export default function App() {
             <div>
               <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>📷 Pexels Key <span style={{color:"var(--text-muted)"}}>(optional, for real photos)</span></div>
               <input type="password" placeholder="Pexels API key…" value={pexelsKey}
-                onChange={e=>setPexelsKey(e.target.value)}
-                onBlur={e=>localStorage.setItem('pexels_key',e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter'){localStorage.setItem('pexels_key',pexelsKey);setSettingsOpen(false);}}}
+                onChange={e=>{setPexelsKey(e.target.value);localStorage.setItem('pexels_key',e.target.value);}}
+                onKeyDown={e=>{if(e.key==='Enter') setSettingsOpen(false);}}
                 style={{...IS,fontSize:13,marginBottom:8}}/>
               {pexelsKey
                 ? <div style={{color:"var(--accent)",fontSize:11}}>✓ Real food photos enabled</div>
