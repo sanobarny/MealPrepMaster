@@ -130,6 +130,18 @@ async function aiGenerateHeroSVG(title, category, ingredients) {
   return null;
 }
 
+async function fetchPageContent(url) {
+  try {
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(9000)});
+    if (!res.ok) return null;
+    const d = await res.json();
+    const html = d.contents || '';
+    const ogImg = (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) || [])[1] || null;
+    const text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,10000);
+    return {text, ogImg};
+  } catch(e) { return null; }
+}
+
 async function fetchPexelsImage(title) {
   const key = typeof localStorage !== 'undefined' && localStorage.getItem('pexels_key');
   if (!key) return null;
@@ -151,9 +163,16 @@ async function aiExtractRecipe(input) {
   const isUrl = input.trim().startsWith("http");
   const src = isUrl ? (input.includes("tiktok")?"TikTok video":input.includes("instagram")?"Instagram reel":input.includes("youtu")?"YouTube video":"recipe webpage") : "text description";
   const tagList = ALL_TAGS.join(", ");
-  const prompt = `Extract or create a complete recipe from this ${src}.
+
+  let pageText = null, pageImage = null;
+  if (isUrl) {
+    const page = await fetchPageContent(input.trim());
+    if (page) { pageText = page.text; pageImage = page.ogImg; }
+  }
+
+  const prompt = `Extract a complete recipe from this ${src}.
 ${isUrl ? "SOURCE URL: " + input : "DESCRIPTION: " + input}
-${isUrl ? "If URL is inaccessible, infer the recipe from the URL path using culinary knowledge. ALWAYS produce a full recipe." : ""}
+${pageText ? "\nPAGE CONTENT (use this to extract the real recipe):\n" + pageText : (isUrl ? "\nPage could not be fetched — infer recipe from the URL path using culinary knowledge. ALWAYS produce a full recipe." : "")}
 
 Respond with ONLY a valid JSON object. No markdown.
 
@@ -211,6 +230,7 @@ RULES:
   recipe.totalTime = recipe.totalTime || (recipe.prepTime||0) + (recipe.cookTime||0);
   if (recipe.antiInflammatory && !(recipe.tags||[]).includes("Anti-Inflammatory")) recipe.tags = [...(recipe.tags||[]), "Anti-Inflammatory"];
   if (recipe.bloodSugarFriendly && !(recipe.tags||[]).includes("Blood Sugar Stable")) recipe.tags = [...(recipe.tags||[]), "Blood Sugar Stable"];
+  if (pageImage && !recipe.image) recipe.image = pageImage;
   return {...recipe, id:Date.now()};
 }
 
@@ -625,6 +645,8 @@ function SmartAddModal({onClose, onAdd}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [imgUrlInput, setImgUrlInput] = useState("");
+  const fileRef = useRef(null);
 
   const run = async () => {
     if (!inputVal.trim()) return;
@@ -635,12 +657,13 @@ function SmartAddModal({onClose, onAdd}) {
       setData({...result, id:Date.now()});
       setPhase("review");
     } catch(e) {
+      console.error("Recipe extraction error:", e);
       if (e.message === "NO_KEY") {
-        setError("No API key found. Click ⚙️ in the topbar and add your Anthropic key first.");
+        setError("No API key — click ⚙️ in the topbar and add your Anthropic key first.");
       } else if (e.message && e.message.startsWith("HTTP")) {
-        setError(`API error (${e.message}). Check your Anthropic key is valid and has credits.`);
+        setError(`API error: ${e.message}. Check your Anthropic key is valid and has credits.`);
       } else {
-        setError("Couldn't extract recipe. Try pasting the recipe text directly instead of a URL.");
+        setError(`Extraction failed: ${e.message}. Try pasting the recipe text directly.`);
       }
       setPhase("input");
     }
@@ -673,20 +696,36 @@ function SmartAddModal({onClose, onAdd}) {
 
         {phase==="loading" && (
           <div style={{textAlign:"center",padding:"48px 0"}}>
-            <div style={{fontSize:40,marginBottom:16}}>⏳</div>
-            <div style={{color:"#5aad8e",fontSize:16,fontWeight:600}}>AI is extracting your recipe...</div>
-            <div style={{color:"#6a7a90",fontSize:13,marginTop:8}}>Analysing ingredients, steps, and nutrition</div>
+            <div style={{fontSize:40,marginBottom:16,animation:"spin 2s linear infinite",display:"inline-block"}}>⏳</div>
+            <div style={{color:"#5aad8e",fontSize:16,fontWeight:600}}>Extracting your recipe...</div>
+            <div style={{color:"#6a7a90",fontSize:13,marginTop:8}}>Fetching page → reading content → building recipe</div>
           </div>
         )}
 
         {phase==="review" && data && (
           <div>
-            <div style={{background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.25)",borderRadius:12,padding:"14px 16px",marginBottom:18,display:"flex",gap:14,alignItems:"center"}}>
-              {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover",flexShrink:0}}/>}
+            <div style={{background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.25)",borderRadius:12,padding:"14px 16px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
+              {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
               <div>
                 <div style={{color:"#5aad8e",fontSize:11,fontWeight:700,marginBottom:4}}>✅ RECIPE EXTRACTED</div>
                 <div style={{color:"#fff",fontWeight:700,fontFamily:"'Playfair Display',serif",fontSize:16}}>{data.title}</div>
                 <NutriBadge n={data.nutrition}/>
+              </div>
+            </div>
+
+            {/* Image upload */}
+            <div style={{marginBottom:14,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"12px 14px"}}>
+              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>📷 Recipe Image (optional)</div>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                {data.image && <img src={data.image} alt="" style={{width:56,height:56,borderRadius:8,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
+                <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}}
+                  onChange={e=>{const f=e.target.files?.[0];if(f){const r=new FileReader();r.onload=ev=>setData(d=>({...d,image:ev.target.result}));r.readAsDataURL(f);}}}/>
+                <button onClick={()=>fileRef.current?.click()} style={{...GB,padding:"6px 12px",fontSize:12}}>📁 Upload Photo</button>
+                <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)}
+                  placeholder="Or paste image URL..."
+                  style={{...IS,flex:1,minWidth:160,height:34,padding:"0 10px",fontSize:12}}/>
+                <button onClick={()=>{if(imgUrlInput.trim()){setData(d=>({...d,image:imgUrlInput.trim()}));setImgUrlInput("");}}}
+                  style={{...GB,padding:"6px 10px",fontSize:12}}>Use</button>
               </div>
             </div>
 
