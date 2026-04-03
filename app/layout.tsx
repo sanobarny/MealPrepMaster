@@ -3,7 +3,8 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'MealPrepMaster',
-  description: 'Created with Claude Chat → Vercel Deploy',
+  description: 'Your smart meal prep companion',
+  icons: { icon: '/logo.svg' },
 }
 
 export default function RootLayout({

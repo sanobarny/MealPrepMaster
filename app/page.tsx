@@ -1379,9 +1379,12 @@ export default function App() {
 
       {/* Sidebar */}
       <div style={{width:sidebar?230:0,minWidth:sidebar?230:0,background:"var(--bg-sidebar)",borderRight:"1px solid var(--border)",boxShadow:"4px 0 12px var(--shadow-dark)",transition:"width .25s,min-width .25s",overflow:"hidden",flexShrink:0,display:"flex",flexDirection:"column"}}>
-        <div style={{padding:"20px 16px 12px"}}>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"var(--accent)",whiteSpace:"nowrap",marginBottom:4}}>🥗 MealPrepMaster</div>
-          <div style={{color:"var(--text-muted)",fontSize:11,whiteSpace:"nowrap"}}>{recipes.length} recipes saved</div>
+        <div style={{padding:"16px 16px 12px",display:"flex",alignItems:"center",gap:10}}>
+          <img src="/logo.svg" alt="MealPrepMaster" style={{width:38,height:38,flexShrink:0}}/>
+          <div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"var(--accent)",whiteSpace:"nowrap",lineHeight:1.2}}>MealPrepMaster</div>
+            <div style={{color:"var(--text-muted)",fontSize:11,whiteSpace:"nowrap"}}>{recipes.length} recipes saved</div>
+          </div>
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"0 8px"}}>
           {navItems.map(item=>(
