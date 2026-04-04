@@ -674,8 +674,8 @@ function SmartAddModal({onClose, onAdd}) {
   const set = (k,v) => setData(d=>({...d,[k]:v}));
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
-      <div style={{background:"#0d0f17",border:"1px solid rgba(255,255,255,0.08)",borderRadius:20,maxWidth:680,width:"100%",maxHeight:"92vh",overflowY:"auto",padding:24}}>
+    <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+      <div className="modal-inner" style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",border:"1px solid var(--border)",borderRadius:20,maxWidth:680,width:"100%",maxHeight:"92vh",overflowY:"auto",padding:24}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>Add Recipe</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#6a7a90",cursor:"pointer",fontSize:22}}>×</button>
@@ -1215,7 +1215,7 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook})
             <div style={{color:"#fff",fontSize:17,fontFamily:"'Playfair Display',serif",marginBottom:6}}>No favorites yet</div>
             <div style={{color:"#6a7a90",fontSize:13}}>Tap the heart on any recipe to save it here</div>
           </div>
-        : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18}}>
+        : <div className="r-grid">
             {favRecipes.map(r=>(
               <RecipeCard key={r.id} recipe={r} onClick={onView}
                 onFavorite={()=>setFavorites(p=>p.filter(f=>f.id!==r.id))} isFavorite={true}/>
@@ -1241,7 +1241,7 @@ function IngredientSearch({recipes, onView}) {
       {query.trim().length>1 && (
         results.length===0
           ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>No recipes found with "{query}"</div>
-          : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18}}>
+          : <div className="r-grid">
               {results.map(r=><RecipeCard key={r.id} recipe={r} onClick={onView}/>)}
             </div>
       )}
@@ -1304,11 +1304,17 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tipIdx, setTipIdx] = useState(0);
   const [darkMode, setDarkMode] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     setAnthropicKey(localStorage.getItem('anthropic_key') || '');
     setPexelsKey(localStorage.getItem('pexels_key') || '');
     setDarkMode(localStorage.getItem('dark_mode') !== 'false');
+    const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if(m) setSidebar(false); };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   useEffect(() => {
@@ -1340,6 +1346,8 @@ export default function App() {
   const isFav = r => favorites.some(f=>f.id===r.id);
 
   const toggleDark = () => setDarkMode(d => { const nd = !d; if(typeof localStorage!=='undefined') localStorage.setItem('dark_mode',String(nd)); return nd; });
+
+  const navTo = (id) => { setSec(id); if(isMobile) setSidebar(false); };
 
   return (
     <div data-theme={darkMode?"dark":"light"} style={{display:"flex",height:"100vh",background:"var(--bg)",fontFamily:"'DM Sans',sans-serif",overflow:"hidden",color:"var(--text)"}}>
@@ -1375,10 +1383,28 @@ export default function App() {
         .nm-card{background:var(--bg-card);box-shadow:var(--nm-raised);border-radius:18px;overflow:hidden;transition:box-shadow .2s,transform .2s}
         .nm-card:hover{box-shadow:var(--nm-raised),0 0 0 1px var(--accent)22;transform:translateY(-3px)}
         .nm-btn:hover{box-shadow:var(--nm-inset)!important}
+        .r-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+        .r-grid-sm{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+        @media(max-width:767px){
+          .r-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+          .r-grid-sm{grid-template-columns:repeat(2,1fr);gap:10px}
+          .hide-mobile{display:none!important}
+          .modal-wrap{padding:0!important}
+          .modal-inner{border-radius:0!important;max-height:100vh!important;height:100vh;border:none!important}
+        }
+        @media(max-width:400px){
+          .r-grid{grid-template-columns:1fr;gap:10px}
+          .r-grid-sm{grid-template-columns:repeat(2,1fr);gap:8px}
+        }
       `}</style>
 
+      {/* Mobile backdrop */}
+      {isMobile && sidebar && <div onClick={()=>setSidebar(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:499,backdropFilter:"blur(2px)"}}/>}
+
       {/* Sidebar */}
-      <div style={{width:sidebar?230:0,minWidth:sidebar?230:0,background:"var(--bg-sidebar)",borderRight:"1px solid var(--border)",boxShadow:"4px 0 12px var(--shadow-dark)",transition:"width .25s,min-width .25s",overflow:"hidden",flexShrink:0,display:"flex",flexDirection:"column"}}>
+      <div style={isMobile
+        ? {position:"fixed",top:0,left:sidebar?0:-240,height:"100vh",width:230,zIndex:500,background:"var(--bg-sidebar)",borderRight:"1px solid var(--border)",boxShadow:"6px 0 24px rgba(0,0,0,0.4)",transition:"left .28s cubic-bezier(.4,0,.2,1)",display:"flex",flexDirection:"column"}
+        : {width:sidebar?230:0,minWidth:sidebar?230:0,background:"var(--bg-sidebar)",borderRight:"1px solid var(--border)",boxShadow:"4px 0 12px var(--shadow-dark)",transition:"width .25s,min-width .25s",overflow:"hidden",flexShrink:0,display:"flex",flexDirection:"column"}}>
         <div style={{padding:"16px 16px 12px",display:"flex",alignItems:"center",gap:10}}>
           <img src="/logo.svg" alt="MealPrepMaster" style={{width:38,height:38,flexShrink:0}}/>
           <div>
@@ -1388,7 +1414,7 @@ export default function App() {
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"0 8px"}}>
           {navItems.map(item=>(
-            <button key={item.id} onClick={()=>setSec(item.id)}
+            <button key={item.id} onClick={()=>navTo(item.id)}
               style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",marginBottom:4,background:sec===item.id?"var(--bg-card)":"transparent",boxShadow:sec===item.id?"var(--nm-raised-sm)":"none",color:sec===item.id?"var(--accent)":"var(--text-sub)",fontFamily:"inherit",fontSize:13,fontWeight:sec===item.id?600:400,textAlign:"left",whiteSpace:"nowrap",transition:"all .15s"}}>
               <span style={{fontSize:16}}>{item.icon}</span>{item.label}
               {item.id==="favorites"&&favorites.length>0&&<span style={{marginLeft:"auto",background:"var(--accent)",color:"var(--bg)",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{favorites.length}</span>}
@@ -1413,23 +1439,31 @@ export default function App() {
       {/* Main */}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {/* Topbar */}
-        <div style={{height:56,background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",boxShadow:"0 4px 12px var(--shadow-dark)",display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0,position:"relative",zIndex:100}}>
-          <button onClick={()=>setSidebar(s=>!s)} style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1}}>☰</button>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes or ingredients..."
-            style={{...IS,flex:1,maxWidth:380,height:36,padding:"0 12px",fontSize:13}}/>
+        <div style={{height:isMobile?52:56,background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",boxShadow:"0 4px 12px var(--shadow-dark)",display:"flex",alignItems:"center",padding:isMobile?"0 10px":"0 16px",gap:isMobile?8:12,flexShrink:0,position:"relative",zIndex:100}}>
+          <button onClick={()=>setSidebar(s=>!s)} style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1,flexShrink:0}}>☰</button>
+          {!isMobile && <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes or ingredients..."
+            style={{...IS,flex:1,maxWidth:380,height:36,padding:"0 12px",fontSize:13}}/>}
           <div style={{flex:1}}/>
-          <button onClick={toggleDark} title={darkMode?"Switch to light mode":"Switch to dark mode"}
-            style={{...GB,padding:"6px 11px",fontSize:16,lineHeight:1}}>
+          {isMobile && <button onClick={()=>setSearchOpen(s=>!s)} style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1,background:searchOpen?"var(--nm-input-bg)":"var(--bg-card)"}} title="Search">🔍</button>}
+          <button onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"}
+            style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1,flexShrink:0}}>
             {darkMode?"☀️":"🌙"}
           </button>
-          <button onClick={()=>setSettingsOpen(s=>!s)} title="API Keys & Settings"
-            style={{...GB,background:anthropicKey?"rgba(58,125,94,0.25)":"rgba(192,80,80,0.18)",color:anthropicKey?"var(--accent)":"#f08080",whiteSpace:"nowrap",padding:"7px 12px",fontSize:13}}>
-            {anthropicKey?"⚙️ Keys ✓":"⚙️ Add API Key"}
+          <button onClick={()=>setSettingsOpen(s=>!s)} title="API Keys"
+            style={{...GB,background:anthropicKey?"rgba(58,125,94,0.25)":"rgba(192,80,80,0.18)",color:anthropicKey?"var(--accent)":"#f08080",padding:"7px 10px",fontSize:isMobile?13:13,flexShrink:0}}>
+            {isMobile?(anthropicKey?"⚙️✓":"⚙️!"):(anthropicKey?"⚙️ Keys ✓":"⚙️ Add API Key")}
           </button>
-          <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:10,color:"#fff",padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
-            + Add Recipe
+          <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:10,color:"#fff",padding:isMobile?"8px 12px":"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
+            {isMobile?"＋":"+ Add Recipe"}
           </button>
         </div>
+        {/* Mobile search bar (expandable) */}
+        {isMobile && searchOpen && (
+          <div style={{background:"var(--bg-sidebar)",padding:"8px 10px",borderBottom:"1px solid var(--border)"}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes or ingredients..." autoFocus
+              style={{...IS,height:36,padding:"0 12px",fontSize:14}}/>
+          </div>
+        )}
 
         {/* Settings dropdown */}
         {settingsOpen && (
@@ -1462,14 +1496,14 @@ export default function App() {
         )}
 
         {/* Content */}
-        <div style={{flex:1,overflowY:"auto",padding:24,background:"var(--bg)"}}>
+        <div style={{flex:1,overflowY:"auto",padding:isMobile?12:24,paddingBottom:isMobile?76:24,background:"var(--bg)"}}>
 
           {/* Dashboard */}
           {sec==="dashboard" && (
             <div>
               <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>Dashboard</h2>
               <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:22}}>Your meal prep overview</p>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:16,marginBottom:28}}>
+              <div className="r-grid-sm" style={{marginBottom:28}}>
                 {[[recipes.length,"Recipes","📖","#5a8fd4"],[favorites.length,"Favorites","♥","#c06090"],[mealPlanItems.length,"Planned","📅","#5aad8e"],[recipes.filter(r=>(r.tags||[]).some(t=>HEALTH_TAGS.includes(t))).length,"Health","💚","#d4875a"]].map(([v,l,ico,col])=>(
                   <div key={l} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",cursor:"pointer",transition:"all .2s"}}
                     onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="var(--nm-inset)";}} onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="var(--nm-raised)";}}>
@@ -1507,7 +1541,7 @@ export default function App() {
                   <div style={{marginBottom:28}}>
                     <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>💚 Suggested for You</h3>
                     <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Anti-inflammatory &amp; blood sugar-stabilizing meals</p>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18}}>
+                    <div className="r-grid">
                       {suggested.slice(0,4).map(r=>(
                         <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
                       ))}
@@ -1565,7 +1599,7 @@ export default function App() {
 
               {filtered.length===0
                 ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:36,marginBottom:10}}>🔍</div><div>No recipes match your filters</div></div>
-                : <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18}}>
+                : <div className="r-grid">
                     {filtered.map(r=><RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>)}
                   </div>
               }
@@ -1583,6 +1617,20 @@ export default function App() {
           {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing}/>}
         </div>
       </div>
+
+      {/* Mobile bottom tab bar */}
+      {isMobile && (
+        <div style={{position:"fixed",bottom:0,left:0,right:0,height:60,background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",zIndex:400,boxShadow:"0 -4px 16px var(--shadow-dark)"}}>
+          {navItems.slice(0,5).map(item=>(
+            <button key={item.id} onClick={()=>navTo(item.id)}
+              style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,border:"none",background:"transparent",color:sec===item.id?"var(--accent)":"var(--text-muted)",cursor:"pointer",fontFamily:"inherit",padding:"4px 0",position:"relative"}}>
+              <span style={{fontSize:20,lineHeight:1}}>{item.icon}</span>
+              <span style={{fontSize:9,fontWeight:sec===item.id?700:400,letterSpacing:.3}}>{item.label}</span>
+              {item.id==="favorites"&&favorites.length>0&&<span style={{position:"absolute",top:4,right:"calc(50% - 18px)",background:"var(--accent)",color:"var(--bg)",borderRadius:8,padding:"0 4px",fontSize:9,fontWeight:700,lineHeight:1.6}}>{favorites.length}</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Modals */}
       {viewing && (
