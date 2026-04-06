@@ -390,7 +390,7 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite}) {
 }
 
 // ─── RECIPE DETAIL ────────────────────────────────────────────────────────────
-function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings}) {
+function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
   const [genIdx, setGenIdx] = useState(null);
@@ -400,6 +400,17 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   const [subFor, setSubFor] = useState(null);
   const [subs, setSubs] = useState({});
   const [subLoading, setSubLoading] = useState(null);
+  const mainImgRef = useRef(null);
+  const stepImgRefs = useRef({});
+
+  const uploadMainImg = e => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const rd = new FileReader(); rd.onload = ev => setRecipe(p=>({...p,image:ev.target.result})); rd.readAsDataURL(f);
+  };
+  const uploadStepImg = (i, e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const rd = new FileReader(); rd.onload = ev => setRecipe(p=>{const s=[...p.steps];s[i]={...s[i],image:ev.target.result};return{...p,steps:s};}); rd.readAsDataURL(f);
+  };
   const r = scale / (recipe.servings||1);
   const total = recipe.totalTime||(recipe.prepTime||0)+(recipe.cookTime||0);
   const diff = DIFFICULTIES[recipe.difficulty||"beginner"]||DIFFICULTIES.beginner;
@@ -488,8 +499,10 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
         <div style={{position:"relative",height:260}}>
           <SmartImage recipe={recipe} style={{width:"100%",height:"100%",borderRadius:"24px 24px 0 0"}} regen={imgVer}/>
           <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,#11141c 0%,transparent 55%)",borderRadius:"24px 24px 0 0"}}/>
+          <input ref={mainImgRef} type="file" accept="image/*" style={{display:"none"}} onChange={uploadMainImg}/>
           <div style={{position:"absolute",top:12,right:12,display:"flex",gap:7}}>
             {onFavorite && <button onClick={()=>onFavorite(recipe)} style={{background:isFavorite?"rgba(192,80,80,0.85)":"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",padding:"6px 12px",fontSize:13,fontFamily:"inherit"}}>{isFavorite?"♥ Saved":"♡ Save"}</button>}
+            <button onClick={()=>mainImgRef.current?.click()} title="Upload photo" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>📷</button>
             <button onClick={()=>setImgVer(v=>v+1)} title="Regenerate image" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🔄</button>
             <button onClick={()=>exportRecipeToPDF(recipe,scale)} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 12px",fontSize:12,fontFamily:"inherit"}}>PDF</button>
             <button onClick={onClose} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",width:34,height:34,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
@@ -574,7 +587,11 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             const timer = timers[i];
             return (
             <div key={i} style={{background:STEP_COLORS[i%STEP_COLORS.length]+"0a",border:"1px solid "+STEP_COLORS[i%STEP_COLORS.length]+"22",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
-              {step.image && <img src={step.image} alt="" style={{width:"100%",height:120,objectFit:"cover"}}/>}
+              <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadStepImg(i,e)}/>
+              {step.image && <div style={{position:"relative"}}>
+                <img src={step.image} alt="" style={{width:"100%",height:120,objectFit:"cover"}}/>
+                <button onClick={()=>stepImgRefs.current[i]?.click()} style={{position:"absolute",top:6,right:6,background:"rgba(0,0,0,0.6)",border:"none",borderRadius:8,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 Change</button>
+              </div>}
               <div style={{padding:"12px 14px",display:"flex",gap:12,alignItems:"flex-start"}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,flexShrink:0}}>{i+1}</div>
                 <div style={{flex:1}}>
@@ -591,6 +608,10 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                         <button onClick={()=>resetTimer(i)} style={{background:"rgba(200,60,60,0.15)",border:"1px solid rgba(200,60,60,0.3)",borderRadius:7,color:"#f08080",padding:"2px 8px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>↺</button>
                       </div>
                     )}
+                    <button onClick={()=>stepImgRefs.current[i]?.click()}
+                      style={{background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",borderRadius:7,color:"#7ab0f0",padding:"2px 9px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
+                      📷 Upload
+                    </button>
                     <button onClick={()=>genStepImg(i)} disabled={genIdx!==null}
                       style={{background:"rgba(142,90,173,0.2)",border:"1px solid rgba(180,130,255,0.3)",borderRadius:7,color:"#c8a8ff",padding:"2px 9px",fontSize:11,cursor:genIdx===null?"pointer":"not-allowed",fontFamily:"inherit"}}>
                       {genIdx===i ? "Generating..." : "AI Image"}
@@ -626,12 +647,170 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           {/* Actions */}
           <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
             {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ Rate Recipe</button>}
+            {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>✏️ Edit Recipe</button>}
             {recipe.sourceUrl && (
               <a href={recipe.sourceUrl} target="_blank" rel="noreferrer" style={{...GB,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6,background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",color:"#5a8fd4"}}>
                 📺 View Original Source →
               </a>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── EDIT RECIPE MODAL ────────────────────────────────────────────────────────
+function EditRecipeModal({recipe:init, onClose, onSave}) {
+  const [data, setData] = useState({...init});
+  const mainImgRef = useRef(null);
+  const stepImgRefs = useRef({});
+  const [imgUrlInput, setImgUrlInput] = useState("");
+
+  const set = (k,v) => setData(d=>({...d,[k]:v}));
+  const setIng = (i,k,v) => setData(d=>{const a=[...d.ingredients];a[i]={...a[i],[k]:v};return{...d,ingredients:a};});
+  const setStep = (i,k,v) => setData(d=>{const a=[...d.steps];a[i]={...a[i],[k]:v};return{...d,steps:a};});
+  const addIng = () => setData(d=>({...d,ingredients:[...d.ingredients,{name:"",amount:1,unit:""}]}));
+  const removeIng = i => setData(d=>({...d,ingredients:d.ingredients.filter((_,j)=>j!==i)}));
+  const addStep = () => setData(d=>({...d,steps:[...d.steps,{text:"",timeMin:5,imagePrompt:""}]}));
+  const removeStep = i => setData(d=>({...d,steps:d.steps.filter((_,j)=>j!==i)}));
+
+  const uploadImg = (e, cb) => { const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>cb(ev.target.result); r.readAsDataURL(f); };
+
+  return (
+    <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+      <div className="modal-inner" style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,maxWidth:700,width:"100%",maxHeight:"94vh",overflowY:"auto",padding:24}}>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>✏️ Edit Recipe</h2>
+          <button onClick={onClose} style={{...GB,padding:"4px 10px",fontSize:18}}>×</button>
+        </div>
+
+        {/* Main image */}
+        <div style={{marginBottom:16}}>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>📷 Recipe Photo</div>
+          <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+            {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover"}} onError={e=>e.target.style.display='none'}/>}
+            <input ref={mainImgRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>set("image",url))}/>
+            <button onClick={()=>mainImgRef.current?.click()} style={{...GB,padding:"7px 14px"}}>📁 Upload Photo</button>
+            <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)} placeholder="Or paste image URL…"
+              style={{...IS,flex:1,minWidth:150,height:34,padding:"0 10px",fontSize:12}}/>
+            <button onClick={()=>{if(imgUrlInput.trim()){set("image",imgUrlInput.trim());setImgUrlInput("");}}} style={{...GB,padding:"7px 10px",fontSize:12}}>Use</button>
+          </div>
+        </div>
+
+        {/* Basic info */}
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:12}}>
+          <div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Title</div>
+            <input value={data.title} onChange={e=>set("title",e.target.value)} style={IS}/>
+          </div>
+          <div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Category</div>
+            <select value={data.category} onChange={e=>set("category",e.target.value)} style={IS}>
+              {["breakfast","lunch","dessert","drink"].map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
+          {[["prepTime","Prep (min)"],["cookTime","Cook (min)"],["servings","Servings"]].map(([k,l])=>(
+            <div key={k}>
+              <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
+              <input type="number" value={data[k]||""} onChange={e=>set(k,+e.target.value)} style={IS}/>
+            </div>
+          ))}
+          <div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Difficulty</div>
+            <select value={data.difficulty||"beginner"} onChange={e=>set("difficulty",e.target.value)} style={IS}>
+              {["beginner","intermediate","advanced"].map(d=><option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Nutrition */}
+        <div style={{marginBottom:12}}>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Nutrition (per serving)</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+            {[["calories","🔥 Cal"],["protein","💪 Protein"],["carbs","🌾 Carbs"],["fat","🥑 Fat"]].map(([k,l])=>(
+              <div key={k}>
+                <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:3}}>{l}</div>
+                <input type="number" value={(data.nutrition||{})[k]||""} onChange={e=>set("nutrition",{...(data.nutrition||{}),[k]:+e.target.value})} style={IS}/>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tags */}
+        <div style={{marginBottom:14}}>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Tags</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+            {ALL_TAGS.map(t=>{const on=(data.tags||[]).includes(t);return(
+              <button key={t} onClick={()=>set("tags",on?data.tags.filter(x=>x!==t):[...(data.tags||[]),t])}
+                style={{...CB,boxShadow:on?"var(--nm-inset)":"var(--nm-raised-sm)",color:on?(ALL_TAG_COLORS[t]||"var(--accent)"):"var(--text-sub)",fontSize:11}}>
+                {on?"✓ ":""}{t}
+              </button>
+            );})}
+          </div>
+        </div>
+
+        {/* Ingredients */}
+        <div style={{marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Ingredients</div>
+            <button onClick={addIng} style={{...GB,padding:"3px 10px",fontSize:12}}>+ Add</button>
+          </div>
+          {(data.ingredients||[]).map((ing,i)=>(
+            <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+              <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder="Ingredient" style={{...IS,flex:2}}/>
+              <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder="Qty" style={{...IS,flex:1,minWidth:50}}/>
+              <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder="Unit" style={{...IS,flex:1,minWidth:50}}/>
+              <button onClick={()=>removeIng(i)} style={{...GB,padding:"4px 8px",color:"#f08080",fontSize:14,flexShrink:0}}>×</button>
+            </div>
+          ))}
+        </div>
+
+        {/* Steps */}
+        <div style={{marginBottom:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Steps</div>
+            <button onClick={addStep} style={{...GB,padding:"3px 10px",fontSize:12}}>+ Add Step</button>
+          </div>
+          {(data.steps||[]).map((step,i)=>(
+            <div key={i} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:12,marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <span style={{color:"var(--accent)",fontWeight:700,fontSize:13}}>Step {i+1}</span>
+                <button onClick={()=>removeStep(i)} style={{...GB,padding:"2px 8px",color:"#f08080",fontSize:13}}>× Remove</button>
+              </div>
+              <textarea value={step.text} onChange={e=>setStep(i,"text",e.target.value)} placeholder="Describe this step…"
+                style={{...IS,minHeight:60,resize:"vertical",marginBottom:8}}/>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{color:"var(--text-muted)",fontSize:11}}>⏱</span>
+                  <input type="number" value={step.timeMin||""} onChange={e=>setStep(i,"timeMin",+e.target.value)} placeholder="Min"
+                    style={{...IS,width:60,height:30,padding:"0 8px",fontSize:12}}/>
+                  <span style={{color:"var(--text-muted)",fontSize:11}}>min</span>
+                </div>
+                <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>setStep(i,"image",url))}/>
+                {step.image
+                  ? <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <img src={step.image} alt="" style={{width:40,height:40,borderRadius:6,objectFit:"cover"}}/>
+                      <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"3px 9px",fontSize:11}}>📷 Change</button>
+                      <button onClick={()=>setStep(i,"image",null)} style={{...GB,padding:"3px 8px",color:"#f08080",fontSize:11}}>✕</button>
+                    </div>
+                  : <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 Add Photo</button>
+                }
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{...GB,flex:1}}>Cancel</button>
+          <button onClick={()=>onSave({...data,totalTime:(data.prepTime||0)+(data.cookTime||0)})}
+            style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
+            💾 Save Changes
+          </button>
         </div>
       </div>
     </div>
@@ -1294,6 +1473,7 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [sidebar, setSidebar] = useState(true);
   const [favorites, setFavorites] = useState([]);
   const [mealPlanItems, setMealPlanItems] = useState([]);
@@ -1637,9 +1817,12 @@ export default function App() {
         <RecipeDetail
           recipe={viewing} onClose={()=>setViewing(null)}
           onFavorite={toggleFav} isFavorite={isFav(viewing)}
-          onRate={r=>setRatingTarget(r)} ratings={ratings}/>
+          onRate={r=>setRatingTarget(r)} ratings={ratings}
+          onEdit={()=>setEditTarget(viewing)}/>
       )}
       {addOpen && <SmartAddModal onClose={()=>setAddOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
+      {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
+        onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
     </div>
   );
