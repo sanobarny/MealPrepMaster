@@ -1486,16 +1486,35 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
+  // Load all persisted data on mount
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem('mpm_recipes');
+      if (saved) setRecipes(JSON.parse(saved));
+      const favs = localStorage.getItem('mpm_favorites');
+      if (favs) setFavorites(JSON.parse(favs));
+      const plan = localStorage.getItem('mpm_mealplan');
+      if (plan) setMealPlanItems(JSON.parse(plan));
+      const rats = localStorage.getItem('mpm_ratings');
+      if (rats) setRatings(JSON.parse(rats));
+    } catch(e) {}
     setAnthropicKey(localStorage.getItem('anthropic_key') || '');
     setPexelsKey(localStorage.getItem('pexels_key') || '');
     setDarkMode(localStorage.getItem('dark_mode') !== 'false');
+    setHydrated(true);
     const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if(m) setSidebar(false); };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
+
+  // Persist data whenever it changes (skip before hydration to avoid overwriting with defaults)
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_recipes', JSON.stringify(recipes)); }, [recipes, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_favorites', JSON.stringify(favorites)); }, [favorites, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
