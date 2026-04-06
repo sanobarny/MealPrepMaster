@@ -424,6 +424,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   const mainImgRef = useRef(null);
   const stepImgRefs = useRef({});
   const ingImgRefs = useRef({});
+  const ingOverallRef = useRef(null);
 
   const uploadMainImg = e => {
     const f = e.target.files?.[0]; if (!f) return;
