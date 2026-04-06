@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [
@@ -1206,8 +1206,157 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
   );
 }
 
+// ─── SHOPPING LIST ───────────────────────────────────────────────────────────
+function ShoppingList({mealPlanItems, recipes}) {
+  const [people, setPeople] = useState(1);
+  const [weeks, setWeeks] = useState(1);
+  const [checked, setChecked] = useState({});
+  const [manualItems, setManualItems] = useState([]);
+  const [newItem, setNewItem] = useState("");
+  const [bySection, setBySection] = useState(true);
+
+  const SECTIONS = [
+    {key:"produce",label:"🥦 Produce",rx:/onion|garlic|tomato|pepper|spinach|carrot|celery|broccoli|mushroom|zucchini|avocado|lemon|lime|berry|apple|banana|herb|basil|cilantro|parsley|ginger|cucumber|lettuce|kale/,color:"#5aad8e"},
+    {key:"meat",label:"🥩 Meat & Fish",rx:/chicken|beef|salmon|tuna|fish|shrimp|egg|turkey|pork|lamb|meat|steak|mince|prawn/,color:"#d4875a"},
+    {key:"dairy",label:"🧀 Dairy",rx:/milk|cheese|yogurt|butter|cream|cheddar|mozzarella|feta|parmesan|whey|kefir/,color:"#ffd580"},
+    {key:"grains",label:"🌾 Grains & Pantry",rx:/rice|oat|quinoa|pasta|flour|bread|noodle|cereal|tortilla|oil|sauce|vinegar|soy|salt|spice|cumin|paprika|oregano|sugar|honey|nut|almond|seed|chia|maple|vanilla|cocoa|chocolate|coconut/,color:"#c8a8ff"},
+    {key:"other",label:"🛒 Other",rx:/./,color:"#8a9bb0"},
+  ];
+
+  const getSection = name => {
+    const n = (name||"").toLowerCase();
+    return SECTIONS.find(s=>s.key!=="other"&&s.rx.test(n))?.key || "other";
+  };
+
+  // Build list live from mealPlanItems
+  const autoList = useMemo(() => {
+    const m = {};
+    mealPlanItems.forEach(item=>{
+      const recs = item.type==="combo" ? (item.recipes||[]) : [item.recipe].filter(Boolean);
+      const scale = (item.portions||1) * people * weeks;
+      recs.forEach(r=>(r.ingredients||[]).forEach(ing=>{
+        const k = ing.name.toLowerCase();
+        if (m[k]) m[k].amount += (ing.amount||0)*scale;
+        else m[k] = {name:ing.name, amount:(ing.amount||0)*scale, unit:ing.unit||"", section:getSection(ing.name)};
+      }));
+    });
+    return Object.values(m).sort((a,b)=>a.name.localeCompare(b.name));
+  }, [mealPlanItems, people, weeks]);
+
+  const allItems = [
+    ...autoList,
+    ...manualItems.map(m=>({...m, section:getSection(m.name), manual:true}))
+  ];
+
+  const toggle = key => setChecked(c=>({...c,[key]:!c[key]}));
+  const addManual = () => {
+    if (!newItem.trim()) return;
+    setManualItems(p=>[...p,{name:newItem.trim(),amount:1,unit:"",id:Date.now()}]);
+    setNewItem("");
+  };
+  const removeManual = id => setManualItems(p=>p.filter(x=>x.id!==id));
+  const clearChecked = () => setChecked({});
+
+  const unchecked = allItems.filter(x=>!checked[x.name.toLowerCase()]);
+  const checkedItems = allItems.filter(x=>checked[x.name.toLowerCase()]);
+
+  const exportList = () => {
+    const txt = ["🛒 Shopping List","",
+      ...unchecked.map(i=>`☐ ${i.name}${i.amount>0?` — ${Math.ceil(i.amount*10)/10} ${i.unit}`:""}`),
+      checkedItems.length ? "\n✅ Got it:" : "",
+      ...checkedItems.map(i=>`✅ ${i.name}`)
+    ].join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([txt],{type:"text/plain"}));
+    a.download = "shopping-list.txt"; a.click();
+  };
+
+  const renderItems = items => items.map(item=>{
+    const key = item.name.toLowerCase();
+    const done = !!checked[key];
+    return (
+      <div key={key+(item.manual?"_m":"")} onClick={()=>toggle(key)}
+        style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",marginBottom:4,background:done?"var(--nm-input-bg)":"var(--bg-card)",boxShadow:done?"var(--nm-inset)":"var(--nm-raised-sm)",opacity:done?0.5:1,transition:"all .15s"}}>
+        <div style={{width:20,height:20,borderRadius:6,border:"2px solid "+(done?"var(--accent)":"var(--border)"),background:done?"var(--accent)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:12,color:"#fff",transition:"all .15s"}}>
+          {done?"✓":""}
+        </div>
+        <span style={{flex:1,color:"var(--text)",fontSize:13,textDecoration:done?"line-through":"none"}}>{item.name}</span>
+        {item.amount>0 && <span style={{color:"var(--accent)",fontWeight:600,fontSize:12}}>{Math.ceil(item.amount*10)/10} {item.unit}</span>}
+        {item.manual && <button onClick={e=>{e.stopPropagation();removeManual(item.id);}} style={{background:"none",border:"none",color:"#f08080",fontSize:14,cursor:"pointer",padding:"0 2px"}}>×</button>}
+      </div>
+    );
+  });
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>🛒 Shopping List</h2>
+          <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{unchecked.length} items remaining · {checkedItems.length} checked off</p>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <button onClick={()=>setBySection(s=>!s)} style={{...GB,fontSize:12}}>{bySection?"📋 All":"🏪 By Section"}</button>
+          {checkedItems.length>0&&<button onClick={clearChecked} style={{...GB,fontSize:12,color:"#f08080"}}>↺ Uncheck all</button>}
+          <button onClick={exportList} style={{...GB,fontSize:12}}>📄 Export</button>
+        </div>
+      </div>
+
+      {/* Settings row */}
+      <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"12px 16px",marginBottom:18,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
+        {[["👥 People",people,setPeople,1,20],["📅 Weeks",weeks,setWeeks,1,8]].map(([lbl,val,fn,mn,mx])=>(
+          <div key={lbl} style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{color:"var(--text-sub)",fontSize:13}}>{lbl}</span>
+            <button onClick={()=>fn(v=>Math.max(mn,v-1))} style={{...GB,padding:"4px 10px"}}>−</button>
+            <span style={{color:"var(--text)",fontWeight:700,minWidth:20,textAlign:"center"}}>{val}</span>
+            <button onClick={()=>fn(v=>Math.min(mx,v+1))} style={{...GB,padding:"4px 10px"}}>+</button>
+          </div>
+        ))}
+        <div style={{color:"var(--text-muted)",fontSize:12,marginLeft:"auto"}}>
+          {mealPlanItems.length} meals · auto-updates as you add to plan
+        </div>
+      </div>
+
+      {mealPlanItems.length===0 && manualItems.length===0 && (
+        <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
+          <div style={{fontSize:40,marginBottom:12}}>🛒</div>
+          <div style={{fontSize:14,marginBottom:6}}>Your shopping list is empty</div>
+          <div style={{fontSize:12}}>Add recipes to your Meal Plan and they'll appear here automatically</div>
+        </div>
+      )}
+
+      {/* Manual add */}
+      <div style={{display:"flex",gap:8,marginBottom:18}}>
+        <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addManual()}
+          placeholder="Add item manually…" style={{...IS,flex:1,height:38,padding:"0 12px"}}/>
+        <button onClick={addManual} style={{...GB,padding:"8px 16px",background:"var(--accent)",color:"#fff",fontWeight:700}}>+ Add</button>
+      </div>
+
+      {/* List */}
+      {allItems.length>0 && (bySection ? (
+        SECTIONS.map(sec=>{
+          const items = allItems.filter(x=>x.section===sec.key);
+          if (!items.length) return null;
+          return (
+            <div key={sec.key} style={{marginBottom:18}}>
+              <div style={{color:sec.color,fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:8,paddingLeft:4}}>{sec.label}</div>
+              {renderItems(items)}
+            </div>
+          );
+        })
+      ) : renderItems(allItems))}
+
+      {checkedItems.length>0 && (
+        <div style={{marginTop:16,opacity:.6}}>
+          <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>✅ In Cart</div>
+          {renderItems(checkedItems)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MEAL PLAN MANAGER ───────────────────────────────────────────────────────
-function MealPlanManager({recipes, mealPlanItems, setMealPlanItems}) {
+function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping}) {
   const [tab, setTab] = useState("plan");
   const [people, setPeople] = useState(2);
   const [weeks, setWeeks] = useState(1);
@@ -1275,11 +1424,8 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems}) {
           <p style={{color:"#8a9bb0",fontSize:13,margin:0}}>{mealPlanItems.length} meals planned</p>
         </div>
         <div style={{display:"flex",gap:8}}>
-          {["plan","shopping"].map(t=>(
-            <button key={t} onClick={()=>setTab(t)} style={{...GB,background:tab===t?"rgba(58,125,94,0.22)":"rgba(255,255,255,0.05)",color:tab===t?"#5aad8e":"#8a9bb0",border:tab===t?"1px solid #3a7d5e":"1px solid rgba(255,255,255,0.09)",borderRadius:20,padding:"7px 18px",fontSize:13}}>
-              {t==="plan"?"📅 Weekly Plan":"🛒 Shopping List"}
-            </button>
-          ))}
+          <button onClick={()=>setTab("plan")} style={{...GB,background:tab==="plan"?"rgba(58,125,94,0.22)":"var(--bg-card)",color:tab==="plan"?"var(--accent)":"var(--text-sub)",borderRadius:20,padding:"7px 18px",fontSize:13}}>📅 Weekly Plan</button>
+          {onGoShopping && <button onClick={onGoShopping} style={{...GB,background:"rgba(90,143,212,0.15)",color:"#7ab0f0",borderRadius:20,padding:"7px 18px",fontSize:13}}>🛒 Shopping List →</button>}
         </div>
       </div>
 
@@ -1345,7 +1491,7 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems}) {
         </div>
       )}
 
-      {tab==="shopping" && (
+      {tab==="__removed_shopping__" && (
         <div>
           <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"14px 18px",marginBottom:14,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
             {[["People",people,setPeople,1,20],["Weeks",weeks,setWeeks,1,4]].map(([lbl,val,fn,mn,mx])=>(
@@ -1592,6 +1738,7 @@ export default function App() {
     {id:"recipes",label:"Recipes",icon:"📖"},
     {id:"mix-match",label:"Mix & Match",icon:"🔀"},
     {id:"meal-plan",label:"Meal Plan",icon:"📅"},
+    {id:"shopping",label:"Shopping List",icon:"🛒"},
     {id:"optimizer",label:"Optimizer",icon:"⚡"},
     {id:"ingredient-search",label:"Ingredients",icon:"🔍"},
     {id:"favorites",label:"Favorites",icon:"♥"},
@@ -1863,7 +2010,9 @@ export default function App() {
 
           {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])}/>}
 
-          {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems}/>}
+          {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")}/>}
+
+          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes}/>}
 
           {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])}/>}
 
