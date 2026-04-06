@@ -90,6 +90,49 @@ const scaleAmt = (n, r) => {
   return v % 1 === 0 ? v : v.toFixed(1);
 };
 
+// ─── ANTHROPIC API HELPER ────────────────────────────────────────────────────
+let _lastCallTime = 0;
+const MIN_GAP_MS = 3000; // 3 s between calls → max 20 req/min, well under limits
+
+async function anthropicCall(body, retries = 3) {
+  const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
+  if (!key) throw new Error("NO_KEY");
+
+  // Throttle: enforce minimum gap between calls
+  const now = Date.now();
+  const wait = Math.max(0, _lastCallTime + MIN_GAP_MS - now);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  _lastCallTime = Date.now();
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({ model: "claude-sonnet-4-6", ...body })
+    });
+
+    if (res.ok) {
+      const d = await res.json();
+      return (d.content || []).map(c => c.text || "").join("").trim();
+    }
+
+    const errText = await res.text().catch(() => "");
+    if (res.status === 429) {
+      // Rate limited — wait longer each retry
+      const delay = [8000, 20000, 40000][attempt] || 40000;
+      if (attempt < retries) { await new Promise(r => setTimeout(r, delay)); continue; }
+      throw new Error("RATE_LIMIT");
+    }
+    if (res.status === 401) throw new Error("INVALID_KEY");
+    throw new Error("HTTP " + res.status + ": " + errText.slice(0, 200));
+  }
+}
+
 // ─── SVG IMAGE GENERATION ────────────────────────────────────────────────────
 function makeFoodSVG(title, category) {
   const t = (title||"").toLowerCase();
@@ -109,21 +152,13 @@ function makeFoodSVG(title, category) {
 }
 
 async function aiGenerateHeroSVG(title, category, ingredients) {
-  const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
-  if (!key) return null;
-  const ingredientList = (ingredients||[]).map(i=>i.name).slice(0,6).join(", ");
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST", headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-6", max_tokens:5000,
-        system:"You are a food SVG illustrator. Create a clean overhead studio shot SVG (viewBox=\"0 0 800 520\"). Style: direct overhead angle, soft studio lighting, marble or wood kitchen counter surface. Show ingredients realistically cut, chopped, or arranged in a white ceramic bowl or on a plate. Use radialGradient fills, feDropShadow filters, realistic vibrant food colors. NO text. Return ONLY the SVG starting with <svg.",
-        messages:[{role:"user",content:`Overhead studio food illustration for: ${title}. Show these ingredients cut and arranged naturally: ${ingredientList}`}]
-      })
+    const ingredientList = (ingredients||[]).map(i=>i.name).slice(0,6).join(", ");
+    const text = await anthropicCall({
+      max_tokens: 5000,
+      system: "You are a food SVG illustrator. Create a clean overhead studio shot SVG (viewBox=\"0 0 800 520\"). Style: direct overhead angle, soft studio lighting, marble or wood kitchen counter surface. Show ingredients realistically cut, chopped, or arranged in a white ceramic bowl or on a plate. Use radialGradient fills, feDropShadow filters, realistic vibrant food colors. NO text. Return ONLY the SVG starting with <svg.",
+      messages: [{role:"user",content:`Overhead studio food illustration for: ${title}. Show these ingredients cut and arranged naturally: ${ingredientList}`}]
     });
-    if (!res.ok) return null;
-    const d = await res.json();
-    const text = (d.content||[]).map(c=>c.text||"").join("").trim();
     const m = text.match(/<svg[\s\S]*<\/svg>/i);
     if (m) return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(m[0]);
   } catch(e) {}
@@ -158,8 +193,6 @@ async function fetchPexelsImage(title) {
 
 // ─── AI EXTRACTION ────────────────────────────────────────────────────────────
 async function aiExtractRecipe(input) {
-  const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
-  if (!key) throw new Error("NO_KEY");
   const isUrl = input.trim().startsWith("http");
   const src = isUrl ? (input.includes("tiktok")?"TikTok video":input.includes("instagram")?"Instagram reel":input.includes("youtu")?"YouTube video":"recipe webpage") : "text description";
   const tagList = ALL_TAGS.join(", ");
@@ -206,23 +239,11 @@ RULES:
 - 4-8 ingredients, 3-7 steps, each step has realistic timeMin and imagePrompt
 - difficulty: beginner, intermediate, or advanced`;
 
-  let res, d, raw;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-6", max_tokens:4000,
-          system:"You are a culinary AI. Respond ONLY with a valid JSON object starting with { and ending with }. No markdown.",
-          messages:[{role:"user",content:prompt}]
-        })
-      });
-      if (!res.ok) { const errBody = await res.text().catch(()=>""); throw new Error("HTTP " + res.status + (errBody ? ": " + errBody.slice(0,120) : "")); }
-      d = await res.json();
-      raw = (d.content||[]).map(c=>c.text||"").join("").trim();
-      break;
-    } catch(err) { if (attempt===1) throw err; await new Promise(r=>setTimeout(r,1000)); }
-  }
+  const raw = await anthropicCall({
+    max_tokens: 4000,
+    system: "You are a culinary AI. Respond ONLY with a valid JSON object starting with { and ending with }. No markdown.",
+    messages: [{role:"user",content:prompt}]
+  });
   const stripped = raw.replace(/^```(?:json)?\s*/im,"").replace(/\s*```\s*$/im,"").trim();
   const jStart = stripped.indexOf("{"), jEnd = stripped.lastIndexOf("}");
   if (jStart===-1||jEnd===-1) throw new Error("No JSON found");
@@ -449,17 +470,11 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   };
 
   const fetchSubs = async ing => {
-    const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
-    if (!key) return;
     setSubFor(ing.name); setSubLoading(ing.name);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:"Suggest 4 substitutes for "+ing.name+" in "+recipe.title+". Consider common dietary needs. Reply ONLY with a JSON array of strings."}]})});
-      if (res.ok) {
-        const d = await res.json();
-        const text = (d.content||[]).map(c=>c.text||"").join("").trim();
-        const m = text.match(/\[[\s\S]*\]/);
-        if (m) { try { setSubs(s=>({...s,[ing.name]:JSON.parse(m[0])})); } catch(e){} }
-      }
+      const text = await anthropicCall({max_tokens:300, messages:[{role:"user",content:"Suggest 4 substitutes for "+ing.name+" in "+recipe.title+". Consider common dietary needs. Reply ONLY with a JSON array of strings."}]});
+      const m = text.match(/\[[\s\S]*\]/);
+      if (m) { try { setSubs(s=>({...s,[ing.name]:JSON.parse(m[0])})); } catch(e){} }
     } catch(e){}
     setSubLoading(null);
   };
@@ -476,22 +491,12 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   };
 
   const genStepImg = async i => {
-    const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
-    if (!key) return;
     setGenIdx(i);
     try {
       const step = recipe.steps[i];
-      const prompt = step.imagePrompt || step.text;
-      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:3000,system:"Create a clean overhead studio shot SVG (viewBox=\"0 0 800 400\"). Marble kitchen counter, studio lighting, show exactly how the ingredient should look at this step — cut, mixed, or cooking in a pan. Realistic food colors, no text. Return ONLY the SVG.",messages:[{role:"user",content:prompt}]})});
-      if (res.ok) {
-        const d = await res.json();
-        const text = (d.content||[]).map(c=>c.text||"").join("").trim();
-        const m = text.match(/<svg[\s\S]*<\/svg>/i);
-        if (m) {
-          const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(m[0]);
-          setRecipe(prev=>{const s=[...prev.steps];s[i]={...s[i],image:url};return {...prev,steps:s};});
-        }
-      }
+      const text = await anthropicCall({max_tokens:3000, system:"Create a clean overhead studio shot SVG (viewBox=\"0 0 800 400\"). Marble kitchen counter, studio lighting, show exactly how the ingredient should look at this step — cut, mixed, or cooking in a pan. Realistic food colors, no text. Return ONLY the SVG.", messages:[{role:"user",content:step.imagePrompt||step.text}]});
+      const m = text.match(/<svg[\s\S]*<\/svg>/i);
+      if (m) { const url="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(m[0]); setRecipe(prev=>{const s=[...prev.steps];s[i]={...s[i],image:url};return{...prev,steps:s};}); }
     } catch(e) {}
     setGenIdx(null);
   };
@@ -857,8 +862,10 @@ function SmartAddModal({onClose, onAdd}) {
       console.error("Recipe extraction error:", e);
       if (e.message === "NO_KEY") {
         setError("No API key — click ⚙️ in the topbar and add your Anthropic key first.");
-      } else if (e.message && e.message.startsWith("HTTP")) {
-        setError(`API error: ${e.message}. Check your Anthropic key is valid and has credits.`);
+      } else if (e.message === "RATE_LIMIT") {
+        setError("Rate limit hit — the app is automatically retrying. If this keeps happening, wait 60 seconds and try again.");
+      } else if (e.message === "INVALID_KEY") {
+        setError("Invalid API key — click ⚙️ and re-enter your Anthropic key.");
       } else {
         setError(`Extraction failed: ${e.message}. Try pasting the recipe text directly.`);
       }
@@ -1094,18 +1101,13 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
   const toggle = id => setSelected(p => p.includes(id) ? p.filter(x=>x!==id) : [...p,id]);
 
   const optimize = async () => {
-    const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
-    if (!key) { alert("Add your Anthropic API key first."); return; }
     const sel = recipes.filter(r=>selected.includes(r.id));
     if (sel.length < 2) return;
     setLoading(true); setResult(null);
     try {
       const list = sel.map((r,i)=>`${i+1}. ${r.title} (${r.totalTime||((r.prepTime||0)+(r.cookTime||0))}min, steps: ${(r.steps||[]).map(s=>s.text.slice(0,40)).join("; ")})`).join("\n");
-      const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:"You are a meal prep expert. Given these recipes:\n"+list+"\n\nCreate an optimized parallel cooking workflow. List steps in order of execution. Mark steps that can happen simultaneously with [PARALLEL]. Format as numbered steps. Estimate total time saved."}]})});
-      if (res.ok) {
-        const d = await res.json();
-        setResult((d.content||[]).map(c=>c.text||"").join("").trim());
-      }
+      const text = await anthropicCall({max_tokens:1000, messages:[{role:"user",content:"You are a meal prep expert. Given these recipes:\n"+list+"\n\nCreate an optimized parallel cooking workflow. List steps in order of execution. Mark steps that can happen simultaneously with [PARALLEL]. Format as numbered steps. Estimate total time saved."}]});
+      setResult(text);
     } catch(e){}
     setLoading(false);
   };
