@@ -402,6 +402,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   const [subLoading, setSubLoading] = useState(null);
   const mainImgRef = useRef(null);
   const stepImgRefs = useRef({});
+  const ingImgRefs = useRef({});
 
   const uploadMainImg = e => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -410,6 +411,10 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   const uploadStepImg = (i, e) => {
     const f = e.target.files?.[0]; if (!f) return;
     const rd = new FileReader(); rd.onload = ev => setRecipe(p=>{const s=[...p.steps];s[i]={...s[i],image:ev.target.result};return{...p,steps:s};}); rd.readAsDataURL(f);
+  };
+  const uploadIngImg = (i, e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const rd = new FileReader(); rd.onload = ev => setRecipe(p=>{const a=[...p.ingredients];a[i]={...a[i],image:ev.target.result};return{...p,ingredients:a};}); rd.readAsDataURL(f);
   };
   const r = scale / (recipe.servings||1);
   const total = recipe.totalTime||(recipe.prepTime||0)+(recipe.cookTime||0);
@@ -544,8 +549,13 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
               <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>Ingredients</h3>
               {(recipe.ingredients||[]).map((ing,i)=>(
                 <div key={i}>
-                  <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13,alignItems:"center"}}>
-                    <span style={{color:"#c8d0dc"}}>{ing.name}</span>
+                  <input ref={el=>ingImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadIngImg(i,e)}/>
+                  <div style={{display:"flex",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13,alignItems:"center"}}>
+                    {ing.image
+                      ? <img src={ing.image} alt={ing.name} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,cursor:"pointer"}} onClick={()=>ingImgRefs.current[i]?.click()} title="Change photo"/>
+                      : <button onClick={()=>ingImgRefs.current[i]?.click()} style={{width:36,height:36,borderRadius:8,border:"1px dashed rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.04)",color:"#6a7a90",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} title="Add photo">📷</button>
+                    }
+                    <span style={{color:"#c8d0dc",flex:1}}>{ing.name}</span>
                     <div style={{display:"flex",gap:6,alignItems:"center"}}>
                       <span style={{color:"#5aad8e",fontWeight:600}}>{scaleAmt(ing.amount,r)} {ing.unit}</span>
                       <button onClick={()=>subFor===ing.name?setSubFor(null):fetchSubs(ing)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"#8a9bb0",padding:"1px 6px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}} title="Find substitutes">
@@ -665,6 +675,7 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
   const [data, setData] = useState({...init});
   const mainImgRef = useRef(null);
   const stepImgRefs = useRef({});
+  const ingImgRefs = useRef({});
   const [imgUrlInput, setImgUrlInput] = useState("");
 
   const set = (k,v) => setData(d=>({...d,[k]:v}));
@@ -761,11 +772,18 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
             <button onClick={addIng} style={{...GB,padding:"3px 10px",fontSize:12}}>+ Add</button>
           </div>
           {(data.ingredients||[]).map((ing,i)=>(
-            <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
-              <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder="Ingredient" style={{...IS,flex:2}}/>
-              <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder="Qty" style={{...IS,flex:1,minWidth:50}}/>
-              <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder="Unit" style={{...IS,flex:1,minWidth:50}}/>
-              <button onClick={()=>removeIng(i)} style={{...GB,padding:"4px 8px",color:"#f08080",fontSize:14,flexShrink:0}}>×</button>
+            <div key={i} style={{marginBottom:8}}>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <input ref={el=>ingImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>setIng(i,"image",url))}/>
+                {ing.image
+                  ? <img src={ing.image} alt="" style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,cursor:"pointer"}} onClick={()=>ingImgRefs.current[i]?.click()} title="Change photo"/>
+                  : <button onClick={()=>ingImgRefs.current[i]?.click()} style={{width:36,height:36,borderRadius:8,border:"1px dashed var(--border)",background:"var(--nm-input-bg)",color:"var(--text-muted)",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} title="Add ingredient photo">📷</button>
+                }
+                <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder="Ingredient" style={{...IS,flex:2}}/>
+                <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder="Qty" style={{...IS,flex:1,minWidth:50}}/>
+                <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder="Unit" style={{...IS,flex:1,minWidth:50}}/>
+                <button onClick={()=>removeIng(i)} style={{...GB,padding:"4px 8px",color:"#f08080",fontSize:14,flexShrink:0}}>×</button>
+              </div>
             </div>
           ))}
         </div>
