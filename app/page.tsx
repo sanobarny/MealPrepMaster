@@ -2,6 +2,12 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  'https://aznxerdepisjfsaatzyg.supabase.co',
+  'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY'
+);
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [
@@ -1779,6 +1785,53 @@ export default function App() {
   const [coachInput, setCoachInput] = useState("");
   const [coachLoading, setCoachLoading] = useState(false);
 
+  // Supabase sync state
+  const [supaUser, setSupaUser] = useState(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authOTP, setAuthOTP] = useState('');
+  const [authStep, setAuthStep] = useState('idle'); // 'idle'|'sending'|'sent'|'verifying'|'done'
+  const [authError, setAuthError] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const saveTimerRef = useRef(null);
+
+  // Supabase helpers
+  const loadFromSupabase = async (user) => {
+    if (!user) return;
+    setSyncing(true);
+    try {
+      const { data } = await supabase.from('user_data').select('data').eq('user_id', user.id).single();
+      if (data?.data) {
+        const d = JSON.parse(data.data);
+        if (d.recipes) setRecipes(d.recipes);
+        if (d.favorites) setFavorites(d.favorites);
+        if (d.mealPlanItems) setMealPlanItems(d.mealPlanItems);
+        if (d.ratings) setRatings(d.ratings);
+      }
+    } catch(e) {}
+    setSyncing(false);
+  };
+
+  const sendOTP = async () => {
+    if (!authEmail.trim()) return;
+    setAuthStep('sending'); setAuthError('');
+    const { error } = await supabase.auth.signInWithOtp({ email: authEmail.trim() });
+    if (error) { setAuthError(error.message); setAuthStep('idle'); }
+    else setAuthStep('sent');
+  };
+
+  const verifyOTP = async () => {
+    if (!authOTP.trim()) return;
+    setAuthStep('verifying'); setAuthError('');
+    const { data, error } = await supabase.auth.verifyOtp({ email: authEmail, token: authOTP.trim(), type: 'email' });
+    if (error) { setAuthError(error.message); setAuthStep('sent'); }
+    else { setSupaUser(data.user); setAuthStep('done'); await loadFromSupabase(data.user); }
+  };
+
+  const supaSignOut = async () => {
+    await supabase.auth.signOut();
+    setSupaUser(null); setAuthStep('idle'); setAuthEmail(''); setAuthOTP(''); setAuthError('');
+  };
+
   // Load all persisted data on mount
   useEffect(() => {
     // Handle shared recipe URL
@@ -1794,6 +1847,7 @@ export default function App() {
         window.history.replaceState({},"",window.location.pathname);
       }
     } catch(e){}
+    // Load from localStorage first
     try {
       const saved = localStorage.getItem('mpm_recipes');
       if (saved) setRecipes(JSON.parse(saved));
@@ -1811,7 +1865,20 @@ export default function App() {
     const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if(m) setSidebar(false); };
     check();
     window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    // Check for existing Supabase session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setSupaUser(session.user);
+        setAuthStep('done');
+        loadFromSupabase(session.user);
+      }
+    });
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) { setSupaUser(session.user); setAuthStep('done'); }
+      else { setSupaUser(null); setAuthStep('idle'); }
+    });
+    return () => { window.removeEventListener('resize', check); subscription.unsubscribe(); };
   }, []);
 
   // Persist data whenever it changes (skip before hydration to avoid overwriting with defaults)
@@ -1819,6 +1886,24 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_favorites', JSON.stringify(favorites)); }, [favorites, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
+
+  // Auto-save to Supabase whenever data changes (debounced 2s)
+  useEffect(() => {
+    if (!hydrated || !supaUser) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      setSyncing(true);
+      try {
+        await supabase.from('user_data').upsert({
+          user_id: supaUser.id,
+          data: JSON.stringify({ recipes, favorites, mealPlanItems, ratings }),
+          updated_at: new Date().toISOString()
+        });
+      } catch(e) {}
+      setSyncing(false);
+    }, 2000);
+    return () => clearTimeout(saveTimerRef.current);
+  }, [recipes, favorites, mealPlanItems, ratings, hydrated, supaUser]);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
@@ -2033,14 +2118,61 @@ export default function App() {
                 : <div style={{color:"var(--text-sub)",fontSize:11}}>Free at <span style={{color:"#5a8fd4"}}>pexels.com/api</span></div>}
             </div>
             <div style={{borderTop:"1px solid var(--border)",marginTop:14,paddingTop:14}}>
-              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>📱 Cross-Device Sync</div>
-              <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:10}}>Export your data to transfer to another device or browser.</div>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={exportData} style={{...GB,flex:1,fontSize:12}}>📤 Export Data</button>
-                <label style={{...GB,flex:1,fontSize:12,textAlign:"center",cursor:"pointer"}}>
-                  📥 Import Data
-                  <input type="file" accept=".json" style={{display:"none"}} onChange={importData}/>
-                </label>
+              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:.8}}>☁️ Cloud Sync {syncing && <span style={{color:"var(--accent)",fontWeight:400}}>· saving…</span>}</div>
+              {authStep==='done' && supaUser ? (
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(90,173,142,0.12)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
+                    <span style={{fontSize:18}}>✅</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:"var(--accent)",fontSize:12,fontWeight:700}}>Synced</div>
+                      <div style={{color:"var(--text-muted)",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{supaUser.email}</div>
+                    </div>
+                    <button onClick={supaSignOut} style={{...GB,fontSize:11,padding:"4px 8px",color:"#f08080"}}>Sign out</button>
+                  </div>
+                  <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:10}}>All changes save automatically across all your devices.</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:10}}>Sign in with your email to sync data across all devices automatically.</div>
+                  {authStep==='idle' || authStep==='sending' ? (
+                    <div style={{display:"flex",gap:8}}>
+                      <input value={authEmail} onChange={e=>setAuthEmail(e.target.value)}
+                        onKeyDown={e=>e.key==='Enter'&&sendOTP()}
+                        placeholder="your@email.com" type="email"
+                        style={{...IS,flex:1,fontSize:12,height:34,padding:"0 10px"}}/>
+                      <button onClick={sendOTP} disabled={authStep==='sending'||!authEmail.trim()}
+                        style={{...GB,fontSize:12,padding:"6px 12px",background:"var(--accent)",color:"#fff",fontWeight:700,opacity:authStep==='sending'?0.6:1}}>
+                        {authStep==='sending'?'…':'Send'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{color:"var(--text-sub)",fontSize:11,marginBottom:8}}>Check your email for a 6-digit code:</div>
+                      <div style={{display:"flex",gap:8,marginBottom:8}}>
+                        <input value={authOTP} onChange={e=>setAuthOTP(e.target.value)}
+                          onKeyDown={e=>e.key==='Enter'&&verifyOTP()}
+                          placeholder="123456" maxLength={6}
+                          style={{...IS,flex:1,fontSize:16,height:34,padding:"0 10px",letterSpacing:4,textAlign:"center"}}/>
+                        <button onClick={verifyOTP} disabled={authStep==='verifying'||!authOTP.trim()}
+                          style={{...GB,fontSize:12,padding:"6px 12px",background:"var(--accent)",color:"#fff",fontWeight:700,opacity:authStep==='verifying'?0.6:1}}>
+                          {authStep==='verifying'?'…':'Verify'}
+                        </button>
+                      </div>
+                      <button onClick={()=>{setAuthStep('idle');setAuthOTP('');setAuthError('');}} style={{color:"var(--text-muted)",background:"none",border:"none",fontSize:11,cursor:"pointer",padding:0}}>← Use different email</button>
+                    </div>
+                  )}
+                  {authError && <div style={{color:"#f08080",fontSize:11,marginTop:6}}>{authError}</div>}
+                </div>
+              )}
+              <div style={{borderTop:"1px solid var(--border)",marginTop:10,paddingTop:10}}>
+                <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:8}}>Manual backup:</div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={exportData} style={{...GB,flex:1,fontSize:11}}>📤 Export</button>
+                  <label style={{...GB,flex:1,fontSize:11,textAlign:"center",cursor:"pointer"}}>
+                    📥 Import
+                    <input type="file" accept=".json" style={{display:"none"}} onChange={importData}/>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
