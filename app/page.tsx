@@ -638,7 +638,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             <div key={i} style={{background:STEP_COLORS[i%STEP_COLORS.length]+"0a",border:"1px solid "+STEP_COLORS[i%STEP_COLORS.length]+"22",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
               <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadStepImg(i,e)}/>
               {step.image && <div style={{position:"relative"}}>
-                <img src={step.image} alt="" style={{width:"100%",height:140,objectFit:"cover"}}/>
+                <img src={step.image} alt="" style={{width:"100%",aspectRatio:"16/9",objectFit:"cover",display:"block"}}/>
                 <div style={{position:"absolute",top:6,right:6,display:"flex",gap:5}}>
                   <button onClick={()=>stepImgRefs.current[i]?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>📷 Change</button>
                   <button onClick={()=>deleteStepImg(i)} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>🗑 Delete</button>
