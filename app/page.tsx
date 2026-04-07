@@ -1803,10 +1803,29 @@ export default function App() {
       const { data } = await supabase.from('user_data').select('data').eq('user_id', user.id).single();
       if (data?.data) {
         const d = JSON.parse(data.data);
-        if (d.recipes) setRecipes(d.recipes);
-        if (d.favorites) setFavorites(d.favorites);
-        if (d.mealPlanItems) setMealPlanItems(d.mealPlanItems);
-        if (d.ratings) setRatings(d.ratings);
+        // Merge recipes: keep all unique by id, local takes priority if same id
+        if (d.recipes) setRecipes(local => {
+          const merged = [...local];
+          for (const r of d.recipes) {
+            if (!merged.some(x => x.id === r.id)) merged.push(r);
+          }
+          return merged;
+        });
+        if (d.favorites) setFavorites(local => {
+          const merged = [...local];
+          for (const f of d.favorites) {
+            if (!merged.some(x => x.id === f.id)) merged.push(f);
+          }
+          return merged;
+        });
+        if (d.mealPlanItems) setMealPlanItems(local => {
+          const merged = [...local];
+          for (const m of d.mealPlanItems) {
+            if (!merged.some(x => x.id === m.id)) merged.push(m);
+          }
+          return merged;
+        });
+        if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
       }
     } catch(e) {}
     setSyncing(false);
