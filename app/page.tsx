@@ -1814,7 +1814,7 @@ export default function App() {
   const sendOTP = async () => {
     if (!authEmail.trim()) return;
     setAuthStep('sending'); setAuthError('');
-    const { error } = await supabase.auth.signInWithOtp({ email: authEmail.trim(), options: { emailRedirectTo: 'https://meal-prep-master-virid.vercel.app/' } });
+    const { error } = await supabase.auth.signInWithOtp({ email: authEmail.trim() });
     if (error) { setAuthError(error.message); setAuthStep('idle'); }
     else setAuthStep('sent');
   };
@@ -2147,9 +2147,16 @@ export default function App() {
                     </div>
                   ) : (
                     <div>
-                      <div style={{background:"rgba(90,173,142,0.12)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-                        <div style={{color:"var(--accent)",fontWeight:700,fontSize:12,marginBottom:4}}>📧 Check your email!</div>
-                        <div style={{color:"var(--text-sub)",fontSize:11}}>We sent a magic link to <strong>{authEmail}</strong>. Click the link in the email to sign in.</div>
+                      <div style={{color:"var(--text-sub)",fontSize:11,marginBottom:6}}>Enter the 6-digit code sent to <strong>{authEmail}</strong>:</div>
+                      <div style={{display:"flex",gap:8,marginBottom:8}}>
+                        <input value={authOTP} onChange={e=>setAuthOTP(e.target.value)}
+                          onKeyDown={e=>e.key==='Enter'&&verifyOTP()}
+                          placeholder="123456" maxLength={6}
+                          style={{...IS,flex:1,fontSize:18,height:38,padding:"0 10px",letterSpacing:6,textAlign:"center"}}/>
+                        <button onClick={verifyOTP} disabled={authStep==='verifying'||!authOTP.trim()}
+                          style={{...GB,fontSize:12,padding:"6px 12px",background:"var(--accent)",color:"#fff",fontWeight:700,opacity:authStep==='verifying'?0.6:1}}>
+                          {authStep==='verifying'?'…':'Verify'}
+                        </button>
                       </div>
                       <button onClick={()=>{setAuthStep('idle');setAuthOTP('');setAuthError('');}} style={{color:"var(--text-muted)",background:"none",border:"none",fontSize:11,cursor:"pointer",padding:0}}>← Use different email</button>
                     </div>
