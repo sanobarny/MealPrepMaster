@@ -2,6 +2,12 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  'https://aznxerdepisjfsaatzyg.supabase.co',
+  'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY'
+);
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [
@@ -421,6 +427,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   const [subFor, setSubFor] = useState(null);
   const [subs, setSubs] = useState({});
   const [subLoading, setSubLoading] = useState(null);
+  const [cookMode, setCookMode] = useState(false);
   const mainImgRef = useRef(null);
   const stepImgRefs = useRef({});
   const ingImgRefs = useRef({});
@@ -496,6 +503,12 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
     return {protein,grain,veggie};
   };
 
+  const shareRecipe = () => {
+    const encoded = btoa(encodeURIComponent(JSON.stringify(recipe)));
+    const url = window.location.origin + "?recipe=" + encoded;
+    navigator.clipboard?.writeText(url).then(()=>alert("📋 Link copied! Share it with anyone.")).catch(()=>prompt("Copy this link:", url));
+  };
+
   const genStepImg = async i => {
     setGenIdx(i);
     try {
@@ -521,6 +534,8 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             <button onClick={()=>mainImgRef.current?.click()} title="Upload photo" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>📷</button>
             <button onClick={()=>setImgVer(v=>v+1)} title="Regenerate image" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🔄</button>
             <button onClick={()=>exportRecipeToPDF(recipe,scale)} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 12px",fontSize:12,fontFamily:"inherit"}}>PDF</button>
+            <button onClick={()=>setCookMode(true)} title="Cook Mode" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🍳</button>
+            <button onClick={shareRecipe} title="Share recipe" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🔗</button>
             <button onClick={onClose} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",width:34,height:34,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
           </div>
           <div style={{position:"absolute",bottom:18,left:20,right:60}}>
@@ -1664,6 +1679,82 @@ function RatingModal({recipe, existing, onSave, onClose}) {
   );
 }
 
+// ─── COOK MODE ───────────────────────────────────────────────────────────────
+function CookMode({recipe, onClose}) {
+  const [step, setStep] = useState(0);
+  const steps = recipe.steps || [];
+  const current = steps[step] || {};
+  const [timer, setTimer] = useState(null);
+  const [running, setRunning] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(()=>{
+    if(current.timeMin) setTimer(current.timeMin*60);
+    setRunning(false);
+    clearInterval(timerRef.current);
+  },[step]);
+
+  useEffect(()=>{
+    if(running && timer>0) {
+      timerRef.current = setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);return 0;}return t-1;}),1000);
+    }
+    return ()=>clearInterval(timerRef.current);
+  },[running]);
+
+  // Try screen wake lock
+  useEffect(()=>{
+    let wl;
+    try{ if(navigator.wakeLock) navigator.wakeLock.request("screen").then(w=>wl=w); }catch(e){}
+    return()=>{try{wl?.release();}catch(e){}};
+  },[]);
+
+  const fmtTime = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const progress = (step/(steps.length-1||1))*100;
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{padding:"16px 20px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+        <button onClick={onClose} style={{...GB,padding:"6px 12px"}}>✕ Exit</button>
+        <div style={{flex:1,textAlign:"center"}}>
+          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:16}}>{recipe.title}</div>
+        </div>
+        <div style={{color:"var(--text-muted)",fontSize:13}}>{step+1} / {steps.length}</div>
+      </div>
+      {/* Progress bar */}
+      <div style={{height:4,background:"var(--border)"}}>
+        <div style={{height:"100%",width:progress+"%",background:"var(--accent)",transition:"width .3s"}}/>
+      </div>
+      {/* Step content */}
+      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 24px",maxWidth:640,margin:"0 auto",width:"100%"}}>
+        {current.image && <img src={current.image} alt="" style={{width:"100%",maxHeight:260,objectFit:"cover",borderRadius:16,marginBottom:28,boxShadow:"var(--nm-raised)"}}/>}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"28px 32px",width:"100%",textAlign:"center",marginBottom:28}}>
+          <div style={{width:44,height:44,borderRadius:"50%",background:"var(--accent)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:20,margin:"0 auto 20px"}}>{step+1}</div>
+          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.6,margin:0,fontFamily:"'Playfair Display',serif"}}>{current.text}</p>
+        </div>
+        {current.timeMin && (
+          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"20px 28px",textAlign:"center",marginBottom:20}}>
+            <div style={{color:"var(--accent)",fontWeight:800,fontSize:48,fontVariantNumeric:"tabular-nums",marginBottom:12}}>{fmtTime(timer??current.timeMin*60)}</div>
+            <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+              <button onClick={()=>setRunning(r=>!r)} style={{...GB,padding:"10px 24px",fontSize:15,background:"var(--accent)",color:"#fff",fontWeight:700}}>{running?"⏸ Pause":"▶ Start"}</button>
+              <button onClick={()=>{setTimer(current.timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px"}}>↺</button>
+            </div>
+          </div>
+        )}
+      </div>
+      {/* Nav buttons */}
+      <div style={{padding:"16px 24px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",gap:12,flexShrink:0}}>
+        <button onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0}
+          style={{...GB,flex:1,padding:"14px",fontSize:16,opacity:step===0?.4:1}}>← Previous</button>
+        {step<steps.length-1
+          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>Next Step →</button>
+          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>✅ Done!</button>
+        }
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
@@ -1689,9 +1780,74 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [coachMsgs, setCoachMsgs] = useState([{role:"assistant",content:"Hi! I'm your Meal Coach 👋 Ask me anything about your recipes, nutrition, or meal planning!"}]);
+  const [coachInput, setCoachInput] = useState("");
+  const [coachLoading, setCoachLoading] = useState(false);
+
+  // Supabase sync state
+  const [supaUser, setSupaUser] = useState(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authOTP, setAuthOTP] = useState('');
+  const [authStep, setAuthStep] = useState('idle'); // 'idle'|'sending'|'sent'|'verifying'|'done'
+  const [authError, setAuthError] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const saveTimerRef = useRef(null);
+
+  // Supabase helpers
+  const loadFromSupabase = async (user) => {
+    if (!user) return;
+    setSyncing(true);
+    try {
+      const { data } = await supabase.from('user_data').select('data').eq('user_id', user.id).single();
+      if (data?.data) {
+        const d = JSON.parse(data.data);
+        if (d.recipes) setRecipes(d.recipes);
+        if (d.favorites) setFavorites(d.favorites);
+        if (d.mealPlanItems) setMealPlanItems(d.mealPlanItems);
+        if (d.ratings) setRatings(d.ratings);
+      }
+    } catch(e) {}
+    setSyncing(false);
+  };
+
+  const sendOTP = async () => {
+    if (!authEmail.trim()) return;
+    setAuthStep('sending'); setAuthError('');
+    const { error } = await supabase.auth.signInWithOtp({ email: authEmail.trim() });
+    if (error) { setAuthError(error.message); setAuthStep('idle'); }
+    else setAuthStep('sent');
+  };
+
+  const verifyOTP = async () => {
+    if (!authOTP.trim()) return;
+    setAuthStep('verifying'); setAuthError('');
+    const { data, error } = await supabase.auth.verifyOtp({ email: authEmail, token: authOTP.trim(), type: 'email' });
+    if (error) { setAuthError(error.message); setAuthStep('sent'); }
+    else { setSupaUser(data.user); setAuthStep('done'); await loadFromSupabase(data.user); }
+  };
+
+  const supaSignOut = async () => {
+    await supabase.auth.signOut();
+    setSupaUser(null); setAuthStep('idle'); setAuthEmail(''); setAuthOTP(''); setAuthError('');
+  };
 
   // Load all persisted data on mount
   useEffect(() => {
+    // Handle shared recipe URL
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get("recipe");
+      if(encoded) {
+        const r = JSON.parse(decodeURIComponent(atob(encoded)));
+        if(r && r.title) {
+          r.id = Date.now();
+          setRecipes(p=>p.some(x=>x.title===r.title)?p:[...p,r]);
+        }
+        window.history.replaceState({},"",window.location.pathname);
+      }
+    } catch(e){}
+    // Load from localStorage first
     try {
       const saved = localStorage.getItem('mpm_recipes');
       if (saved) setRecipes(JSON.parse(saved));
@@ -1709,7 +1865,20 @@ export default function App() {
     const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if(m) setSidebar(false); };
     check();
     window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
+    // Check for existing Supabase session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setSupaUser(session.user);
+        setAuthStep('done');
+        loadFromSupabase(session.user);
+      }
+    });
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) { setSupaUser(session.user); setAuthStep('done'); }
+      else { setSupaUser(null); setAuthStep('idle'); }
+    });
+    return () => { window.removeEventListener('resize', check); subscription.unsubscribe(); };
   }, []);
 
   // Persist data whenever it changes (skip before hydration to avoid overwriting with defaults)
@@ -1717,6 +1886,24 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_favorites', JSON.stringify(favorites)); }, [favorites, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
+
+  // Auto-save to Supabase whenever data changes (debounced 2s)
+  useEffect(() => {
+    if (!hydrated || !supaUser) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      setSyncing(true);
+      try {
+        await supabase.from('user_data').upsert({
+          user_id: supaUser.id,
+          data: JSON.stringify({ recipes, favorites, mealPlanItems, ratings }),
+          updated_at: new Date().toISOString()
+        });
+      } catch(e) {}
+      setSyncing(false);
+    }, 2000);
+    return () => clearTimeout(saveTimerRef.current);
+  }, [recipes, favorites, mealPlanItems, ratings, hydrated, supaUser]);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
@@ -1748,6 +1935,42 @@ export default function App() {
   const isFav = r => favorites.some(f=>f.id===r.id);
 
   const toggleDark = () => setDarkMode(d => { const nd = !d; if(typeof localStorage!=='undefined') localStorage.setItem('dark_mode',String(nd)); return nd; });
+
+  const sendCoach = async () => {
+    if(!coachInput.trim()||coachLoading) return;
+    const msg = coachInput.trim();
+    setCoachInput("");
+    setCoachMsgs(p=>[...p,{role:"user",content:msg}]);
+    setCoachLoading(true);
+    try {
+      const ctx = `User has ${recipes.length} recipes: ${recipes.slice(0,5).map(r=>r.title).join(", ")}. Meal plan has ${mealPlanItems.length} items.`;
+      const reply = await anthropicCall({max_tokens:500, system:"You are a friendly meal prep and nutrition coach. Keep answers concise (2-4 sentences). Context: "+ctx, messages:[...coachMsgs.filter(m=>m.role==="user").slice(-4),{role:"user",content:msg}]});
+      setCoachMsgs(p=>[...p,{role:"assistant",content:reply}]);
+    } catch(e){ setCoachMsgs(p=>[...p,{role:"assistant",content:"Sorry, I couldn't connect. Check your API key."}]); }
+    setCoachLoading(false);
+  };
+
+  const exportData = () => {
+    const data = {recipes, favorites, mealPlanItems, ratings, version:1};
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));
+    a.download = "mealprepmaster-backup.json"; a.click();
+  };
+  const importData = e => {
+    const f = e.target.files?.[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if(d.recipes) setRecipes(p=>[...p,...d.recipes.filter(r=>!p.some(x=>x.id===r.id))]);
+        if(d.favorites) setFavorites(d.favorites);
+        if(d.mealPlanItems) setMealPlanItems(d.mealPlanItems);
+        if(d.ratings) setRatings(d.ratings);
+        alert("✅ Data imported successfully!");
+      } catch(e){ alert("❌ Invalid backup file."); }
+    };
+    rd.readAsText(f);
+  };
 
   const navTo = (id) => { setSec(id); if(isMobile) setSidebar(false); };
 
@@ -1893,6 +2116,64 @@ export default function App() {
               {pexelsKey
                 ? <div style={{color:"var(--accent)",fontSize:11}}>✓ Real food photos enabled</div>
                 : <div style={{color:"var(--text-sub)",fontSize:11}}>Free at <span style={{color:"#5a8fd4"}}>pexels.com/api</span></div>}
+            </div>
+            <div style={{borderTop:"1px solid var(--border)",marginTop:14,paddingTop:14}}>
+              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:.8}}>☁️ Cloud Sync {syncing && <span style={{color:"var(--accent)",fontWeight:400}}>· saving…</span>}</div>
+              {authStep==='done' && supaUser ? (
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(90,173,142,0.12)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
+                    <span style={{fontSize:18}}>✅</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{color:"var(--accent)",fontSize:12,fontWeight:700}}>Synced</div>
+                      <div style={{color:"var(--text-muted)",fontSize:10,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{supaUser.email}</div>
+                    </div>
+                    <button onClick={supaSignOut} style={{...GB,fontSize:11,padding:"4px 8px",color:"#f08080"}}>Sign out</button>
+                  </div>
+                  <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:10}}>All changes save automatically across all your devices.</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:10}}>Sign in with your email to sync data across all devices automatically.</div>
+                  {authStep==='idle' || authStep==='sending' ? (
+                    <div style={{display:"flex",gap:8}}>
+                      <input value={authEmail} onChange={e=>setAuthEmail(e.target.value)}
+                        onKeyDown={e=>e.key==='Enter'&&sendOTP()}
+                        placeholder="your@email.com" type="email"
+                        style={{...IS,flex:1,fontSize:12,height:34,padding:"0 10px"}}/>
+                      <button onClick={sendOTP} disabled={authStep==='sending'||!authEmail.trim()}
+                        style={{...GB,fontSize:12,padding:"6px 12px",background:"var(--accent)",color:"#fff",fontWeight:700,opacity:authStep==='sending'?0.6:1}}>
+                        {authStep==='sending'?'…':'Send'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{color:"var(--text-sub)",fontSize:11,marginBottom:8}}>Check your email for a 6-digit code:</div>
+                      <div style={{display:"flex",gap:8,marginBottom:8}}>
+                        <input value={authOTP} onChange={e=>setAuthOTP(e.target.value)}
+                          onKeyDown={e=>e.key==='Enter'&&verifyOTP()}
+                          placeholder="123456" maxLength={6}
+                          style={{...IS,flex:1,fontSize:16,height:34,padding:"0 10px",letterSpacing:4,textAlign:"center"}}/>
+                        <button onClick={verifyOTP} disabled={authStep==='verifying'||!authOTP.trim()}
+                          style={{...GB,fontSize:12,padding:"6px 12px",background:"var(--accent)",color:"#fff",fontWeight:700,opacity:authStep==='verifying'?0.6:1}}>
+                          {authStep==='verifying'?'…':'Verify'}
+                        </button>
+                      </div>
+                      <button onClick={()=>{setAuthStep('idle');setAuthOTP('');setAuthError('');}} style={{color:"var(--text-muted)",background:"none",border:"none",fontSize:11,cursor:"pointer",padding:0}}>← Use different email</button>
+                    </div>
+                  )}
+                  {authError && <div style={{color:"#f08080",fontSize:11,marginTop:6}}>{authError}</div>}
+                </div>
+              )}
+              <div style={{borderTop:"1px solid var(--border)",marginTop:10,paddingTop:10}}>
+                <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:8}}>Manual backup:</div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={exportData} style={{...GB,flex:1,fontSize:11}}>📤 Export</button>
+                  <label style={{...GB,flex:1,fontSize:11,textAlign:"center",cursor:"pointer"}}>
+                    📥 Import
+                    <input type="file" accept=".json" style={{display:"none"}} onChange={importData}/>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -2048,6 +2329,34 @@ export default function App() {
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
+
+      {/* AI Meal Coach */}
+      <div style={{position:"fixed",bottom:isMobile?72:24,right:20,zIndex:300}}>
+        {coachOpen && (
+          <div style={{position:"absolute",bottom:56,right:0,width:320,background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,overflow:"hidden",border:"1px solid var(--border)"}}>
+            <div style={{padding:"14px 16px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{color:"var(--text)",fontWeight:700,fontSize:14}}>🤖 Meal Coach</span>
+              <button onClick={()=>setCoachOpen(false)} style={{...GB,padding:"2px 8px",fontSize:16}}>×</button>
+            </div>
+            <div style={{height:280,overflowY:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:10}}>
+              {coachMsgs.map((m,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+                  <div style={{maxWidth:"85%",background:m.role==="user"?"var(--accent)":"var(--nm-input-bg)",boxShadow:"var(--nm-raised-sm)",color:m.role==="user"?"#fff":"var(--text)",borderRadius:12,padding:"8px 12px",fontSize:13,lineHeight:1.5}}>{m.content}</div>
+                </div>
+              ))}
+              {coachLoading && <div style={{color:"var(--text-muted)",fontSize:12,textAlign:"center"}}>Thinking...</div>}
+            </div>
+            <div style={{padding:"10px 12px",borderTop:"1px solid var(--border)",display:"flex",gap:8}}>
+              <input value={coachInput} onChange={e=>setCoachInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendCoach()} placeholder="Ask anything…" style={{...IS,flex:1,height:34,padding:"0 10px",fontSize:13}}/>
+              <button onClick={sendCoach} style={{...GB,padding:"6px 12px",background:"var(--accent)",color:"#fff",fontWeight:700}}>→</button>
+            </div>
+          </div>
+        )}
+        <button onClick={()=>setCoachOpen(o=>!o)}
+          style={{width:48,height:48,borderRadius:"50%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",boxShadow:"var(--nm-raised)",border:"none",color:"#fff",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {coachOpen?"×":"🤖"}
+        </button>
+      </div>
     </div>
   );
 }
