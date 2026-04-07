@@ -4,10 +4,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  'https://aznxerdepisjfsaatzyg.supabase.co',
-  'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY'
-);
+let supabase = null;
+try {
+  supabase = createClient(
+    'https://aznxerdepisjfsaatzyg.supabase.co',
+    'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY'
+  );
+} catch(e) { console.warn('Supabase init failed', e); }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [
@@ -1797,7 +1800,7 @@ export default function App() {
 
   // Supabase helpers
   const loadFromSupabase = async (user) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     setSyncing(true);
     try {
       const { data } = await supabase.from('user_data').select('data').eq('user_id', user.id).single();
@@ -1832,7 +1835,7 @@ export default function App() {
   };
 
   const sendOTP = async () => {
-    if (!authEmail.trim()) return;
+    if (!authEmail.trim() || !supabase) return;
     setAuthStep('sending'); setAuthError('');
     const { error } = await supabase.auth.signInWithOtp({ email: authEmail.trim() });
     if (error) { setAuthError(error.message); setAuthStep('idle'); }
@@ -1886,19 +1889,21 @@ export default function App() {
     check();
     window.addEventListener('resize', check);
     // Check for existing Supabase session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setSupaUser(session.user);
-        setAuthStep('done');
-        loadFromSupabase(session.user);
-      }
-    });
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) { setSupaUser(session.user); setAuthStep('done'); }
-      else { setSupaUser(null); setAuthStep('idle'); }
-    });
-    return () => { window.removeEventListener('resize', check); subscription.unsubscribe(); };
+    if (supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setSupaUser(session.user);
+          setAuthStep('done');
+          loadFromSupabase(session.user);
+        }
+      });
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) { setSupaUser(session.user); setAuthStep('done'); }
+        else { setSupaUser(null); setAuthStep('idle'); }
+      });
+      return () => { window.removeEventListener('resize', check); subscription.unsubscribe(); };
+    }
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   // Persist data whenever it changes (skip before hydration to avoid overwriting with defaults)
@@ -1909,7 +1914,7 @@ export default function App() {
 
   // Auto-save to Supabase whenever data changes (debounced 2s)
   useEffect(() => {
-    if (!hydrated || !supaUser) return;
+    if (!hydrated || !supaUser || !supabase) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       setSyncing(true);
