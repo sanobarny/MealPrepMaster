@@ -1489,12 +1489,13 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
                       </div>
                       <div style={{padding:"10px 12px",display:"grid",gap:8}}>
                         {items.map(item=>(
-                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 12px",border:"1px solid rgba(255,255,255,0.06)"}}>
-                            <div style={{flex:1,minWidth:0}}>
+                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",borderRadius:10,overflow:"hidden",border:"1px solid rgba(255,255,255,0.06)"}}>
+                            {item.recipe?.image && <img src={item.recipe.image} alt={item.name} style={{width:56,height:56,objectFit:"cover",flexShrink:0}}/>}
+                            <div style={{flex:1,minWidth:0,padding:item.recipe?.image?"6px 0":"8px 12px"}}>
                               <div style={{color:"#e2d9c8",fontWeight:600,fontSize:13}}>{item.name}</div>
                               <div style={{color:"#6a7a90",fontSize:11,marginTop:2}}>{item.portions} portion{item.portions!==1?"s":""}{item.nutrition&&item.nutrition.calories?" · "+item.nutrition.calories+"kcal":""}</div>
                             </div>
-                            <button onClick={()=>setMealPlanItems(p=>p.filter(i=>i.id!==item.id))} style={{background:"rgba(200,60,60,0.12)",border:"1px solid rgba(200,60,60,0.2)",color:"#f88",borderRadius:7,cursor:"pointer",padding:"4px 9px",fontSize:12}}>✕</button>
+                            <button onClick={()=>setMealPlanItems(p=>p.filter(i=>i.id!==item.id))} style={{background:"rgba(200,60,60,0.12)",border:"1px solid rgba(200,60,60,0.2)",color:"#f88",borderRadius:7,cursor:"pointer",padding:"4px 9px",fontSize:12,marginRight:8}}>✕</button>
                           </div>
                         ))}
                       </div>
