@@ -1918,6 +1918,15 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
 
+  // Strip base64 images before cloud save (too large for mobile)
+  const stripBase64 = (recipeList) => recipeList.map(r => ({
+    ...r,
+    image: r.image?.startsWith('data:') ? null : r.image,
+    ingredientsImage: r.ingredientsImage?.startsWith('data:') ? null : r.ingredientsImage,
+    steps: (r.steps||[]).map(s => ({...s, image: s.image?.startsWith('data:') ? null : s.image})),
+    ingredients: (r.ingredients||[]).map(i => ({...i, image: i.image?.startsWith('data:') ? null : i.image})),
+  }));
+
   // Auto-save to Supabase whenever data changes (debounced 2s)
   useEffect(() => {
     if (!hydrated || !supaUser) return;
@@ -1927,7 +1936,7 @@ export default function App() {
       try {
         await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes, favorites, mealPlanItems, ratings }),
+          data: JSON.stringify({ recipes: stripBase64(recipes), favorites, mealPlanItems, ratings }),
           updated_at: new Date().toISOString()
         });
       } catch(e) {}
@@ -2164,7 +2173,7 @@ export default function App() {
                   <button onClick={async()=>{
                     setSyncing(true);
                     try {
-                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes,favorites,mealPlanItems,ratings}),updated_at:new Date().toISOString()});
+                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:stripBase64(recipes),favorites,mealPlanItems,ratings}),updated_at:new Date().toISOString()});
                       alert('✅ All data synced to cloud!');
                     } catch(e){ alert('❌ Sync failed: '+e.message); }
                     setSyncing(false);
