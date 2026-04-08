@@ -1921,50 +1921,32 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
 
   // Upload a base64 image to Supabase Storage, return public URL (or null on fail)
-  const uploadImageToStorage = async (base64, path) => {
-    if (!base64?.startsWith('data:')) return base64; // already a URL, keep it
-    const sb = getSupabase();
-    if (!sb) return null;
-    try {
-      const res = await fetch(base64);
-      const blob = await res.blob();
-      const ext = blob.type.includes('png') ? 'png' : 'jpg';
-      const fullPath = `${supaUser.id}/${path}.${ext}`;
-      const { error } = await sb.storage.from('recipe-images').upload(fullPath, blob, { upsert: true, contentType: blob.type });
-      if (error) return null;
-      const { data } = sb.storage.from('recipe-images').getPublicUrl(fullPath);
-      return data.publicUrl;
-    } catch(e) { return null; }
-  };
+  // Compress a base64 image to max 800px wide at 75% quality for cloud sync
+  const compressImage = (base64) => new Promise(resolve => {
+    if (!base64?.startsWith('data:')) { resolve(base64); return; }
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      const scale = img.width > MAX ? MAX / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => resolve(null);
+    img.src = base64;
+  });
 
-  // Upload all base64 images in a recipe list to Storage, return updated list with URLs
-  const uploadRecipeImages = async (recipeList) => {
-    return Promise.all(recipeList.map(async r => {
-      const image = await uploadImageToStorage(r.image, `${r.id}-main`);
-      const ingredientsImage = await uploadImageToStorage(r.ingredientsImage, `${r.id}-ings`);
-      const steps = await Promise.all((r.steps||[]).map(async (s, i) => ({
-        ...s, image: await uploadImageToStorage(s.image, `${r.id}-step${i}`)
-      })));
-      const ingredients = await Promise.all((r.ingredients||[]).map(async (ing, i) => ({
-        ...ing, image: await uploadImageToStorage(ing.image, `${r.id}-ing${i}`)
-      })));
-      return { ...r, image, ingredientsImage, steps, ingredients };
-    }));
-  };
-
-  // Fallback: strip base64 images (used if storage upload fails)
-  const stripBase64 = (recipeList) => recipeList.map(r => ({
-    ...r,
-    image: r.image?.startsWith('data:') ? null : r.image,
-    ingredientsImage: r.ingredientsImage?.startsWith('data:') ? null : r.ingredientsImage,
-    steps: (r.steps||[]).map(s => ({...s, image: s.image?.startsWith('data:') ? null : s.image})),
-    ingredients: (r.ingredients||[]).map(i => ({...i, image: i.image?.startsWith('data:') ? null : i.image})),
-  }));
-
+  // Compress all images in recipes before syncing to cloud
   const prepareRecipesForSync = async (recipeList) => {
-    if (!supaUser) return stripBase64(recipeList);
-    try { return await uploadRecipeImages(recipeList); }
-    catch(e) { return stripBase64(recipeList); }
+    return Promise.all(recipeList.map(async r => ({
+      ...r,
+      image: await compressImage(r.image),
+      ingredientsImage: await compressImage(r.ingredientsImage),
+      steps: await Promise.all((r.steps||[]).map(async s => ({...s, image: await compressImage(s.image)}))),
+      ingredients: await Promise.all((r.ingredients||[]).map(async i => ({...i, image: await compressImage(i.image)}))),
+    })));
   };
 
   // Auto-save to Supabase whenever data changes (debounced 2s)
