@@ -2177,8 +2177,18 @@ export default function App() {
                       alert('✅ All data synced to cloud!');
                     } catch(e){ alert('❌ Sync failed: '+e.message); }
                     setSyncing(false);
-                  }} style={{...GB,width:"100%",fontSize:12,marginBottom:8,background:"var(--accent)",color:"#fff",fontWeight:700}}>
+                  }} style={{...GB,width:"100%",fontSize:12,marginBottom:4,background:"var(--accent)",color:"#fff",fontWeight:700}}>
                     ☁️ Sync Now ({recipes.length} recipes)
+                  </button>
+                  <button onClick={async()=>{
+                    setSyncing(true);
+                    try {
+                      await loadFromSupabase(supaUser);
+                      alert('✅ Latest data loaded from cloud!');
+                    } catch(e){ alert('❌ Failed: '+e.message); }
+                    setSyncing(false);
+                  }} style={{...GB,width:"100%",fontSize:12,marginBottom:8}}>
+                    🔄 Get Latest from Cloud
                   </button>
                 </div>
               ) : (
