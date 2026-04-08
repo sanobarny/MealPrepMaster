@@ -2,15 +2,9 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { createClient } from '@supabase/supabase-js';
 
-let supabase = null;
-try {
-  supabase = createClient(
-    'https://aznxerdepisjfsaatzyg.supabase.co',
-    'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY'
-  );
-} catch(e) { console.warn('Supabase init failed', e); }
+const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [
@@ -1797,13 +1791,23 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [syncing, setSyncing] = useState(false);
   const saveTimerRef = useRef(null);
+  const supabaseRef = useRef(null);
+  const getSupabase = () => {
+    if (!supabaseRef.current) {
+      try {
+        const { createClient } = require('@supabase/supabase-js');
+        supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_KEY);
+      } catch(e) { console.warn('Supabase init failed', e); }
+    }
+    return supabaseRef.current;
+  };
 
   // Supabase helpers
   const loadFromSupabase = async (user) => {
-    if (!user || !supabase) return;
+    if (!user) return;
     setSyncing(true);
     try {
-      const { data } = await supabase.from('user_data').select('data').eq('user_id', user.id).single();
+      const { data } = await getSupabase()?.from('user_data').select('data').eq('user_id', user.id).single();
       if (data?.data) {
         const d = JSON.parse(data.data);
         // Merge recipes: keep all unique by id, local takes priority if same id
@@ -1835,9 +1839,9 @@ export default function App() {
   };
 
   const sendOTP = async () => {
-    if (!authEmail.trim() || !supabase) return;
+    if (!authEmail.trim()) return;
     setAuthStep('sending'); setAuthError('');
-    const { error } = await supabase.auth.signInWithOtp({ email: authEmail.trim() });
+    const { error } = await getSupabase()?.auth.signInWithOtp({ email: authEmail.trim() });
     if (error) { setAuthError(error.message); setAuthStep('idle'); }
     else setAuthStep('sent');
   };
@@ -1845,13 +1849,13 @@ export default function App() {
   const verifyOTP = async () => {
     if (!authOTP.trim()) return;
     setAuthStep('verifying'); setAuthError('');
-    const { data, error } = await supabase.auth.verifyOtp({ email: authEmail, token: authOTP.trim(), type: 'email' });
+    const { data, error } = await getSupabase()?.auth.verifyOtp({ email: authEmail, token: authOTP.trim(), type: 'email' });
     if (error) { setAuthError(error.message); setAuthStep('sent'); }
     else { setSupaUser(data.user); setAuthStep('done'); await loadFromSupabase(data.user); }
   };
 
   const supaSignOut = async () => {
-    await supabase.auth.signOut();
+    await getSupabase()?.auth.signOut();
     setSupaUser(null); setAuthStep('idle'); setAuthEmail(''); setAuthOTP(''); setAuthError('');
   };
 
@@ -1889,19 +1893,21 @@ export default function App() {
     check();
     window.addEventListener('resize', check);
     // Check for existing Supabase session
-    if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+    const sb = getSupabase();
+    if (sb) {
+      sb.auth.getSession().then(({ data: { session } }) => {
         if (session?.user) {
           setSupaUser(session.user);
           setAuthStep('done');
           loadFromSupabase(session.user);
         }
-      });
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      }).catch(()=>{});
+      const authSub = sb.auth.onAuthStateChange((_event, session) => {
         if (session?.user) { setSupaUser(session.user); setAuthStep('done'); }
         else { setSupaUser(null); setAuthStep('idle'); }
       });
-      return () => { window.removeEventListener('resize', check); subscription.unsubscribe(); };
+      const subscription = authSub?.data?.subscription;
+      return () => { window.removeEventListener('resize', check); subscription?.unsubscribe(); };
     }
     return () => window.removeEventListener('resize', check);
   }, []);
@@ -1914,12 +1920,12 @@ export default function App() {
 
   // Auto-save to Supabase whenever data changes (debounced 2s)
   useEffect(() => {
-    if (!hydrated || !supaUser || !supabase) return;
+    if (!hydrated || !supaUser) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       setSyncing(true);
       try {
-        await supabase.from('user_data').upsert({
+        await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
           data: JSON.stringify({ recipes, favorites, mealPlanItems, ratings }),
           updated_at: new Date().toISOString()
