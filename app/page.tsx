@@ -1920,7 +1920,39 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
 
-  // Strip base64 images before cloud save (too large for mobile)
+  // Upload a base64 image to Supabase Storage, return public URL (or null on fail)
+  const uploadImageToStorage = async (base64, path) => {
+    if (!base64?.startsWith('data:')) return base64; // already a URL, keep it
+    const sb = getSupabase();
+    if (!sb) return null;
+    try {
+      const res = await fetch(base64);
+      const blob = await res.blob();
+      const ext = blob.type.includes('png') ? 'png' : 'jpg';
+      const fullPath = `${supaUser.id}/${path}.${ext}`;
+      const { error } = await sb.storage.from('recipe-images').upload(fullPath, blob, { upsert: true, contentType: blob.type });
+      if (error) return null;
+      const { data } = sb.storage.from('recipe-images').getPublicUrl(fullPath);
+      return data.publicUrl;
+    } catch(e) { return null; }
+  };
+
+  // Upload all base64 images in a recipe list to Storage, return updated list with URLs
+  const uploadRecipeImages = async (recipeList) => {
+    return Promise.all(recipeList.map(async r => {
+      const image = await uploadImageToStorage(r.image, `${r.id}-main`);
+      const ingredientsImage = await uploadImageToStorage(r.ingredientsImage, `${r.id}-ings`);
+      const steps = await Promise.all((r.steps||[]).map(async (s, i) => ({
+        ...s, image: await uploadImageToStorage(s.image, `${r.id}-step${i}`)
+      })));
+      const ingredients = await Promise.all((r.ingredients||[]).map(async (ing, i) => ({
+        ...ing, image: await uploadImageToStorage(ing.image, `${r.id}-ing${i}`)
+      })));
+      return { ...r, image, ingredientsImage, steps, ingredients };
+    }));
+  };
+
+  // Fallback: strip base64 images (used if storage upload fails)
   const stripBase64 = (recipeList) => recipeList.map(r => ({
     ...r,
     image: r.image?.startsWith('data:') ? null : r.image,
@@ -1929,6 +1961,12 @@ export default function App() {
     ingredients: (r.ingredients||[]).map(i => ({...i, image: i.image?.startsWith('data:') ? null : i.image})),
   }));
 
+  const prepareRecipesForSync = async (recipeList) => {
+    if (!supaUser) return stripBase64(recipeList);
+    try { return await uploadRecipeImages(recipeList); }
+    catch(e) { return stripBase64(recipeList); }
+  };
+
   // Auto-save to Supabase whenever data changes (debounced 2s)
   useEffect(() => {
     if (!hydrated || !supaUser) return;
@@ -1936,9 +1974,10 @@ export default function App() {
     saveTimerRef.current = setTimeout(async () => {
       setSyncing(true);
       try {
+        const syncedRecipes = await prepareRecipesForSync(recipes);
         await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes: stripBase64(recipes), favorites, mealPlanItems, ratings, anthropicKey, pexelsKey }),
+          data: JSON.stringify({ recipes: syncedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey }),
           updated_at: new Date().toISOString()
         });
       } catch(e) {}
@@ -2175,7 +2214,8 @@ export default function App() {
                   <button onClick={async()=>{
                     setSyncing(true);
                     try {
-                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:stripBase64(recipes),favorites,mealPlanItems,ratings,anthropicKey,pexelsKey}),updated_at:new Date().toISOString()});
+                      const syncedRecipes = await prepareRecipesForSync(recipes);
+                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:syncedRecipes,favorites,mealPlanItems,ratings,anthropicKey,pexelsKey}),updated_at:new Date().toISOString()});
                       alert('✅ All data synced to cloud!');
                     } catch(e){ alert('❌ Sync failed: '+e.message); }
                     setSyncing(false);
