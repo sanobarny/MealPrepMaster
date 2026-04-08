@@ -1833,6 +1833,8 @@ export default function App() {
           return merged;
         });
         if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
+        if (d.anthropicKey && !localStorage.getItem('anthropic_key')) { setAnthropicKey(d.anthropicKey); localStorage.setItem('anthropic_key', d.anthropicKey); }
+        if (d.pexelsKey && !localStorage.getItem('pexels_key')) { setPexelsKey(d.pexelsKey); localStorage.setItem('pexels_key', d.pexelsKey); }
       }
     } catch(e) {}
     setSyncing(false);
@@ -1936,14 +1938,14 @@ export default function App() {
       try {
         await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes: stripBase64(recipes), favorites, mealPlanItems, ratings }),
+          data: JSON.stringify({ recipes: stripBase64(recipes), favorites, mealPlanItems, ratings, anthropicKey, pexelsKey }),
           updated_at: new Date().toISOString()
         });
       } catch(e) {}
       setSyncing(false);
     }, 2000);
     return () => clearTimeout(saveTimerRef.current);
-  }, [recipes, favorites, mealPlanItems, ratings, hydrated, supaUser]);
+  }, [recipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, hydrated, supaUser]);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
@@ -2173,7 +2175,7 @@ export default function App() {
                   <button onClick={async()=>{
                     setSyncing(true);
                     try {
-                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:stripBase64(recipes),favorites,mealPlanItems,ratings}),updated_at:new Date().toISOString()});
+                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:stripBase64(recipes),favorites,mealPlanItems,ratings,anthropicKey,pexelsKey}),updated_at:new Date().toISOString()});
                       alert('✅ All data synced to cloud!');
                     } catch(e){ alert('❌ Sync failed: '+e.message); }
                     setSyncing(false);
