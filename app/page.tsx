@@ -2215,8 +2215,9 @@ export default function App() {
                     setSyncing(true);
                     try {
                       const syncedRecipes = await prepareRecipesForSync(recipes);
+                      const withImgs = syncedRecipes.filter(r=>r.image).length;
                       await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:syncedRecipes,favorites,mealPlanItems,ratings,anthropicKey,pexelsKey}),updated_at:new Date().toISOString()});
-                      alert('✅ All data synced to cloud!');
+                      alert(`✅ Synced! ${withImgs}/${syncedRecipes.length} recipes have images.`);
                     } catch(e){ alert('❌ Sync failed: '+e.message); }
                     setSyncing(false);
                   }} style={{...GB,width:"100%",fontSize:12,marginBottom:4,background:"var(--accent)",color:"#fff",fontWeight:700}}>
