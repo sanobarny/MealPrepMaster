@@ -2160,7 +2160,17 @@ export default function App() {
                     </div>
                     <button onClick={supaSignOut} style={{...GB,fontSize:11,padding:"4px 8px",color:"#f08080"}}>Sign out</button>
                   </div>
-                  <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:10}}>All changes save automatically across all your devices.</div>
+                  <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:8}}>All changes save automatically across all your devices.</div>
+                  <button onClick={async()=>{
+                    setSyncing(true);
+                    try {
+                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes,favorites,mealPlanItems,ratings}),updated_at:new Date().toISOString()});
+                      alert('✅ All data synced to cloud!');
+                    } catch(e){ alert('❌ Sync failed: '+e.message); }
+                    setSyncing(false);
+                  }} style={{...GB,width:"100%",fontSize:12,marginBottom:8,background:"var(--accent)",color:"#fff",fontWeight:700}}>
+                    ☁️ Sync Now ({recipes.length} recipes)
+                  </button>
                 </div>
               ) : (
                 <div>
