@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 
 const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bnhlcmRlcGlzamZzYWF0enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njc5NjUsImV4cCI6MjA5MTE0Mzk2NX0.Bx9Rtywb9OOk3b6U_skK5IQz5EHZwK1vIsw4geW5sEs';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [
