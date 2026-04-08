@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bnhlcmRlcGlzamZzYWF0enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njc5NjUsImV4cCI6MjA5MTE0Mzk2NX0.Bx9Rtywb9OOk3b6U_skK5IQz5EHZwK1vIsw4geW5sEs';
@@ -1795,7 +1796,6 @@ export default function App() {
   const getSupabase = () => {
     if (!supabaseRef.current) {
       try {
-        const { createClient } = require('@supabase/supabase-js');
         supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_KEY);
       } catch(e) { console.warn('Supabase init failed', e); }
     }
