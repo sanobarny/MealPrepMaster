@@ -87,6 +87,35 @@ const TAG_COLORS = {"PCOS-Friendly":"#c06090","High Protein":"#3a7d5e","Dairy-Fr
 const HEALTH_COLORS = {"Anti-Inflammatory":"#e07a40","Blood Sugar Stable":"#5aad8e","Omega-3 Rich":"#5a8fd4","Antioxidant":"#9b5aad","Gut Health":"#ad8e5a","Heart Healthy":"#e05a6a"};
 const ALL_TAG_COLORS = {...TAG_COLORS,...HEALTH_COLORS};
 const STEP_COLORS = ["#3a7d5e","#5a8fd4","#d4875a","#c06090","#6db85a","#b8a23e","#7b6cd4","#3eabb8"];
+const SPICE_LABELS = ["No Spice","Mild","Medium","Hot","Very Hot","Extreme 🔥"];
+
+const FOOD_EMOJIS = [
+  [/blueberr/,"🫐"],[/strawberr/,"🍓"],[/raspberr/,"🍓"],[/cherry/,"🍒"],
+  [/mango/,"🥭"],[/pineapple/,"🍍"],[/coconut cream|coconut milk/,"🥥"],[/coconut/,"🥥"],
+  [/corn/,"🌽"],[/avocado/,"🥑"],[/sweet potato/,"🍠"],[/eggplant|aubergine/,"🍆"],
+  [/tomato/,"🍅"],[/carrot/,"🥕"],[/broccoli/,"🥦"],[/onion|shallot/,"🧅"],[/garlic/,"🧄"],
+  [/mushroom/,"🍄"],[/zucchini|courgette/,"🥒"],[/cucumber/,"🥒"],[/bell pepper|capsicum/,"🫑"],
+  [/chili|chilli|jalapen/,"🌶️"],[/lemon|lime/,"🍋"],[/orange/,"🍊"],[/apple/,"🍎"],[/banana/,"🍌"],
+  [/lettuce|kale|spinach|chard|arugula/,"🥬"],[/basil|cilantro|parsley|mint|dill|herb/,"🌿"],
+  [/ginger/,"🫚"],[/celery/,"🥬"],[/asparagus/,"🥦"],[/potato/,"🥔"],
+  [/chicken/,"🍗"],[/beef|steak|mince|ground beef/,"🥩"],[/bacon|ham/,"🥓"],[/pork/,"🥩"],
+  [/lamb/,"🍖"],[/turkey/,"🦃"],[/salmon|tuna|fish|cod|tilapia|halibut/,"🐟"],[/shrimp|prawn/,"🍤"],
+  [/egg/,"🥚"],[/tofu|tempeh/,"🫘"],
+  [/milk/,"🥛"],[/cheese|cheddar|mozzarella|feta|parmesan|ricotta/,"🧀"],[/yogurt/,"🥛"],[/butter/,"🧈"],[/cream/,"🥛"],
+  [/rice/,"🍚"],[/oat/,"🥣"],[/quinoa/,"🌾"],[/pasta|spaghetti|penne|fettuccine/,"🍝"],
+  [/noodle|ramen/,"🍜"],[/bread/,"🍞"],[/tortilla|wrap|pita/,"🫓"],[/flour/,"🌾"],
+  [/oil/,"🫙"],[/honey/,"🍯"],[/sugar/,"🍬"],[/chocolate/,"🍫"],[/maple/,"🍁"],
+  [/almond|walnut|cashew|pecan|pistachio/,"🥜"],[/peanut/,"🥜"],[/\bnut\b/,"🥜"],
+  [/chia|flax|sesame|sunflower seed/,"🌱"],[/seed/,"🌱"],[/vanilla/,"🌸"],
+  [/cinnamon|turmeric|paprika|cumin|oregano|thyme|rosemary/,"🌿"],[/salt/,"🧂"],
+  [/water/,"💧"],[/broth|stock/,"🫙"],[/soy sauce|sauce|vinegar/,"🫙"],
+  [/lentil|bean|chickpea|legume/,"🫘"],[/matcha|green tea/,"🍵"],[/coffee/,"☕"],
+  [/juice/,"🧃"],[/avocado/,"🥑"],
+];
+const getItemEmoji = name => {
+  const n = (name||"").toLowerCase();
+  return (FOOD_EMOJIS.find(([rx]) => rx.test(n)) || [,"🛒"])[1];
+};
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const scaleAmt = (n, r) => {
@@ -397,10 +426,11 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite}) {
             {(recipe.tags||[]).slice(0,3).map(t=><TagChip key={t} label={t} color={ALL_TAG_COLORS[t]||"#888"}/>)}
           </div>
           <NutriBadge n={recipe.nutrition}/>
-          <div style={{marginTop:7,display:"flex",gap:10,fontSize:11,color:"var(--text-muted)"}}>
+          <div style={{marginTop:7,display:"flex",gap:10,fontSize:11,color:"var(--text-muted)",flexWrap:"wrap",alignItems:"center"}}>
             <span>{recipe.prepTime||0}m prep</span>
             <span>{recipe.cookTime||0}m cook</span>
             <span>{recipe.servings} servings</span>
+            {(recipe.spiceLevel||0) > 0 && <span style={{color:"#e05050"}}>{"🌶".repeat(recipe.spiceLevel)}</span>}
           </div>
         </div>
       </div>
@@ -619,7 +649,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             {/* Details */}
             <div>
               <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>Details</h3>
-              {[["Prep",recipe.prepTime+"min"],["Cook",recipe.cookTime+"min"],["Total",total+"min"],["Servings",scale],["Calories",Math.round(recipe.nutrition.calories*r)+"kcal"],["Equipment",(recipe.equipment||[]).join(", ")]].map(([k,v])=>(
+              {[["Prep",recipe.prepTime+"min"],["Cook",recipe.cookTime+"min"],["Total",total+"min"],["Servings",scale],["Calories",Math.round(recipe.nutrition.calories*r)+"kcal"],["Equipment",(recipe.equipment||[]).join(", ")],["Spice",(recipe.spiceLevel||0)===0?"None":"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]]].map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
                   <span style={{color:"#6a7a90"}}>{k}</span>
                   <span style={{color:"#c8d0dc"}}>{v}</span>
@@ -777,6 +807,19 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
             <select value={data.difficulty||"beginner"} onChange={e=>set("difficulty",e.target.value)} style={IS}>
               {["beginner","intermediate","advanced"].map(d=><option key={d} value={d}>{d}</option>)}
             </select>
+          </div>
+        </div>
+
+        {/* Spice level */}
+        <div style={{marginBottom:12}}>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🌶 Spice Level</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {[0,1,2,3,4,5].map(lvl=>(
+              <button key={lvl} onClick={()=>set("spiceLevel",lvl)}
+                style={{...GB,padding:"5px 10px",fontSize:12,background:(data.spiceLevel||0)===lvl?"var(--accent)":"var(--bg-card)",color:(data.spiceLevel||0)===lvl?"#fff":"var(--text-sub)",boxShadow:(data.spiceLevel||0)===lvl?"var(--nm-inset)":"var(--nm-raised-sm)"}}>
+                {lvl===0?"⚪ None":"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1220,13 +1263,16 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 }
 
 // ─── SHOPPING LIST ───────────────────────────────────────────────────────────
-function ShoppingList({mealPlanItems, recipes}) {
+function ShoppingList({mealPlanItems, recipes, spends, onLogSpend}) {
   const [people, setPeople] = useState(1);
   const [weeks, setWeeks] = useState(1);
   const [checked, setChecked] = useState({});
   const [manualItems, setManualItems] = useState([]);
   const [newItem, setNewItem] = useState("");
   const [bySection, setBySection] = useState(true);
+  const [spendInput, setSpendInput] = useState("");
+  const [spendNote, setSpendNote] = useState("");
+  const [showSpendLog, setShowSpendLog] = useState(false);
 
   const SECTIONS = [
     {key:"produce",label:"🥦 Produce",rx:/onion|garlic|tomato|pepper|spinach|carrot|celery|broccoli|mushroom|zucchini|avocado|lemon|lime|berry|apple|banana|herb|basil|cilantro|parsley|ginger|cucumber|lettuce|kale/,color:"#5aad8e"},
@@ -1284,15 +1330,24 @@ function ShoppingList({mealPlanItems, recipes}) {
     a.download = "shopping-list.txt"; a.click();
   };
 
+  const logSpend = () => {
+    const amt = parseFloat(spendInput);
+    if (!amt || isNaN(amt)) return;
+    onLogSpend?.({id:Date.now(), amount:amt, note:spendNote.trim()||"Shopping trip", date:new Date().toISOString()});
+    setSpendInput(""); setSpendNote(""); setShowSpendLog(false);
+  };
+
   const renderItems = items => items.map(item=>{
     const key = item.name.toLowerCase();
     const done = !!checked[key];
+    const emoji = getItemEmoji(item.name);
     return (
       <div key={key+(item.manual?"_m":"")} onClick={()=>toggle(key)}
         style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",marginBottom:4,background:done?"var(--nm-input-bg)":"var(--bg-card)",boxShadow:done?"var(--nm-inset)":"var(--nm-raised-sm)",opacity:done?0.5:1,transition:"all .15s"}}>
         <div style={{width:20,height:20,borderRadius:6,border:"2px solid "+(done?"var(--accent)":"var(--border)"),background:done?"var(--accent)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:12,color:"#fff",transition:"all .15s"}}>
           {done?"✓":""}
         </div>
+        <span style={{fontSize:16,flexShrink:0}}>{emoji}</span>
         <span style={{flex:1,color:"var(--text)",fontSize:13,textDecoration:done?"line-through":"none"}}>{item.name}</span>
         {item.amount>0 && <span style={{color:"var(--accent)",fontWeight:600,fontSize:12}}>{Math.ceil(item.amount*10)/10} {item.unit}</span>}
         {item.manual && <button onClick={e=>{e.stopPropagation();removeManual(item.id);}} style={{background:"none",border:"none",color:"#f08080",fontSize:14,cursor:"pointer",padding:"0 2px"}}>×</button>}
@@ -1364,6 +1419,43 @@ function ShoppingList({mealPlanItems, recipes}) {
           {renderItems(checkedItems)}
         </div>
       )}
+
+      {/* Spend Logger */}
+      <div style={{marginTop:24,background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 16px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showSpendLog?12:0}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Log Spending</div>
+          <button onClick={()=>setShowSpendLog(s=>!s)} style={{...GB,fontSize:12,padding:"4px 10px"}}>{showSpendLog?"Cancel":"+ Add"}</button>
+        </div>
+        {showSpendLog && (
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+            <div style={{flex:"0 0 110px"}}>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Amount ($)</div>
+              <input type="number" value={spendInput} onChange={e=>setSpendInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
+                placeholder="0.00" style={{...IS,height:34,padding:"0 10px",fontSize:14}}/>
+            </div>
+            <div style={{flex:1,minWidth:120}}>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Note (optional)</div>
+              <input value={spendNote} onChange={e=>setSpendNote(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
+                placeholder="e.g. Whole Foods run" style={{...IS,height:34,padding:"0 10px",fontSize:13}}/>
+            </div>
+            <button onClick={logSpend} style={{...GB,padding:"8px 14px",background:"var(--accent)",color:"#fff",fontWeight:700,fontSize:13}}>Save</button>
+          </div>
+        )}
+        {(spends||[]).length>0 && (
+          <div style={{marginTop:showSpendLog?12:0}}>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Recent</div>
+            {(spends||[]).slice(-3).reverse().map(s=>(
+              <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{s.note}</span>
+                <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                  <span style={{color:"var(--text-muted)",fontSize:11}}>{new Date(s.date).toLocaleDateString()}</span>
+                  <span style={{color:"var(--accent)",fontWeight:700}}>${s.amount.toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1754,6 +1846,190 @@ function CookMode({recipe, onClose}) {
   );
 }
 
+// ─── STATISTICS PANEL ────────────────────────────────────────────────────────
+function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, onDeleteSpend}) {
+  const totalRecipes = recipes.length;
+  const avgCookTime = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.cookTime||0),0)/totalRecipes) : 0;
+  const avgCalories = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.calories||0),0)/totalRecipes) : 0;
+  const avgProtein = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.protein||0),0)/totalRecipes) : 0;
+  const avgCarbs = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.carbs||0),0)/totalRecipes) : 0;
+  const avgFat = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.fat||0),0)/totalRecipes) : 0;
+
+  const catBreakdown = CATEGORIES.filter(c=>c.id!=="all").map(c=>({...c,count:recipes.filter(r=>r.category===c.id).length}));
+  const maxCat = Math.max(...catBreakdown.map(c=>c.count),1);
+
+  const tagCounts = {};
+  recipes.forEach(r=>(r.tags||[]).forEach(t=>{tagCounts[t]=(tagCounts[t]||0)+1;}));
+  const topTags = Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxTag = Math.max(...topTags.map(([,c])=>c),1);
+
+  const spiceDist = [0,1,2,3,4,5].map(lvl=>({lvl,count:recipes.filter(r=>(r.spiceLevel||0)===lvl).length}));
+
+  const ratedRecipes = Object.entries(ratings).map(([id,rt])=>({
+    recipe:recipes.find(x=>x.id===Number(id)), rt
+  })).filter(x=>x.recipe).sort((a,b)=>(b.rt.taste||0)-(a.rt.taste||0));
+
+  const totalSpend = (shoppingSpends||[]).reduce((s,x)=>s+(x.amount||0),0);
+  const avgSpend = (shoppingSpends||[]).length ? totalSpend/(shoppingSpends||[]).length : 0;
+
+  const plannedCalories = mealPlanItems.reduce((s,i)=>s+(i.nutrition?.calories||0),0);
+  const plannedProtein = mealPlanItems.reduce((s,i)=>s+(i.nutrition?.protein||0),0);
+
+  const StatCard = ({icon,value,label,color="#5aad8e",sub}) => (
+    <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"16px 14px",minWidth:0}}>
+      <div style={{fontSize:22,marginBottom:6}}>{icon}</div>
+      <div style={{color,fontWeight:800,fontSize:26,lineHeight:1}}>{value}</div>
+      <div style={{color:"var(--text-muted)",fontSize:11,marginTop:3,textTransform:"uppercase",letterSpacing:.5}}>{label}</div>
+      {sub && <div style={{color:"var(--text-sub)",fontSize:11,marginTop:4}}>{sub}</div>}
+    </div>
+  );
+
+  const Bar = ({pct,color}) => (
+    <div style={{height:8,background:"var(--nm-input-bg)",borderRadius:4,overflow:"hidden",boxShadow:"var(--nm-inset)"}}>
+      <div style={{height:"100%",width:pct+"%",background:color,borderRadius:4,transition:"width .5s"}}/>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📊 Statistics</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:22}}>Your meal prep insights at a glance</p>
+
+      {/* Summary cards */}
+      <div className="r-grid-sm" style={{marginBottom:24}}>
+        <StatCard icon="📖" value={totalRecipes} label="Total Recipes" color="#5a8fd4"/>
+        <StatCard icon="⏱" value={avgCookTime+"m"} label="Avg Cook Time" color="#d4875a"/>
+        <StatCard icon="📅" value={mealPlanItems.length} label="Meals Planned" color="#5aad8e"/>
+        <StatCard icon="💰" value={"$"+totalSpend.toFixed(2)} label="Total Spent" color="#c06090" sub={`${(shoppingSpends||[]).length} trips · avg $${avgSpend.toFixed(2)}`}/>
+        <StatCard icon="♥" value={favorites.length} label="Favorites" color="#e05a6a"/>
+        <StatCard icon="⭐" value={ratedRecipes.length} label="Rated" color="#ffd580"/>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
+        {/* Category breakdown */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>📂 Recipes by Category</div>
+          {catBreakdown.map(c=>(
+            <div key={c.id} style={{marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{c.icon} {c.label}</span>
+                <span style={{color:"var(--accent)",fontWeight:700}}>{c.count}</span>
+              </div>
+              <Bar pct={maxCat?c.count/maxCat*100:0} color="var(--accent)"/>
+            </div>
+          ))}
+        </div>
+
+        {/* Nutrition averages */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🥗 Avg Nutrition / Recipe</div>
+          {[["🔥 Calories",avgCalories,"kcal","#e05a6a",2000],["💪 Protein",avgProtein,"g","#5aad8e",50],["🌾 Carbs",avgCarbs,"g","#5a8fd4",130],["🥑 Fat",avgFat,"g","#d4875a",65]].map(([l,v,u,col,max])=>(
+            <div key={l} style={{marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{l}</span>
+                <span style={{color:col,fontWeight:700}}>{v}{u}</span>
+              </div>
+              <Bar pct={Math.min(v/max*100,100)} color={col}/>
+            </div>
+          ))}
+          {mealPlanItems.length>0 && (
+            <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+              <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:6}}>📅 Planned meals total</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[["🔥",plannedCalories,"kcal"],["💪",plannedProtein,"g protein"]].map(([ico,v,u])=>(
+                  <span key={u} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:20,padding:"3px 10px",fontSize:11,color:"var(--text-sub)"}}>{ico} {v}{u}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
+        {/* Top tags */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🏷️ Most Used Tags</div>
+          {topTags.length===0 && <div style={{color:"var(--text-muted)",fontSize:12}}>No tags yet</div>}
+          {topTags.map(([tag,count])=>(
+            <div key={tag} style={{marginBottom:9}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
+                <span style={{color:ALL_TAG_COLORS[tag]||"var(--text-sub)"}}>{tag}</span>
+                <span style={{color:"var(--text-muted)"}}>{count} recipes</span>
+              </div>
+              <Bar pct={count/maxTag*100} color={ALL_TAG_COLORS[tag]||"var(--accent)"}/>
+            </div>
+          ))}
+        </div>
+
+        {/* Spice distribution */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🌶️ Spice Distribution</div>
+          {spiceDist.map(({lvl,count})=>(
+            <div key={lvl} style={{marginBottom:9}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{lvl===0?"⚪ No Spice":"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}</span>
+                <span style={{color:"var(--text-muted)"}}>{count}</span>
+              </div>
+              <Bar pct={totalRecipes?count/totalRecipes*100:0} color={lvl===0?"var(--text-muted)":"hsl("+(30-lvl*8)+",80%,"+(60-lvl*5)+"%)"}/>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Top rated */}
+      {ratedRecipes.length>0 && (
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>⭐ Top Rated Recipes</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+            {ratedRecipes.slice(0,6).map(({recipe,rt})=>(
+              <div key={recipe.id} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"10px 12px"}}>
+                <div style={{color:"var(--text)",fontSize:13,fontWeight:600,marginBottom:4}}>{recipe.title}</div>
+                <div style={{display:"flex",gap:8,fontSize:11,flexWrap:"wrap"}}>
+                  {rt.taste && <span style={{color:"#ffd580"}}>⭐ {rt.taste}/5 taste</span>}
+                  {rt.difficulty && <span style={{color:"#5a8fd4"}}>💪 {rt.difficulty}/5 ease</span>}
+                  {rt.spice && <span style={{color:"#e05050"}}>🌶 {rt.spice}/5</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Spending history */}
+      {(shoppingSpends||[]).length>0 && (
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Shopping Spend History</div>
+            <span style={{color:"var(--accent)",fontWeight:700,fontSize:14}}>${totalSpend.toFixed(2)} total</span>
+          </div>
+          {(shoppingSpends||[]).slice().reverse().map(s=>(
+            <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{fontSize:18}}>🛒</span>
+              <div style={{flex:1}}>
+                <div style={{color:"var(--text)",fontSize:13}}>{s.note}</div>
+                <div style={{color:"var(--text-muted)",fontSize:11}}>{new Date(s.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
+              </div>
+              <span style={{color:"var(--accent)",fontWeight:700,fontSize:15}}>${s.amount.toFixed(2)}</span>
+              <button onClick={()=>onDeleteSpend?.(s.id)} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:14,cursor:"pointer",padding:"0 4px"}} title="Delete">×</button>
+            </div>
+          ))}
+          <div style={{marginTop:12,display:"flex",gap:16,fontSize:12,color:"var(--text-sub)"}}>
+            <span>📈 Avg per trip: <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong></span>
+            <span>🧾 {(shoppingSpends||[]).length} trips logged</span>
+          </div>
+        </div>
+      )}
+
+      {totalRecipes===0 && (
+        <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📊</div>
+          <div style={{fontSize:14}}>Add recipes to see your stats</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
@@ -1771,6 +2047,7 @@ export default function App() {
   const [mealPlanItems, setMealPlanItems] = useState([]);
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
+  const [shoppingSpends, setShoppingSpends] = useState([]);
   const [pexelsKey, setPexelsKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1847,6 +2124,7 @@ export default function App() {
         if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
         if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); localStorage.setItem('anthropic_key', d.anthropicKey); }
         if (d.pexelsKey) { setPexelsKey(d.pexelsKey); localStorage.setItem('pexels_key', d.pexelsKey); }
+        if (d.shoppingSpends) setShoppingSpends(d.shoppingSpends);
         return d;
       }
     } catch(e) { console.error('loadFromSupabase error', e); }
@@ -1899,6 +2177,8 @@ export default function App() {
       if (plan) setMealPlanItems(JSON.parse(plan));
       const rats = localStorage.getItem('mpm_ratings');
       if (rats) setRatings(JSON.parse(rats));
+      const spends = localStorage.getItem('mpm_spends');
+      if (spends) setShoppingSpends(JSON.parse(spends));
     } catch(e) {}
     setAnthropicKey(localStorage.getItem('anthropic_key') || '');
     setPexelsKey(localStorage.getItem('pexels_key') || '');
@@ -1932,6 +2212,7 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_favorites', JSON.stringify(favorites)); }, [favorites, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_spends', JSON.stringify(shoppingSpends)); }, [shoppingSpends, hydrated]);
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
@@ -1992,14 +2273,14 @@ export default function App() {
         const syncedRecipes = await prepareRecipesForSync(recipes);
         await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes: syncedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey }),
+          data: JSON.stringify({ recipes: syncedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends }),
           updated_at: new Date().toISOString()
         });
       } catch(e) {}
       setSyncing(false);
     }, 2000);
     return () => clearTimeout(saveTimerRef.current);
-  }, [recipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, hydrated, supaUser]);
+  }, [recipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, hydrated, supaUser]);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
@@ -2025,6 +2306,7 @@ export default function App() {
     {id:"optimizer",label:"Optimizer",icon:"⚡"},
     {id:"ingredient-search",label:"Ingredients",icon:"🔍"},
     {id:"favorites",label:"Favorites",icon:"♥"},
+    {id:"statistics",label:"Statistics",icon:"📊"},
   ];
 
   const toggleFav = r => setFavorites(p=>p.some(f=>f.id===r.id)?p.filter(f=>f.id!==r.id):[...p,{id:r.id}]);
@@ -2231,7 +2513,7 @@ export default function App() {
                     try {
                       const syncedRecipes = await prepareRecipesForSync(recipes);
                       const withImgs = syncedRecipes.filter(r=>r.image).length;
-                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:syncedRecipes,favorites,mealPlanItems,ratings,anthropicKey,pexelsKey}),updated_at:new Date().toISOString()});
+                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:syncedRecipes,favorites,mealPlanItems,ratings,anthropicKey,pexelsKey,shoppingSpends}),updated_at:new Date().toISOString()});
                       alert(`✅ Synced! ${withImgs}/${syncedRecipes.length} recipes have images.`);
                     } catch(e){ alert('❌ Sync failed: '+e.message); }
                     setSyncing(false);
@@ -2413,7 +2695,9 @@ export default function App() {
 
           {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")}/>}
 
-          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes}/>}
+          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])}/>}
+
+          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))}/>}
 
           {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])}/>}
 
