@@ -4,10 +4,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  'https://aznxerdepisjfsaatzyg.supabase.co',
-  'sb_publishable_pXAGMDPlHLlEHtW2sWEtUg_E2vkjmNY'
-);
+const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bnhlcmRlcGlzamZzYWF0enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njc5NjUsImV4cCI6MjA5MTE0Mzk2NX0.Bx9Rtywb9OOk3b6U_skK5IQz5EHZwK1vIsw4geW5sEs';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [
@@ -89,6 +87,37 @@ const TAG_COLORS = {"PCOS-Friendly":"#c06090","High Protein":"#3a7d5e","Dairy-Fr
 const HEALTH_COLORS = {"Anti-Inflammatory":"#e07a40","Blood Sugar Stable":"#5aad8e","Omega-3 Rich":"#5a8fd4","Antioxidant":"#9b5aad","Gut Health":"#ad8e5a","Heart Healthy":"#e05a6a"};
 const ALL_TAG_COLORS = {...TAG_COLORS,...HEALTH_COLORS};
 const STEP_COLORS = ["#3a7d5e","#5a8fd4","#d4875a","#c06090","#6db85a","#b8a23e","#7b6cd4","#3eabb8"];
+const SPICE_LABELS = ["No Spice","Mild","Medium","Hot","Very Hot","Extreme 🔥"];
+const CUISINES = ["Italian","Mediterranean","Asian","Mexican","American","Middle Eastern","Indian","Japanese","Thai","Greek","French","Moroccan","Other"];
+const CUISINE_COLORS = {"Italian":"#e05a6a","Mediterranean":"#5a8fd4","Asian":"#d4875a","Mexican":"#6db85a","American":"#b8a23e","Middle Eastern":"#c06090","Indian":"#e07a40","Japanese":"#9b5aad","Thai":"#3eabb8","Greek":"#5aad8e","French":"#c8a8ff","Moroccan":"#ad8e5a","Other":"#8a9bb0"};
+
+const FOOD_EMOJIS = [
+  [/blueberr/,"🫐"],[/strawberr/,"🍓"],[/raspberr/,"🍓"],[/cherry/,"🍒"],
+  [/mango/,"🥭"],[/pineapple/,"🍍"],[/coconut cream|coconut milk/,"🥥"],[/coconut/,"🥥"],
+  [/corn/,"🌽"],[/avocado/,"🥑"],[/sweet potato/,"🍠"],[/eggplant|aubergine/,"🍆"],
+  [/tomato/,"🍅"],[/carrot/,"🥕"],[/broccoli/,"🥦"],[/onion|shallot/,"🧅"],[/garlic/,"🧄"],
+  [/mushroom/,"🍄"],[/zucchini|courgette/,"🥒"],[/cucumber/,"🥒"],[/bell pepper|capsicum/,"🫑"],
+  [/chili|chilli|jalapen/,"🌶️"],[/lemon|lime/,"🍋"],[/orange/,"🍊"],[/apple/,"🍎"],[/banana/,"🍌"],
+  [/lettuce|kale|spinach|chard|arugula/,"🥬"],[/basil|cilantro|parsley|mint|dill|herb/,"🌿"],
+  [/ginger/,"🫚"],[/celery/,"🥬"],[/asparagus/,"🥦"],[/potato/,"🥔"],
+  [/chicken/,"🍗"],[/beef|steak|mince|ground beef/,"🥩"],[/bacon|ham/,"🥓"],[/pork/,"🥩"],
+  [/lamb/,"🍖"],[/turkey/,"🦃"],[/salmon|tuna|fish|cod|tilapia|halibut/,"🐟"],[/shrimp|prawn/,"🍤"],
+  [/egg/,"🥚"],[/tofu|tempeh/,"🫘"],
+  [/milk/,"🥛"],[/cheese|cheddar|mozzarella|feta|parmesan|ricotta/,"🧀"],[/yogurt/,"🥛"],[/butter/,"🧈"],[/cream/,"🥛"],
+  [/rice/,"🍚"],[/oat/,"🥣"],[/quinoa/,"🌾"],[/pasta|spaghetti|penne|fettuccine/,"🍝"],
+  [/noodle|ramen/,"🍜"],[/bread/,"🍞"],[/tortilla|wrap|pita/,"🫓"],[/flour/,"🌾"],
+  [/oil/,"🫙"],[/honey/,"🍯"],[/sugar/,"🍬"],[/chocolate/,"🍫"],[/maple/,"🍁"],
+  [/almond|walnut|cashew|pecan|pistachio/,"🥜"],[/peanut/,"🥜"],[/\bnut\b/,"🥜"],
+  [/chia|flax|sesame|sunflower seed/,"🌱"],[/seed/,"🌱"],[/vanilla/,"🌸"],
+  [/cinnamon|turmeric|paprika|cumin|oregano|thyme|rosemary/,"🌿"],[/salt/,"🧂"],
+  [/water/,"💧"],[/broth|stock/,"🫙"],[/soy sauce|sauce|vinegar/,"🫙"],
+  [/lentil|bean|chickpea|legume/,"🫘"],[/matcha|green tea/,"🍵"],[/coffee/,"☕"],
+  [/juice/,"🧃"],[/avocado/,"🥑"],
+];
+const getItemEmoji = name => {
+  const n = (name||"").toLowerCase();
+  return (FOOD_EMOJIS.find(([rx]) => rx.test(n)) || [,"🛒"])[1];
+};
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const scaleAmt = (n, r) => {
@@ -262,89 +291,82 @@ RULES:
 }
 
 // ─── PDF EXPORT ──────────────────────────────────────────────────────────────
+const PDF_WAIT_SCRIPT = `<script>
+  (function(){
+    var imgs=Array.from(document.querySelectorAll('img'));
+    function ready(){document.getElementById('pdfLoader').style.display='none';document.body.classList.add('pdfReady');}
+    if(!imgs.length){ready();return;}
+    var n=0;
+    imgs.forEach(function(img){
+      function done(){if(++n>=imgs.length)ready();}
+      if(img.complete&&img.naturalWidth>0){done();return;}
+      img.onload=done;
+      img.onerror=function(){img.style.display='none';done();};
+      setTimeout(done,10000);
+    });
+  })();
+<\/script>`;
+
 function exportRecipeToPDF(recipe, scale) {
   const s = scale || recipe.servings || 1;
   const r = s / (recipe.servings||1);
   const win = window.open("","_blank");
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
   <style>
-    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a;opacity:0;transition:opacity 0.4s}
-    body.ready{opacity:1}
+    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a;opacity:0;transition:opacity .4s}
+    body.pdfReady{opacity:1}
     h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
     .meta{color:#666;font-size:13px;margin-bottom:16px}
     .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
     .tag{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:12px}
     .health{background:#e8f5e9;color:#2e7d32}
-    .hero{width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-bottom:20px;display:block}
+    .hero{width:100%;max-height:300px;object-fit:cover;border-radius:12px;margin-bottom:20px;display:block}
     .nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#f9f9f9;border-radius:12px;padding:16px;margin:16px 0}
     .nbox{text-align:center}.nval{font-size:22px;font-weight:700}.nlbl{font-size:11px;color:#888;text-transform:uppercase}
-    .stitle{font-size:18px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:6px;margin:24px 0 12px;font-family:Georgia,serif}
+    .stitle{font-size:18px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:6px;margin:20px 0 10px;font-family:Georgia,serif}
     .ing{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
-    .ing-img{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0}
-    .ing-emoji{width:42px;height:42px;border-radius:8px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .ing-thumb{width:38px;height:38px;border-radius:7px;object-fit:cover;flex-shrink:0}
+    .ing-emoji{width:38px;height:38px;border-radius:7px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
     .ing-name{flex:1}.amt{font-weight:600;color:#2e7d32;white-space:nowrap}
-    .ing-overall{width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:14px;display:block}
-    .step{margin-bottom:20px;border-radius:12px;overflow:hidden;border:1px solid #f0f0f0}
-    .step-img{width:100%;max-height:220px;object-fit:cover;display:block}
-    .step-body{display:flex;gap:14px;padding:14px;background:#fafafa}
-    .snum{min-width:30px;height:30px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
-    .stext{font-size:14px;flex:1;line-height:1.6}.stime{color:#888;font-size:12px;margin-top:4px}
+    .ing-overall{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:12px;display:block}
+    .step-card{margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid #eee}
+    .step-img{width:100%;max-height:200px;object-fit:cover;display:block}
+    .step-body{display:flex;gap:12px;padding:12px;background:#fafafa}
+    .snum{min-width:28px;height:28px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;margin-top:2px}
+    .stext{font-size:14px;flex:1;line-height:1.6}.stime{color:#888;font-size:12px;margin-top:3px}
     .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:12px 0}
-    .spice{display:inline-block;margin-left:8px;font-size:13px}
-    #loader{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#666;font-size:15px;gap:12px;z-index:999}
-    .spinner{width:36px;height:36px;border:4px solid #eee;border-top-color:#333;border-radius:50%;animation:spin 0.8s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @media print{button{display:none}#loader{display:none}body{opacity:1!important}.step{break-inside:avoid}}
+    #pdfLoader{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-size:14px;color:#888;z-index:999}
+    .spin{width:32px;height:32px;border:3px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .7s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    @media print{button,#pdfLoader{display:none}body{opacity:1!important}.step-card{break-inside:avoid}}
   </style></head><body>
-  ${recipe.image ? `<img src="${recipe.image}" class="hero" alt="${recipe.title}" onerror="this.style.display='none'"/>` : ""}
-  <h1>${recipe.title}${(recipe.spiceLevel||0)>0?`<span class="spice">${"🌶".repeat(recipe.spiceLevel)}</span>`:""}</h1>
+  <div id="pdfLoader"><div class="spin"></div>Loading images…</div>
+  ${recipe.image ? `<img src="${recipe.image}" class="hero" alt="${recipe.title}"/>` : ""}
+  <h1>${recipe.title}${(recipe.spiceLevel||0)>0?` ${"🌶️".repeat(recipe.spiceLevel)}`:""}</h1>
   <div class="meta">${recipe.category}${recipe.cuisine?" · 🌍 "+recipe.cuisine:""} · ${recipe.prepTime||0}min prep · ${recipe.cookTime||0}min cook · ${recipe.totalTime||0}min total · ${s} servings</div>
   ${recipe.healthBenefits ? `<div class="hbnote">${recipe.healthBenefits}</div>` : ""}
-  <div class="tags">
-    ${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}
-    ${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">⚠ ${a}</span>`).join("")}
-  </div>
+  <div class="tags">${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">⚠ ${a}</span>`).join("")}</div>
   <div class="nutrition">
     ${[["Calories",Math.round(recipe.nutrition.calories*r),""],["Protein",Math.round(recipe.nutrition.protein*r),"g"],["Carbs",Math.round(recipe.nutrition.carbs*r),"g"],["Fat",Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
   </div>
   <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
-  ${recipe.ingredientsImage ? `<img src="${recipe.ingredientsImage}" class="ing-overall" alt="All ingredients" onerror="this.style.display='none'"/>` : ""}
-  ${(recipe.ingredients||[]).map(i=>`
-    <div class="ing">
-      ${i.image ? `<img src="${i.image}" class="ing-img" alt="${i.name}" onerror="this.style.display='none'"/>` : `<div class="ing-emoji">${getItemEmoji(i.name)}</div>`}
-      <span class="ing-name">${i.name}</span>
-      <span class="amt">${scaleAmt(i.amount,r)} ${i.unit}</span>
-    </div>`).join("")}
+  ${recipe.ingredientsImage ? `<img src="${recipe.ingredientsImage}" class="ing-overall" alt="All ingredients"/>` : ""}
+  ${(recipe.ingredients||[]).map(i=>`<div class="ing">
+    ${i.image ? `<img src="${i.image}" class="ing-thumb" alt="${i.name}"/>` : `<div class="ing-emoji">${getItemEmoji(i.name)}</div>`}
+    <span class="ing-name">${i.name}</span>
+    <span class="amt">${scaleAmt(i.amount,r)} ${i.unit}</span>
+  </div>`).join("")}
   <div class="stitle">Steps</div>
-  ${(recipe.steps||[]).map((step,i)=>`
-    <div class="step">
-      ${step.image ? `<img src="${step.image}" class="step-img" alt="Step ${i+1}" onerror="this.style.display='none'"/>` : ""}
-      <div class="step-body">
-        <div class="snum">${i+1}</div>
-        <div>
-          <div class="stext">${step.text}</div>
-          ${step.timeMin ? `<div class="stime">⏱ ${step.timeMin} min</div>` : ""}
-        </div>
-      </div>
-    </div>`).join("")}
-  <div style="margin-top:32px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
+  ${(recipe.steps||[]).map((step,i)=>`<div class="step-card">
+    ${step.image ? `<img src="${step.image}" class="step-img" alt="Step ${i+1}"/>` : ""}
+    <div class="step-body">
+      <div class="snum">${i+1}</div>
+      <div><div class="stext">${step.text}</div>${step.timeMin?`<div class="stime">⏱ ${step.timeMin} min</div>`:""}</div>
+    </div>
+  </div>`).join("")}
+  <div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
   <div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">🖨 Print / Save PDF</button></div>
-  <div id="loader"><div class="spinner"></div>Loading images…</div>
-  <script>
-    (function(){
-      var imgs = Array.from(document.querySelectorAll('img'));
-      function showReady(){ document.getElementById('loader').style.display='none'; document.body.classList.add('ready'); }
-      if(!imgs.length){ showReady(); return; }
-      var count=0;
-      imgs.forEach(function(img){
-        function done(){ if(++count>=imgs.length) showReady(); }
-        if(img.complete && img.naturalWidth>0){ done(); return; }
-        img.addEventListener('load',done);
-        img.addEventListener('error',function(){ img.style.display='none'; done(); });
-        setTimeout(done, 12000);
-      });
-    })();
-  </script>
+  ${PDF_WAIT_SCRIPT}
   </body></html>`);
   win.document.close();
 }
@@ -353,38 +375,38 @@ function exportMealBookToPDF(recipes, title) {
   const win = window.open("","_blank");
   const pages = recipes.map((r,idx)=>`
     <div style="page-break-before:${idx>0?"always":"auto"};padding:24px">
-      ${r.image ? `<img src="${r.image}" style="width:100%;height:220px;object-fit:cover;border-radius:12px;margin-bottom:16px;display:block" alt="${r.title}" onerror="this.style.display='none'"/>` : ""}
-      <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶".repeat(r.spiceLevel)}`:""}</h2>
+      ${r.image ? `<img src="${r.image}" style="width:100%;height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px;display:block" alt="${r.title}"/>` : ""}
+      <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
       <div style="color:#666;font-size:12px;margin-bottom:10px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
       ${(r.tags||[]).slice(0,4).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0">
         <div>
           <b style="font-size:14px">Ingredients</b><br/><br/>
-          ${(r.ingredients||[]).map(i=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:8px">
-            ${i.image?`<img src="${i.image}" style="width:28px;height:28px;border-radius:5px;object-fit:cover" onerror="this.style.display='none'"/>`:`<span style="font-size:16px">${getItemEmoji(i.name)}</span>`}
-            <span style="flex:1">${i.name}</span><span style="color:#2e7d32;font-weight:600">${i.amount} ${i.unit}</span>
+          ${(r.ingredients||[]).map(i=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:7px">
+            ${i.image?`<img src="${i.image}" style="width:26px;height:26px;border-radius:5px;object-fit:cover;flex-shrink:0"/>`:`<span style="font-size:15px">${getItemEmoji(i.name)}</span>`}
+            <span style="flex:1">${i.name}</span><span style="color:#2e7d32;font-weight:600;white-space:nowrap">${i.amount} ${i.unit}</span>
           </div>`).join("")}
         </div>
         <div>
           <b style="font-size:14px">Steps</b><br/><br/>
-          ${(r.steps||[]).map((s,i)=>`
-            ${s.image?`<img src="${s.image}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:4px;display:block" onerror="this.style.display='none'"/>`:""}
-            <div style="font-size:12px;margin-bottom:8px"><b>${i+1}.</b> ${s.text}${s.timeMin?` <span style="color:#888">(${s.timeMin}m)</span>`:""}</div>
+          ${(r.steps||[]).map((step,i)=>`
+            ${step.image?`<img src="${step.image}" style="width:100%;height:70px;object-fit:cover;border-radius:6px;margin-bottom:4px;display:block"/>` :""}
+            <div style="font-size:12px;margin-bottom:7px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>
           `).join("")}
         </div>
       </div>
     </div>`).join("");
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
   <style>
-    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a;opacity:0;transition:opacity 0.4s}
-    body.ready{opacity:1}
-    #loader{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#666;font-size:15px;gap:12px;z-index:999}
-    .spinner{width:36px;height:36px;border:4px solid #eee;border-top-color:#333;border-radius:50%;animation:spin 0.8s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @media print{button{display:none}#loader{display:none}body{opacity:1!important}}
+    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a;opacity:0;transition:opacity .4s}
+    body.pdfReady{opacity:1}
+    #pdfLoader{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-size:14px;color:#888;z-index:999}
+    .spin{width:32px;height:32px;border:3px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .7s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    @media print{button,#pdfLoader{display:none}body{opacity:1!important}}
   </style>
   </head><body>
-  <div id="loader"><div class="spinner"></div>Loading images…</div>
+  <div id="pdfLoader"><div class="spin"></div>Loading images…</div>
   <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:32px">
     <div style="font-size:40px;margin-bottom:8px">🥗</div>
     <h1 style="font-family:Georgia,serif;font-size:34px;margin:0 0 6px">${title||"My Meal Book"}</h1>
@@ -392,21 +414,7 @@ function exportMealBookToPDF(recipes, title) {
   </div>
   ${pages}
   <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer">🖨 Print / Save PDF</button></div>
-  <script>
-    (function(){
-      var imgs = Array.from(document.querySelectorAll('img'));
-      function showReady(){ document.getElementById('loader').style.display='none'; document.body.classList.add('ready'); }
-      if(!imgs.length){ showReady(); return; }
-      var count=0;
-      imgs.forEach(function(img){
-        function done(){ if(++count>=imgs.length) showReady(); }
-        if(img.complete && img.naturalWidth>0){ done(); return; }
-        img.addEventListener('load',done);
-        img.addEventListener('error',function(){ img.style.display='none'; done(); });
-        setTimeout(done, 12000);
-      });
-    })();
-  </script>
+  ${PDF_WAIT_SCRIPT}
   </body></html>`);
   win.document.close();
 }
@@ -485,13 +493,15 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite}) {
         </div>
         <div style={{padding:"10px 12px 12px"}}>
           <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:7}}>
-            {(recipe.tags||[]).slice(0,3).map(t=><TagChip key={t} label={t} color={ALL_TAG_COLORS[t]||"#888"}/>)}
+            {recipe.cuisine && <TagChip label={"🌍 "+recipe.cuisine} color={CUISINE_COLORS[recipe.cuisine]||"#888"}/>}
+            {(recipe.tags||[]).slice(0,2).map(t=><TagChip key={t} label={t} color={ALL_TAG_COLORS[t]||"#888"}/>)}
           </div>
           <NutriBadge n={recipe.nutrition}/>
-          <div style={{marginTop:7,display:"flex",gap:10,fontSize:11,color:"var(--text-muted)"}}>
+          <div style={{marginTop:7,display:"flex",gap:10,fontSize:11,color:"var(--text-muted)",flexWrap:"wrap",alignItems:"center"}}>
             <span>{recipe.prepTime||0}m prep</span>
             <span>{recipe.cookTime||0}m cook</span>
             <span>{recipe.servings} servings</span>
+            {(recipe.spiceLevel||0) > 0 && <span style={{color:"#e05050"}}>{"🌶".repeat(recipe.spiceLevel)}</span>}
           </div>
         </div>
       </div>
@@ -506,7 +516,7 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite}) {
 }
 
 // ─── RECIPE DETAIL ────────────────────────────────────────────────────────────
-function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit}) {
+function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
   const [genIdx, setGenIdx] = useState(null);
@@ -710,7 +720,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             {/* Details */}
             <div>
               <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>Details</h3>
-              {[["Prep",recipe.prepTime+"min"],["Cook",recipe.cookTime+"min"],["Total",total+"min"],["Servings",scale],["Calories",Math.round(recipe.nutrition.calories*r)+"kcal"],["Equipment",(recipe.equipment||[]).join(", ")]].map(([k,v])=>(
+              {[["Prep",recipe.prepTime+"min"],["Cook",recipe.cookTime+"min"],["Total",total+"min"],["Servings",scale],["Calories",Math.round(recipe.nutrition.calories*r)+"kcal"],["Equipment",(recipe.equipment||[]).join(", ")],["Spice",(recipe.spiceLevel||0)===0?"None":"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]],recipe.cuisine&&["Cuisine","🌍 "+recipe.cuisine]].filter(Boolean).map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
                   <span style={{color:"#6a7a90"}}>{k}</span>
                   <span style={{color:"#c8d0dc"}}>{v}</span>
@@ -727,7 +737,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             <div key={i} style={{background:STEP_COLORS[i%STEP_COLORS.length]+"0a",border:"1px solid "+STEP_COLORS[i%STEP_COLORS.length]+"22",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
               <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadStepImg(i,e)}/>
               {step.image && <div style={{position:"relative"}}>
-                <img src={step.image} alt="" style={{width:"100%",height:140,objectFit:"cover"}}/>
+                <img src={step.image} alt="" style={{width:"100%",aspectRatio:"16/9",objectFit:"cover",display:"block"}}/>
                 <div style={{position:"absolute",top:6,right:6,display:"flex",gap:5}}>
                   <button onClick={()=>stepImgRefs.current[i]?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>📷 Change</button>
                   <button onClick={()=>deleteStepImg(i)} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>🗑 Delete</button>
@@ -787,21 +797,31 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
 
           {/* Actions */}
           <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-            {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ Rate Recipe</button>}
-            {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>✏️ Edit Recipe</button>}
+            {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ Rate</button>}
+            {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>✏️ Edit</button>}
+            {onMarkCooked && <button onClick={()=>{onMarkCooked(recipe);alert("✅ Marked as cooked! Streak updated.");}} style={{...GB,flex:1,background:"rgba(90,173,142,0.2)",color:"#5aad8e"}}>🍳 Mark Cooked</button>}
+            <button onClick={()=>{
+              const mins = parseInt(prompt("Remind me in how many minutes?","30"));
+              if (!mins||isNaN(mins)) return;
+              if (Notification.permission==="default") Notification.requestPermission();
+              setTimeout(()=>{
+                try { new Notification("⏰ Time to cook!",{body:"Start cooking: "+recipe.title,icon:"/logo.svg"}); }
+                catch(e) { alert("⏰ Time to start cooking: "+recipe.title); }
+              }, mins*60*1000);
+              alert("⏰ Reminder set for "+mins+" minutes from now!");
+            }} style={{...GB,flex:1,background:"rgba(192,96,144,0.15)",color:"#c06090"}}>⏰ Remind Me</button>
             {recipe.sourceUrl && (
-              <a href={recipe.sourceUrl} target="_blank" rel="noreferrer" style={{...GB,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6,background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",color:"#5a8fd4"}}>
-                📺 View Original Source →
+              <a href={recipe.sourceUrl} target="_blank" rel="noreferrer" style={{...GB,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6,background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",color:"#5a8fd4",flex:1,justifyContent:"center"}}>
+                📺 Source →
               </a>
             )}
           </div>
         </div>
       </div>
+      {cookMode && <CookMode recipe={recipe} onClose={()=>setCookMode(false)}/>}
     </div>
   );
 }
-
-// ─── EDIT RECIPE MODAL ────────────────────────────────────────────────────────
 function EditRecipeModal({recipe:init, onClose, onSave}) {
   const [data, setData] = useState({...init});
   const mainImgRef = useRef(null);
@@ -868,6 +888,32 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
             <select value={data.difficulty||"beginner"} onChange={e=>set("difficulty",e.target.value)} style={IS}>
               {["beginner","intermediate","advanced"].map(d=><option key={d} value={d}>{d}</option>)}
             </select>
+          </div>
+        </div>
+
+        {/* Spice level */}
+        <div style={{marginBottom:12}}>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🌶 Spice Level</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {[0,1,2,3,4,5].map(lvl=>(
+              <button key={lvl} onClick={()=>set("spiceLevel",lvl)}
+                style={{...GB,padding:"5px 10px",fontSize:12,background:(data.spiceLevel||0)===lvl?"var(--accent)":"var(--bg-card)",color:(data.spiceLevel||0)===lvl?"#fff":"var(--text-sub)",boxShadow:(data.spiceLevel||0)===lvl?"var(--nm-inset)":"var(--nm-raised-sm)"}}>
+                {lvl===0?"⚪ None":"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Cuisine */}
+        <div style={{marginBottom:12}}>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🌍 Cuisine</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {[null,...CUISINES].map(c=>(
+              <button key={c||"none"} onClick={()=>set("cuisine",c)}
+                style={{...GB,padding:"4px 10px",fontSize:12,background:(data.cuisine||null)===c?(CUISINE_COLORS[c]||"var(--accent)"):"var(--bg-card)",color:(data.cuisine||null)===c?"#fff":"var(--text-sub)",boxShadow:(data.cuisine||null)===c?"var(--nm-inset)":"var(--nm-raised-sm)"}}>
+                {c||"None"}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1311,13 +1357,16 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 }
 
 // ─── SHOPPING LIST ───────────────────────────────────────────────────────────
-function ShoppingList({mealPlanItems, recipes}) {
+function ShoppingList({mealPlanItems, recipes, spends, onLogSpend}) {
   const [people, setPeople] = useState(1);
   const [weeks, setWeeks] = useState(1);
   const [checked, setChecked] = useState({});
   const [manualItems, setManualItems] = useState([]);
   const [newItem, setNewItem] = useState("");
   const [bySection, setBySection] = useState(true);
+  const [spendInput, setSpendInput] = useState("");
+  const [spendNote, setSpendNote] = useState("");
+  const [showSpendLog, setShowSpendLog] = useState(false);
 
   const SECTIONS = [
     {key:"produce",label:"🥦 Produce",rx:/onion|garlic|tomato|pepper|spinach|carrot|celery|broccoli|mushroom|zucchini|avocado|lemon|lime|berry|apple|banana|herb|basil|cilantro|parsley|ginger|cucumber|lettuce|kale/,color:"#5aad8e"},
@@ -1375,15 +1424,24 @@ function ShoppingList({mealPlanItems, recipes}) {
     a.download = "shopping-list.txt"; a.click();
   };
 
+  const logSpend = () => {
+    const amt = parseFloat(spendInput);
+    if (!amt || isNaN(amt)) return;
+    onLogSpend?.({id:Date.now(), amount:amt, note:spendNote.trim()||"Shopping trip", date:new Date().toISOString()});
+    setSpendInput(""); setSpendNote(""); setShowSpendLog(false);
+  };
+
   const renderItems = items => items.map(item=>{
     const key = item.name.toLowerCase();
     const done = !!checked[key];
+    const emoji = getItemEmoji(item.name);
     return (
       <div key={key+(item.manual?"_m":"")} onClick={()=>toggle(key)}
         style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",marginBottom:4,background:done?"var(--nm-input-bg)":"var(--bg-card)",boxShadow:done?"var(--nm-inset)":"var(--nm-raised-sm)",opacity:done?0.5:1,transition:"all .15s"}}>
         <div style={{width:20,height:20,borderRadius:6,border:"2px solid "+(done?"var(--accent)":"var(--border)"),background:done?"var(--accent)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:12,color:"#fff",transition:"all .15s"}}>
           {done?"✓":""}
         </div>
+        <span style={{fontSize:16,flexShrink:0}}>{emoji}</span>
         <span style={{flex:1,color:"var(--text)",fontSize:13,textDecoration:done?"line-through":"none"}}>{item.name}</span>
         {item.amount>0 && <span style={{color:"var(--accent)",fontWeight:600,fontSize:12}}>{Math.ceil(item.amount*10)/10} {item.unit}</span>}
         {item.manual && <button onClick={e=>{e.stopPropagation();removeManual(item.id);}} style={{background:"none",border:"none",color:"#f08080",fontSize:14,cursor:"pointer",padding:"0 2px"}}>×</button>}
@@ -1455,6 +1513,43 @@ function ShoppingList({mealPlanItems, recipes}) {
           {renderItems(checkedItems)}
         </div>
       )}
+
+      {/* Spend Logger */}
+      <div style={{marginTop:24,background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 16px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showSpendLog?12:0}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Log Spending</div>
+          <button onClick={()=>setShowSpendLog(s=>!s)} style={{...GB,fontSize:12,padding:"4px 10px"}}>{showSpendLog?"Cancel":"+ Add"}</button>
+        </div>
+        {showSpendLog && (
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+            <div style={{flex:"0 0 110px"}}>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Amount ($)</div>
+              <input type="number" value={spendInput} onChange={e=>setSpendInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
+                placeholder="0.00" style={{...IS,height:34,padding:"0 10px",fontSize:14}}/>
+            </div>
+            <div style={{flex:1,minWidth:120}}>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Note (optional)</div>
+              <input value={spendNote} onChange={e=>setSpendNote(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
+                placeholder="e.g. Whole Foods run" style={{...IS,height:34,padding:"0 10px",fontSize:13}}/>
+            </div>
+            <button onClick={logSpend} style={{...GB,padding:"8px 14px",background:"var(--accent)",color:"#fff",fontWeight:700,fontSize:13}}>Save</button>
+          </div>
+        )}
+        {(spends||[]).length>0 && (
+          <div style={{marginTop:showSpendLog?12:0}}>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Recent</div>
+            {(spends||[]).slice(-3).reverse().map(s=>(
+              <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{s.note}</span>
+                <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                  <span style={{color:"var(--text-muted)",fontSize:11}}>{new Date(s.date).toLocaleDateString()}</span>
+                  <span style={{color:"var(--accent)",fontWeight:700}}>${s.amount.toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1578,12 +1673,13 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
                       </div>
                       <div style={{padding:"10px 12px",display:"grid",gap:8}}>
                         {items.map(item=>(
-                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",borderRadius:10,padding:"8px 12px",border:"1px solid rgba(255,255,255,0.06)"}}>
-                            <div style={{flex:1,minWidth:0}}>
+                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",borderRadius:10,overflow:"hidden",border:"1px solid rgba(255,255,255,0.06)"}}>
+                            {item.recipe?.image && <img src={item.recipe.image} alt={item.name} style={{width:56,height:56,objectFit:"cover",flexShrink:0}}/>}
+                            <div style={{flex:1,minWidth:0,padding:item.recipe?.image?"6px 0":"8px 12px"}}>
                               <div style={{color:"#e2d9c8",fontWeight:600,fontSize:13}}>{item.name}</div>
                               <div style={{color:"#6a7a90",fontSize:11,marginTop:2}}>{item.portions} portion{item.portions!==1?"s":""}{item.nutrition&&item.nutrition.calories?" · "+item.nutrition.calories+"kcal":""}</div>
                             </div>
-                            <button onClick={()=>setMealPlanItems(p=>p.filter(i=>i.id!==item.id))} style={{background:"rgba(200,60,60,0.12)",border:"1px solid rgba(200,60,60,0.2)",color:"#f88",borderRadius:7,cursor:"pointer",padding:"4px 9px",fontSize:12}}>✕</button>
+                            <button onClick={()=>setMealPlanItems(p=>p.filter(i=>i.id!==item.id))} style={{background:"rgba(200,60,60,0.12)",border:"1px solid rgba(200,60,60,0.2)",color:"#f88",borderRadius:7,cursor:"pointer",padding:"4px 9px",fontSize:12,marginRight:8}}>✕</button>
                           </div>
                         ))}
                       </div>
@@ -1769,77 +1865,727 @@ function RatingModal({recipe, existing, onSave, onClose}) {
 }
 
 // ─── COOK MODE ───────────────────────────────────────────────────────────────
+// Build a static prep guide from recipe data (no AI needed)
+function buildStaticPrepGuide(recipe) {
+  const guide = {preheat:[],startFirst:[],prep:[],wash:[],tips:[]};
+  const equip = recipe.equipment||[];
+  const ings = recipe.ingredients||[];
+  const steps = recipe.steps||[];
+
+  if (equip.includes("oven")) guide.preheat.push("Preheat oven to 400°F / 200°C");
+  if (equip.includes("air fryer")) guide.preheat.push("Preheat air fryer to 375°F / 190°C for 3 min");
+
+  ings.forEach(ing=>{
+    const n=(ing.name||"").toLowerCase();
+    if (/\brice\b/.test(n)) guide.startFirst.push(`Start rice cooker — rinse ${ing.amount} ${ing.unit} ${ing.name} first (takes ~20 min)`);
+    if (/quinoa/.test(n)) guide.startFirst.push(`Start quinoa first — simmer ${ing.amount} ${ing.unit} (takes ~15 min)`);
+    if (/pasta|spaghetti|penne|noodle/.test(n)) guide.startFirst.push("Put water on to boil for pasta now — takes time to heat");
+    if (/lentil|chickpea|dried bean/.test(n)) guide.startFirst.push(`Soak or boil ${ing.name} first — takes 20–40 min`);
+  });
+
+  ings.forEach(ing=>{
+    const n=(ing.name||"").toLowerCase();
+    if (/vegetable|broccoli|spinach|lettuce|tomato|pepper|zucchini|cucumber|celery|mushroom|herb|parsley|cilantro|kale|chard|carrot|asparagus|bean sprout/.test(n))
+      guide.wash.push(`Rinse ${ing.name} under cold water`);
+    if (/berr|fruit|apple|grape/.test(n)) guide.wash.push(`Wash ${ing.name}`);
+    if (/chicken|pork|lamb/.test(n)) guide.wash.push(`Pat ${ing.name} dry with paper towels (helps browning)`);
+  });
+
+  steps.forEach(s=>{
+    const t=(s.text||"").toLowerCase();
+    if (/\bchop\b|\bdice\b|\bslice\b|\bmince\b|\bjulienne\b|\bgrate\b|\bshred\b|\bpeel\b/.test(t))
+      guide.prep.push(s.text.length>90 ? s.text.slice(0,90)+"…" : s.text);
+  });
+
+  if ((recipe.nutrition?.protein||0)>25) guide.tips.push("High-protein meal — don't overcook the protein or it'll dry out");
+  if (equip.includes("stove")&&equip.includes("oven")) guide.tips.push("Use oven & stovetop simultaneously to cut total time");
+  if (ings.some(i=>/(garlic|onion)/i.test(i.name))) guide.tips.push("Prep garlic & onion first — they take longest to soften");
+  if (ings.some(i=>/olive oil|butter/i.test(i.name))) guide.tips.push("Heat oil/butter before adding ingredients for better searing");
+
+  return guide;
+}
+
 function CookMode({recipe, onClose}) {
+  const [phase, setPhase] = useState("prep"); // "prep" | "cook"
   const [step, setStep] = useState(0);
-  const steps = recipe.steps || [];
-  const current = steps[step] || {};
+  const [prepGuide, setPrepGuide] = useState(()=>buildStaticPrepGuide(recipe));
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [checked, setChecked] = useState({});
   const [timer, setTimer] = useState(null);
   const [running, setRunning] = useState(false);
   const timerRef = useRef(null);
+  const steps = recipe.steps||[];
+  const current = steps[step]||{};
+  const toggleCheck = key => setChecked(c=>({...c,[key]:!c[key]}));
 
+  // AI-enhance the prep guide
   useEffect(()=>{
-    if(current.timeMin) setTimer(current.timeMin*60);
-    setRunning(false);
-    clearInterval(timerRef.current);
-  },[step]);
+    const enhance = async () => {
+      setLoadingAI(true);
+      try {
+        const ingList = (recipe.ingredients||[]).map(i=>`${i.amount} ${i.unit} ${i.name}`).join(", ");
+        const stepList = (recipe.steps||[]).map((s,i)=>`${i+1}. ${s.text} (${s.timeMin||0}min)`).join("\n");
+        const raw = await anthropicCall({max_tokens:700,
+          system:"You are a professional chef. Given a recipe return a JSON prep guide. Return ONLY valid JSON, no markdown.",
+          messages:[{role:"user",content:`Recipe: ${recipe.title}\nEquipment: ${(recipe.equipment||[]).join(", ")}\nIngredients: ${ingList}\nSteps:\n${stepList}\n\nReturn JSON with keys: preheat (array of strings), startFirst (array), prep (array of cutting/chopping tasks), wash (array), tips (array of chef tips). Keep each item under 80 chars.`}]
+        });
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+          const ai = JSON.parse(m[0]);
+          setPrepGuide(g=>({
+            preheat:[...(ai.preheat||g.preheat)],
+            startFirst:[...(ai.startFirst||g.startFirst)],
+            prep:[...(ai.prep||g.prep)],
+            wash:[...(ai.wash||g.wash)],
+            tips:[...(ai.tips||g.tips)],
+          }));
+        }
+      } catch(e){}
+      setLoadingAI(false);
+    };
+    enhance();
+  }, [recipe.id]);
 
+  // Timer per step
+  useEffect(()=>{ if(current.timeMin) setTimer(current.timeMin*60); setRunning(false); clearInterval(timerRef.current); },[step]);
   useEffect(()=>{
-    if(running && timer>0) {
-      timerRef.current = setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);return 0;}return t-1;}),1000);
-    }
+    if(running&&timer>0){ timerRef.current=setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);try{new Notification("⏰ Step done!",{body:current.text?.slice(0,60)});}catch(e){}return 0;}return t-1;}),1000); }
     return ()=>clearInterval(timerRef.current);
   },[running]);
 
-  // Try screen wake lock
-  useEffect(()=>{
-    let wl;
-    try{ if(navigator.wakeLock) navigator.wakeLock.request("screen").then(w=>wl=w); }catch(e){}
-    return()=>{try{wl?.release();}catch(e){}};
-  },[]);
+  // Wake lock — keep screen on
+  useEffect(()=>{ let wl; try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(w=>wl=w);}catch(e){} return()=>{try{wl?.release();}catch(e){}};  },[]);
 
-  const fmtTime = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const fmtTime = s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  // Ingredients relevant to current step (name mentioned in step text)
+  const stepIngredients = (recipe.ingredients||[]).filter(ing=>
+    (current.text||"").toLowerCase().includes((ing.name||"").toLowerCase().split(" ")[0])
+  );
+
+  const totalAllTasks = [...(prepGuide.preheat||[]),...(prepGuide.startFirst||[]),...(prepGuide.wash||[]),...(prepGuide.prep||[])];
+  const doneCount = totalAllTasks.filter((_,i)=>checked[i]).length;
+
+  // ── PREP PHASE ──────────────────────────────────────────────────────────────
+  if (phase==="prep") {
+    const Section = ({icon,title,color,items,offset=0}) => items.length===0?null:(
+      <div style={{marginBottom:18}}>
+        <div style={{color,fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>{icon} {title}</div>
+        {items.map((t,i)=>{
+          const idx=offset+i; const done=!!checked[idx];
+          return (
+            <div key={i} onClick={()=>toggleCheck(idx)}
+              style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:5,cursor:"pointer",background:done?"var(--nm-input-bg)":"var(--bg-card)",boxShadow:done?"var(--nm-inset)":"var(--nm-raised-sm)",opacity:done?.6:1,transition:"all .15s"}}>
+              <div style={{width:22,height:22,borderRadius:6,border:"2px solid "+(done?color:"var(--border)"),background:done?color+"30":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color,flexShrink:0,marginTop:1}}>{done?"✓":""}</div>
+              <span style={{color:"var(--text)",fontSize:13,lineHeight:1.5,textDecoration:done?"line-through":"none",flex:1}}>{t}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    let offset=0;
+    const ph=prepGuide.preheat||[],sf=prepGuide.startFirst||[],ws=prepGuide.wash||[],pr=prepGuide.prep||[];
+
+    return (
+      <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{padding:"14px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <button onClick={onClose} style={{...GB,padding:"6px 12px",fontSize:13}}>✕</button>
+          <div style={{flex:1}}>
+            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15}}>{recipe.title}</div>
+            <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>🧑‍🍳 Prep Phase · {doneCount}/{totalAllTasks.length} tasks done {loadingAI&&"· AI enhancing…"}</div>
+          </div>
+          {doneCount>0&&<div style={{color:"var(--accent)",fontSize:12,fontWeight:700}}>{Math.round(doneCount/Math.max(totalAllTasks.length,1)*100)}%</div>}
+        </div>
+        {/* Progress */}
+        <div style={{height:3,background:"var(--border)"}}><div style={{height:"100%",width:(totalAllTasks.length?doneCount/totalAllTasks.length*100:0)+"%",background:"var(--accent)",transition:"width .3s"}}/></div>
+
+        <div style={{flex:1,overflowY:"auto",padding:"18px 16px 100px",maxWidth:680,margin:"0 auto",width:"100%"}}>
+          {/* Hero image */}
+          {recipe.image && <div style={{borderRadius:16,overflow:"hidden",marginBottom:18,height:160,boxShadow:"var(--nm-raised)"}}><img src={recipe.image} alt={recipe.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
+
+          {/* Optimization checklist */}
+          <Section icon="🔥" title="Preheat First" color="#e07a40" items={ph} offset={offset} />
+          {offset+=ph.length}
+          <Section icon="⏱" title="Start These First (Long Cook)" color="#ffd580" items={sf} offset={offset}/>
+          {offset+=sf.length}
+          <Section icon="🚿" title="Wash & Clean" color="#5a8fd4" items={ws} offset={offset}/>
+          {offset+=ws.length}
+          <Section icon="🔪" title="Prep & Cut" color="#d4875a" items={pr} offset={offset}/>
+
+          {/* Chef tips */}
+          {(prepGuide.tips||[]).length>0 && (
+            <div style={{background:"rgba(90,173,142,0.08)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"12px 14px",marginBottom:18}}>
+              <div style={{color:"#5aad8e",fontWeight:700,fontSize:12,marginBottom:8}}>👨‍🍳 Chef Tips</div>
+              {(prepGuide.tips||[]).map((t,i)=>(
+                <div key={i} style={{color:"var(--text-sub)",fontSize:13,lineHeight:1.5,marginBottom:4}}>• {t}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Ingredients overview */}
+          <div style={{marginBottom:18}}>
+            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>🥗 All Ingredients ({(recipe.ingredients||[]).length})</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
+              {(recipe.ingredients||[]).map((ing,i)=>(
+                <div key={i} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",borderRadius:10,overflow:"hidden"}}>
+                  {ing.image
+                    ? <img src={ing.image} alt={ing.name} style={{width:"100%",height:70,objectFit:"cover"}}/>
+                    : <div style={{width:"100%",height:70,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,background:"var(--nm-input-bg)"}}>{getItemEmoji(ing.name)}</div>
+                  }
+                  <div style={{padding:"6px 8px"}}>
+                    <div style={{color:"var(--text)",fontSize:11,fontWeight:600,lineHeight:1.3}}>{ing.name}</div>
+                    <div style={{color:"var(--accent)",fontSize:11,fontWeight:700}}>{ing.amount} {ing.unit}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Steps overview */}
+          <div>
+            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📋 {steps.length} Steps · {recipe.totalTime||0} min total</div>
+            {steps.map((s,i)=>(
+              <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
+                <div style={{width:22,height:22,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                <span style={{color:"var(--text-sub)",fontSize:12,flex:1,lineHeight:1.4}}>{s.text.slice(0,70)}{s.text.length>70?"…":""}</span>
+                {s.timeMin&&<span style={{color:"var(--text-muted)",fontSize:11,flexShrink:0}}>{s.timeMin}m</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Start cooking button */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 20px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)"}}>
+          <button onClick={()=>setPhase("cook")} style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:14,color:"#fff",padding:"16px",fontWeight:800,fontSize:17,cursor:"pointer",fontFamily:"inherit"}}>
+            🍳 Start Cooking →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── COOK PHASE ──────────────────────────────────────────────────────────────
   const progress = (step/(steps.length-1||1))*100;
-
   return (
     <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* Header */}
-      <div style={{padding:"16px 20px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-        <button onClick={onClose} style={{...GB,padding:"6px 12px"}}>✕ Exit</button>
+      <div style={{padding:"12px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <button onClick={()=>setPhase("prep")} style={{...GB,padding:"5px 10px",fontSize:12}}>← Prep</button>
         <div style={{flex:1,textAlign:"center"}}>
-          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:16}}>{recipe.title}</div>
+          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15}}>{recipe.title}</div>
         </div>
-        <div style={{color:"var(--text-muted)",fontSize:13}}>{step+1} / {steps.length}</div>
+        <div style={{color:"var(--text-muted)",fontSize:13,fontWeight:700}}>Step {step+1}/{steps.length}</div>
+        <button onClick={onClose} style={{...GB,padding:"5px 10px",fontSize:13}}>✕</button>
       </div>
       {/* Progress bar */}
-      <div style={{height:4,background:"var(--border)"}}>
-        <div style={{height:"100%",width:progress+"%",background:"var(--accent)",transition:"width .3s"}}/>
-      </div>
+      <div style={{height:4,background:"var(--border)"}}><div style={{height:"100%",width:progress+"%",background:"var(--accent)",transition:"width .4s"}}/></div>
+
       {/* Step content */}
-      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 24px",maxWidth:640,margin:"0 auto",width:"100%"}}>
-        {current.image && <img src={current.image} alt="" style={{width:"100%",maxHeight:260,objectFit:"cover",borderRadius:16,marginBottom:28,boxShadow:"var(--nm-raised)"}}/>}
-        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"28px 32px",width:"100%",textAlign:"center",marginBottom:28}}>
-          <div style={{width:44,height:44,borderRadius:"50%",background:"var(--accent)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:20,margin:"0 auto 20px"}}>{step+1}</div>
-          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.6,margin:0,fontFamily:"'Playfair Display',serif"}}>{current.text}</p>
+      <div style={{flex:1,overflowY:"auto",padding:"20px 16px 100px",maxWidth:640,margin:"0 auto",width:"100%"}}>
+        {/* Step image */}
+        {current.image && (
+          <div style={{borderRadius:16,overflow:"hidden",marginBottom:20,boxShadow:"var(--nm-raised)"}}>
+            <img src={current.image} alt="" style={{width:"100%",maxHeight:280,objectFit:"cover",display:"block"}}/>
+          </div>
+        )}
+
+        {/* Step card */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"24px",marginBottom:18,textAlign:"center"}}>
+          <div style={{width:48,height:48,borderRadius:"50%",background:STEP_COLORS[step%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:22,margin:"0 auto 16px"}}>{step+1}</div>
+          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.7,margin:0,fontFamily:"'Playfair Display',serif"}}>{current.text}</p>
         </div>
+
+        {/* Timer */}
         {current.timeMin && (
-          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"20px 28px",textAlign:"center",marginBottom:20}}>
-            <div style={{color:"var(--accent)",fontWeight:800,fontSize:48,fontVariantNumeric:"tabular-nums",marginBottom:12}}>{fmtTime(timer??current.timeMin*60)}</div>
+          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 24px",textAlign:"center",marginBottom:18}}>
+            <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>⏱ Timer</div>
+            <div style={{color:timer===0?"#5aad8e":running?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(timer??current.timeMin*60)}</div>
             <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-              <button onClick={()=>setRunning(r=>!r)} style={{...GB,padding:"10px 24px",fontSize:15,background:"var(--accent)",color:"#fff",fontWeight:700}}>{running?"⏸ Pause":"▶ Start"}</button>
-              <button onClick={()=>{setTimer(current.timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px"}}>↺</button>
+              <button onClick={()=>setRunning(r=>!r)} style={{background:running?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:running?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
+                {timer===0?"✅ Done":running?"⏸ Pause":"▶ Start"}
+              </button>
+              <button onClick={()=>{setTimer(current.timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
             </div>
           </div>
         )}
+
+        {/* Ingredients used in this step */}
+        {stepIngredients.length>0 && (
+          <div style={{marginBottom:18}}>
+            <div style={{color:"var(--text-sub)",fontSize:12,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🥗 Ingredients for this step</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {stepIngredients.map((ing,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:7,background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",borderRadius:10,padding:"6px 10px"}}>
+                  {ing.image
+                    ? <img src={ing.image} alt={ing.name} style={{width:28,height:28,borderRadius:6,objectFit:"cover"}}/>
+                    : <span style={{fontSize:20}}>{getItemEmoji(ing.name)}</span>
+                  }
+                  <div>
+                    <div style={{color:"var(--text)",fontSize:12,fontWeight:600}}>{ing.name}</div>
+                    <div style={{color:"var(--accent)",fontSize:11}}>{ing.amount} {ing.unit}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* All ingredients mini-strip */}
+        <div style={{marginBottom:8}}>
+          <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:6}}>All ingredients</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {(recipe.ingredients||[]).map((ing,i)=>{
+              const used = stepIngredients.some(s=>s.name===ing.name);
+              return (
+                <span key={i} style={{background:used?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",border:used?"1px solid rgba(90,173,142,0.4)":"1px solid transparent",borderRadius:20,padding:"3px 10px",fontSize:11,color:used?"#5aad8e":"var(--text-muted)"}}>
+                  {getItemEmoji(ing.name)} {ing.name}
+                </span>
+              );
+            })}
+          </div>
+        </div>
       </div>
+
       {/* Nav buttons */}
-      <div style={{padding:"16px 24px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",gap:12,flexShrink:0}}>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 18px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",gap:10}}>
         <button onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0}
-          style={{...GB,flex:1,padding:"14px",fontSize:16,opacity:step===0?.4:1}}>← Previous</button>
+          style={{...GB,flex:1,padding:"13px",fontSize:15,opacity:step===0?.35:1}}>← Back</button>
         {step<steps.length-1
-          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>Next Step →</button>
-          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>✅ Done!</button>
+          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>Next →</button>
+          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>✅ Done!</button>
         }
       </div>
+    </div>
+  );
+}
+
+// ─── PHOTO GALLERY ───────────────────────────────────────────────────────────
+function PhotoGallery({recipes, onView}) {
+  const [filter, setFilter] = useState("all");
+  const withPhotos = recipes.filter(r => r.image);
+  const displayed = filter==="all" ? withPhotos : withPhotos.filter(r=>r.category===filter);
+
+  return (
+    <div>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📸 Photo Gallery</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:18}}>{withPhotos.length} recipes with photos</p>
+
+      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:18}}>
+        {["all","breakfast","lunch","dessert","drink"].map(c=>(
+          <button key={c} onClick={()=>setFilter(c)}
+            style={{background:"var(--bg-card)",boxShadow:filter===c?"var(--nm-inset)":"var(--nm-raised-sm)",border:"none",borderRadius:20,padding:"5px 14px",cursor:"pointer",fontSize:12,fontFamily:"inherit",color:filter===c?"var(--accent)":"var(--text-sub)"}}>
+            {(CATEGORIES.find(x=>x.id===c)||{icon:"🌐"}).icon} {c==="all"?"All":c.charAt(0).toUpperCase()+c.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {displayed.length===0 ? (
+        <div style={{textAlign:"center",padding:"60px 0",color:"var(--text-muted)"}}>
+          <div style={{fontSize:48,marginBottom:12}}>📷</div>
+          <div style={{fontSize:14,marginBottom:6}}>No photos yet</div>
+          <div style={{fontSize:12}}>Upload photos to your recipes to see them here</div>
+        </div>
+      ) : (
+        <div style={{columns:"3 200px",gap:12}}>
+          {displayed.map(r=>(
+            <div key={r.id} onClick={()=>onView(r)}
+              style={{breakInside:"avoid",marginBottom:12,borderRadius:14,overflow:"hidden",cursor:"pointer",position:"relative",boxShadow:"var(--nm-raised)",transition:"transform .2s"}}
+              onMouseEnter={e=>e.currentTarget.style.transform="scale(1.02)"}
+              onMouseLeave={e=>e.currentTarget.style.transform=""}>
+              <img src={r.image} alt={r.title} style={{width:"100%",display:"block",objectFit:"cover"}}
+                onError={e=>e.target.closest("div").style.display="none"}/>
+              <div style={{position:"absolute",bottom:0,left:0,right:0,background:"linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 60%)",padding:"20px 10px 8px"}}>
+                <div style={{color:"#fff",fontSize:12,fontWeight:700,lineHeight:1.3}}>{r.title}</div>
+                {r.cuisine && <div style={{color:"rgba(255,255,255,0.6)",fontSize:10,marginTop:2}}>🌍 {r.cuisine}</div>}
+              </div>
+              {(r.spiceLevel||0)>0 && <div style={{position:"absolute",top:6,right:6,fontSize:11,background:"rgba(0,0,0,0.65)",borderRadius:6,padding:"2px 5px"}}>{"🌶".repeat(r.spiceLevel)}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SUPPLEMENT TRACKER ───────────────────────────────────────────────────────
+function SupplementTracker({supplements, setSupplements}) {
+  const [newName, setNewName] = useState("");
+  const [newDose, setNewDose] = useState("");
+  const [newTime, setNewTime] = useState("morning");
+  const today = new Date().toDateString();
+
+  const addSup = () => {
+    if (!newName.trim()) return;
+    setSupplements(p=>[...p,{id:Date.now(),name:newName.trim(),dose:newDose.trim(),time:newTime,log:[]}]);
+    setNewName(""); setNewDose("");
+  };
+
+  const toggleToday = id => {
+    setSupplements(p=>p.map(s=>{
+      if (s.id!==id) return s;
+      const hasToday = (s.log||[]).includes(today);
+      return {...s, log: hasToday ? s.log.filter(d=>d!==today) : [...(s.log||[]),today]};
+    }));
+  };
+
+  const removeSup = id => setSupplements(p=>p.filter(s=>s.id!==id));
+
+  const TIMES = ["morning","afternoon","evening","with meals"];
+  const TIME_COLORS = {morning:"#ffd580",afternoon:"#d4875a",evening:"#9b5aad","with meals":"#5aad8e"};
+  const TIME_ICONS = {morning:"🌅",afternoon:"☀️",evening:"🌙","with meals":"🍽️"};
+
+  const byTime = TIMES.map(t=>({time:t,items:supplements.filter(s=>s.time===t)})).filter(g=>g.items.length>0);
+  const doneToday = supplements.filter(s=>(s.log||[]).includes(today)).length;
+
+  return (
+    <div>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>💊 Supplement Tracker</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:18}}>{doneToday}/{supplements.length} taken today</p>
+
+      {/* Progress bar */}
+      {supplements.length>0 && (
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:12,padding:"12px 16px",marginBottom:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
+            <span style={{color:"var(--text-sub)"}}>Today's progress</span>
+            <span style={{color:"var(--accent)",fontWeight:700}}>{doneToday}/{supplements.length}</span>
+          </div>
+          <div style={{height:8,background:"var(--nm-input-bg)",borderRadius:4,boxShadow:"var(--nm-inset)"}}>
+            <div style={{height:"100%",width:(supplements.length?doneToday/supplements.length*100:0)+"%",background:"var(--accent)",borderRadius:4,transition:"width .4s"}}/>
+          </div>
+        </div>
+      )}
+
+      {/* Add supplement */}
+      <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 16px",marginBottom:20}}>
+        <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase"}}>➕ Add Supplement</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSup()}
+            placeholder="e.g. Vitamin D3" style={{flex:"1 1 140px",background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+          <input value={newDose} onChange={e=>setNewDose(e.target.value)} placeholder="Dose (e.g. 2000 IU)"
+            style={{flex:"1 1 120px",background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+          <select value={newTime} onChange={e=>setNewTime(e.target.value)}
+            style={{flex:"0 0 130px",background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"8px 10px",fontSize:13,outline:"none",fontFamily:"inherit"}}>
+            {TIMES.map(t=><option key={t} value={t}>{TIME_ICONS[t]} {t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+          </select>
+          <button onClick={addSup} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:8,color:"#fff",padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>+ Add</button>
+        </div>
+      </div>
+
+      {supplements.length===0 && (
+        <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
+          <div style={{fontSize:40,marginBottom:10}}>💊</div>
+          <div style={{fontSize:14}}>No supplements added yet</div>
+          <div style={{fontSize:12,marginTop:4}}>Track your vitamins and supplements daily</div>
+        </div>
+      )}
+
+      {byTime.map(({time,items})=>(
+        <div key={time} style={{marginBottom:20}}>
+          <div style={{color:TIME_COLORS[time],fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>
+            {TIME_ICONS[time]} {time.charAt(0).toUpperCase()+time.slice(1)}
+          </div>
+          {items.map(s=>{
+            const done = (s.log||[]).includes(today);
+            return (
+              <div key={s.id} onClick={()=>toggleToday(s.id)}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,marginBottom:6,cursor:"pointer",background:done?"var(--nm-input-bg)":"var(--bg-card)",boxShadow:done?"var(--nm-inset)":"var(--nm-raised-sm)",opacity:done?.75:1,transition:"all .15s"}}>
+                <div style={{width:24,height:24,borderRadius:"50%",border:"2px solid "+(done?TIME_COLORS[time]:"var(--border)"),background:done?TIME_COLORS[time]+"30":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0,color:TIME_COLORS[time]}}>
+                  {done?"✓":""}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{color:"var(--text)",fontSize:13,fontWeight:done?400:600,textDecoration:done?"line-through":"none"}}>{s.name}</div>
+                  {s.dose && <div style={{color:"var(--text-muted)",fontSize:11}}>{s.dose}</div>}
+                </div>
+                <div style={{color:done?TIME_COLORS[time]:"var(--text-muted)",fontSize:11,fontWeight:700}}>{done?"✓ Taken":"Tap to log"}</div>
+                <button onClick={e=>{e.stopPropagation();removeSup(s.id);}} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:14,cursor:"pointer",padding:"0 4px",opacity:.5}} title="Remove">×</button>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+
+      {/* Streak mini view */}
+      {supplements.length>0 && (()=>{
+        const last7 = Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return d.toDateString();}).reverse();
+        return (
+          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 16px",marginTop:8}}>
+            <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase"}}>📅 Last 7 Days</div>
+            <div style={{display:"flex",gap:6,justifyContent:"space-between"}}>
+              {last7.map(d=>{
+                const done = supplements.filter(s=>(s.log||[]).includes(d)).length;
+                const total = supplements.length;
+                const pct = total?done/total:0;
+                const isToday = d===today;
+                return (
+                  <div key={d} style={{flex:1,textAlign:"center"}}>
+                    <div style={{height:40,background:"var(--nm-input-bg)",borderRadius:6,boxShadow:"var(--nm-inset)",position:"relative",overflow:"hidden",marginBottom:4}}>
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,height:pct*100+"%",background:pct===1?"var(--accent)":"var(--accent)80",transition:"height .4s"}}/>
+                    </div>
+                    <div style={{fontSize:9,color:isToday?"var(--accent)":"var(--text-muted)",fontWeight:isToday?700:400}}>{new Date(d).toLocaleDateString("en",{weekday:"short"}).slice(0,2)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ─── STATISTICS PANEL ────────────────────────────────────────────────────────
+function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, cookLog, macroGoals, setMacroGoals, onDeleteSpend}) {
+  const [editingGoals, setEditingGoals] = useState(false);
+  const [goalDraft, setGoalDraft] = useState(macroGoals||{calories:2000,protein:50,carbs:130,fat:65});
+  const totalRecipes = recipes.length;
+  const avgCookTime = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.cookTime||0),0)/totalRecipes) : 0;
+  const avgCalories = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.calories||0),0)/totalRecipes) : 0;
+  const avgProtein = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.protein||0),0)/totalRecipes) : 0;
+  const avgCarbs = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.carbs||0),0)/totalRecipes) : 0;
+  const avgFat = totalRecipes ? Math.round(recipes.reduce((s,r)=>s+(r.nutrition?.fat||0),0)/totalRecipes) : 0;
+
+  const catBreakdown = CATEGORIES.filter(c=>c.id!=="all").map(c=>({...c,count:recipes.filter(r=>r.category===c.id).length}));
+  const maxCat = Math.max(...catBreakdown.map(c=>c.count),1);
+
+  const tagCounts = {};
+  recipes.forEach(r=>(r.tags||[]).forEach(t=>{tagCounts[t]=(tagCounts[t]||0)+1;}));
+  const topTags = Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxTag = Math.max(...topTags.map(([,c])=>c),1);
+
+  const spiceDist = [0,1,2,3,4,5].map(lvl=>({lvl,count:recipes.filter(r=>(r.spiceLevel||0)===lvl).length}));
+
+  const ratedRecipes = Object.entries(ratings).map(([id,rt])=>({
+    recipe:recipes.find(x=>x.id===Number(id)), rt
+  })).filter(x=>x.recipe).sort((a,b)=>(b.rt.taste||0)-(a.rt.taste||0));
+
+  const totalSpend = (shoppingSpends||[]).reduce((s,x)=>s+(x.amount||0),0);
+  const avgSpend = (shoppingSpends||[]).length ? totalSpend/(shoppingSpends||[]).length : 0;
+
+  const cuisineBreakdown = CUISINES.map(c=>({c,count:recipes.filter(r=>r.cuisine===c).length})).filter(x=>x.count>0);
+  const maxCuisine = Math.max(...cuisineBreakdown.map(x=>x.count),1);
+
+  const plannedCalories = mealPlanItems.reduce((s,i)=>s+(i.nutrition?.calories||0),0);
+  const plannedProtein = mealPlanItems.reduce((s,i)=>s+(i.nutrition?.protein||0),0);
+
+  const StatCard = ({icon,value,label,color="#5aad8e",sub}) => (
+    <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"16px 14px",minWidth:0}}>
+      <div style={{fontSize:22,marginBottom:6}}>{icon}</div>
+      <div style={{color,fontWeight:800,fontSize:26,lineHeight:1}}>{value}</div>
+      <div style={{color:"var(--text-muted)",fontSize:11,marginTop:3,textTransform:"uppercase",letterSpacing:.5}}>{label}</div>
+      {sub && <div style={{color:"var(--text-sub)",fontSize:11,marginTop:4}}>{sub}</div>}
+    </div>
+  );
+
+  const Bar = ({pct,color}) => (
+    <div style={{height:8,background:"var(--nm-input-bg)",borderRadius:4,overflow:"hidden",boxShadow:"var(--nm-inset)"}}>
+      <div style={{height:"100%",width:pct+"%",background:color,borderRadius:4,transition:"width .5s"}}/>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📊 Statistics</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:22}}>Your meal prep insights at a glance</p>
+
+      {/* Summary cards */}
+      <div className="r-grid-sm" style={{marginBottom:24}}>
+        {(()=>{
+          let streak=0;const d=new Date();
+          while(true){const ds=d.toDateString();if(!(cookLog||[]).some(l=>new Date(l.date).toDateString()===ds))break;streak++;d.setDate(d.getDate()-1);}
+          return <StatCard icon="🔥" value={streak} label="Cook Streak" color="#ffd580" sub={`${(cookLog||[]).length} total sessions`}/>;
+        })()}
+        <StatCard icon="📖" value={totalRecipes} label="Total Recipes" color="#5a8fd4"/>
+        <StatCard icon="⏱" value={avgCookTime+"m"} label="Avg Cook Time" color="#d4875a"/>
+        <StatCard icon="📅" value={mealPlanItems.length} label="Meals Planned" color="#5aad8e"/>
+        <StatCard icon="💰" value={"$"+totalSpend.toFixed(2)} label="Total Spent" color="#c06090" sub={`${(shoppingSpends||[]).length} trips · avg $${avgSpend.toFixed(2)}`}/>
+        <StatCard icon="♥" value={favorites.length} label="Favorites" color="#e05a6a"/>
+        <StatCard icon="⭐" value={ratedRecipes.length} label="Rated" color="#ffd580"/>
+      </div>
+
+      {/* Macro Goals Editor */}
+      <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editingGoals?14:0}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>🎯 Daily Macro Goals</div>
+          <button onClick={()=>{if(editingGoals){setMacroGoals(goalDraft);}setEditingGoals(e=>!e);}} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:8,color:editingGoals?"var(--accent)":"var(--text-sub)",padding:"4px 10px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
+            {editingGoals?"✓ Save":"✏️ Edit"}
+          </button>
+        </div>
+        {editingGoals ? (
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+            {[["🔥 Cal",goalDraft.calories,"calories","kcal"],["💪 Protein",goalDraft.protein,"protein","g"],["🌾 Carbs",goalDraft.carbs,"carbs","g"],["🥑 Fat",goalDraft.fat,"fat","g"]].map(([l,v,k,u])=>(
+              <div key={k}>
+                <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>{l} ({u})</div>
+                <input type="number" value={v} onChange={e=>setGoalDraft(d=>({...d,[k]:+e.target.value}))}
+                  style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"6px 10px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:10}}>
+            {[["🔥",macroGoals?.calories,"kcal","#e05a6a"],["💪",macroGoals?.protein,"g protein","#5aad8e"],["🌾",macroGoals?.carbs,"g carbs","#5a8fd4"],["🥑",macroGoals?.fat,"g fat","#d4875a"]].map(([ico,v,u,col])=>(
+              <span key={u} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:20,padding:"4px 12px",fontSize:12,color:col,fontWeight:700}}>{ico} {v}{u}</span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
+        {/* Category breakdown */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>📂 Recipes by Category</div>
+          {catBreakdown.map(c=>(
+            <div key={c.id} style={{marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{c.icon} {c.label}</span>
+                <span style={{color:"var(--accent)",fontWeight:700}}>{c.count}</span>
+              </div>
+              <Bar pct={maxCat?c.count/maxCat*100:0} color="var(--accent)"/>
+            </div>
+          ))}
+        </div>
+
+        {/* Nutrition averages */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🥗 Avg Nutrition / Recipe</div>
+          {[["🔥 Calories",avgCalories,"kcal","#e05a6a",2000],["💪 Protein",avgProtein,"g","#5aad8e",50],["🌾 Carbs",avgCarbs,"g","#5a8fd4",130],["🥑 Fat",avgFat,"g","#d4875a",65]].map(([l,v,u,col,max])=>(
+            <div key={l} style={{marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{l}</span>
+                <span style={{color:col,fontWeight:700}}>{v}{u}</span>
+              </div>
+              <Bar pct={Math.min(v/max*100,100)} color={col}/>
+            </div>
+          ))}
+          {mealPlanItems.length>0 && (
+            <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+              <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:6}}>📅 Planned meals total</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[["🔥",plannedCalories,"kcal"],["💪",plannedProtein,"g protein"]].map(([ico,v,u])=>(
+                  <span key={u} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:20,padding:"3px 10px",fontSize:11,color:"var(--text-sub)"}}>{ico} {v}{u}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
+        {/* Top tags */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🏷️ Most Used Tags</div>
+          {topTags.length===0 && <div style={{color:"var(--text-muted)",fontSize:12}}>No tags yet</div>}
+          {topTags.map(([tag,count])=>(
+            <div key={tag} style={{marginBottom:9}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
+                <span style={{color:ALL_TAG_COLORS[tag]||"var(--text-sub)"}}>{tag}</span>
+                <span style={{color:"var(--text-muted)"}}>{count} recipes</span>
+              </div>
+              <Bar pct={count/maxTag*100} color={ALL_TAG_COLORS[tag]||"var(--accent)"}/>
+            </div>
+          ))}
+        </div>
+
+        {/* Spice distribution */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🌶️ Spice Distribution</div>
+          {spiceDist.map(({lvl,count})=>(
+            <div key={lvl} style={{marginBottom:9}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
+                <span style={{color:"var(--text-sub)"}}>{lvl===0?"⚪ No Spice":"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}</span>
+                <span style={{color:"var(--text-muted)"}}>{count}</span>
+              </div>
+              <Bar pct={totalRecipes?count/totalRecipes*100:0} color={lvl===0?"var(--text-muted)":"hsl("+(30-lvl*8)+",80%,"+(60-lvl*5)+"%)"}/>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cuisine breakdown */}
+      {cuisineBreakdown.length>0 && (
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🌍 Recipes by Cuisine</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+            {cuisineBreakdown.map(({c,count})=>(
+              <div key={c} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:10,padding:"10px 12px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:12}}>
+                  <span style={{color:CUISINE_COLORS[c]||"var(--text-sub)",fontWeight:700}}>🌍 {c}</span>
+                  <span style={{color:"var(--text-muted)"}}>{count}</span>
+                </div>
+                <div style={{height:5,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:count/maxCuisine*100+"%",background:CUISINE_COLORS[c]||"var(--accent)",borderRadius:3}}/>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cooking log */}
+      {(cookLog||[]).length>0 && (
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🍳 Recent Cooking Sessions</div>
+          {(cookLog||[]).slice().reverse().slice(0,8).map(l=>(
+            <div key={l.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
+              <span style={{fontSize:18}}>🍳</span>
+              <span style={{flex:1,color:"var(--text)"}}>{l.recipeName}</span>
+              <span style={{color:"var(--text-muted)"}}>{new Date(l.date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Top rated */}
+      {ratedRecipes.length>0 && (
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>⭐ Top Rated Recipes</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+            {ratedRecipes.slice(0,6).map(({recipe,rt})=>(
+              <div key={recipe.id} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"10px 12px"}}>
+                <div style={{color:"var(--text)",fontSize:13,fontWeight:600,marginBottom:4}}>{recipe.title}</div>
+                <div style={{display:"flex",gap:8,fontSize:11,flexWrap:"wrap"}}>
+                  {rt.taste && <span style={{color:"#ffd580"}}>⭐ {rt.taste}/5 taste</span>}
+                  {rt.difficulty && <span style={{color:"#5a8fd4"}}>💪 {rt.difficulty}/5 ease</span>}
+                  {rt.spice && <span style={{color:"#e05050"}}>🌶 {rt.spice}/5</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Spending history */}
+      {(shoppingSpends||[]).length>0 && (
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Shopping Spend History</div>
+            <span style={{color:"var(--accent)",fontWeight:700,fontSize:14}}>${totalSpend.toFixed(2)} total</span>
+          </div>
+          {(shoppingSpends||[]).slice().reverse().map(s=>(
+            <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
+              <span style={{fontSize:18}}>🛒</span>
+              <div style={{flex:1}}>
+                <div style={{color:"var(--text)",fontSize:13}}>{s.note}</div>
+                <div style={{color:"var(--text-muted)",fontSize:11}}>{new Date(s.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
+              </div>
+              <span style={{color:"var(--accent)",fontWeight:700,fontSize:15}}>${s.amount.toFixed(2)}</span>
+              <button onClick={()=>onDeleteSpend?.(s.id)} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:14,cursor:"pointer",padding:"0 4px"}} title="Delete">×</button>
+            </div>
+          ))}
+          <div style={{marginTop:12,display:"flex",gap:16,fontSize:12,color:"var(--text-sub)"}}>
+            <span>📈 Avg per trip: <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong></span>
+            <span>🧾 {(shoppingSpends||[]).length} trips logged</span>
+          </div>
+        </div>
+      )}
+
+      {totalRecipes===0 && (
+        <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
+          <div style={{fontSize:40,marginBottom:10}}>📊</div>
+          <div style={{fontSize:14}}>Add recipes to see your stats</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1852,6 +2598,7 @@ export default function App() {
   const [tagF, setTagF] = useState(null);
   const [healthF, setHealthF] = useState(null);
   const [goalF, setGoalF] = useState(null);
+  const [cuisineF, setCuisineF] = useState(null);
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -1861,6 +2608,10 @@ export default function App() {
   const [mealPlanItems, setMealPlanItems] = useState([]);
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
+  const [shoppingSpends, setShoppingSpends] = useState([]);
+  const [macroGoals, setMacroGoals] = useState({calories:2000,protein:50,carbs:130,fat:65});
+  const [cookLog, setCookLog] = useState([]);
+  const [supplements, setSupplements] = useState([]);
   const [pexelsKey, setPexelsKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1882,28 +2633,75 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [syncing, setSyncing] = useState(false);
   const saveTimerRef = useRef(null);
+  const supabaseRef = useRef(null);
+  const getSupabase = () => {
+    if (!supabaseRef.current) {
+      try {
+        supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_KEY);
+      } catch(e) { console.warn('Supabase init failed', e); }
+    }
+    return supabaseRef.current;
+  };
 
   // Supabase helpers
-  const loadFromSupabase = async (user) => {
+  const loadFromSupabase = async (user, forceReplace = false) => {
     if (!user) return;
     setSyncing(true);
     try {
-      const { data } = await supabase.from('user_data').select('data').eq('user_id', user.id).single();
+      const { data } = await getSupabase()?.from('user_data').select('data').eq('user_id', user.id).single();
       if (data?.data) {
         const d = JSON.parse(data.data);
-        if (d.recipes) setRecipes(d.recipes);
-        if (d.favorites) setFavorites(d.favorites);
-        if (d.mealPlanItems) setMealPlanItems(d.mealPlanItems);
-        if (d.ratings) setRatings(d.ratings);
+        if (d.recipes) setRecipes(local => {
+          if (forceReplace) {
+            // Cloud takes priority — but keep local images if cloud has none
+            return d.recipes.map(r => {
+              const localR = local.find(x => x.id === r.id);
+              return {
+                ...r,
+                image: r.image || localR?.image || null,
+                ingredientsImage: r.ingredientsImage || localR?.ingredientsImage || null,
+                steps: (r.steps||[]).map((s,i) => ({...s, image: s.image || localR?.steps?.[i]?.image || null})),
+                ingredients: (r.ingredients||[]).map((ing,i) => ({...ing, image: ing.image || localR?.ingredients?.[i]?.image || null})),
+              };
+            }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
+          }
+          // On auto-login merge: cloud takes priority for existing recipes too
+          return d.recipes.map(r => {
+            const localR = local.find(x => x.id === r.id);
+            return localR ? {...localR, ...r, image: r.image || localR.image, ingredientsImage: r.ingredientsImage || localR.ingredientsImage} : r;
+          }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
+        });
+        if (d.favorites) setFavorites(local => {
+          const merged = [...local];
+          for (const f of d.favorites) {
+            if (!merged.some(x => x.id === f.id)) merged.push(f);
+          }
+          return merged;
+        });
+        if (d.mealPlanItems) setMealPlanItems(local => {
+          const merged = [...local];
+          for (const m of d.mealPlanItems) {
+            if (!merged.some(x => x.id === m.id)) merged.push(m);
+          }
+          return merged;
+        });
+        if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
+        if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); localStorage.setItem('anthropic_key', d.anthropicKey); }
+        if (d.pexelsKey) { setPexelsKey(d.pexelsKey); localStorage.setItem('pexels_key', d.pexelsKey); }
+        if (d.shoppingSpends) setShoppingSpends(d.shoppingSpends);
+        if (d.cookLog) setCookLog(d.cookLog);
+        if (d.supplements) setSupplements(d.supplements);
+        if (d.macroGoals) setMacroGoals(d.macroGoals);
+        return d;
       }
-    } catch(e) {}
+    } catch(e) { console.error('loadFromSupabase error', e); }
     setSyncing(false);
   };
 
   const sendOTP = async () => {
     if (!authEmail.trim()) return;
     setAuthStep('sending'); setAuthError('');
-    const { error } = await supabase.auth.signInWithOtp({ email: authEmail.trim() });
+    const { error } = await getSupabase()?.auth.signInWithOtp({ email: authEmail.trim() });
     if (error) { setAuthError(error.message); setAuthStep('idle'); }
     else setAuthStep('sent');
   };
@@ -1911,13 +2709,13 @@ export default function App() {
   const verifyOTP = async () => {
     if (!authOTP.trim()) return;
     setAuthStep('verifying'); setAuthError('');
-    const { data, error } = await supabase.auth.verifyOtp({ email: authEmail, token: authOTP.trim(), type: 'email' });
+    const { data, error } = await getSupabase()?.auth.verifyOtp({ email: authEmail, token: authOTP.trim(), type: 'email' });
     if (error) { setAuthError(error.message); setAuthStep('sent'); }
     else { setSupaUser(data.user); setAuthStep('done'); await loadFromSupabase(data.user); }
   };
 
   const supaSignOut = async () => {
-    await supabase.auth.signOut();
+    await getSupabase()?.auth.signOut();
     setSupaUser(null); setAuthStep('idle'); setAuthEmail(''); setAuthOTP(''); setAuthError('');
   };
 
@@ -1946,6 +2744,14 @@ export default function App() {
       if (plan) setMealPlanItems(JSON.parse(plan));
       const rats = localStorage.getItem('mpm_ratings');
       if (rats) setRatings(JSON.parse(rats));
+      const spends = localStorage.getItem('mpm_spends');
+      if (spends) setShoppingSpends(JSON.parse(spends));
+      const goals = localStorage.getItem('mpm_macro_goals');
+      if (goals) setMacroGoals(JSON.parse(goals));
+      const cl = localStorage.getItem('mpm_cook_log');
+      if (cl) setCookLog(JSON.parse(cl));
+      const sups = localStorage.getItem('mpm_supplements');
+      if (sups) setSupplements(JSON.parse(sups));
     } catch(e) {}
     setAnthropicKey(localStorage.getItem('anthropic_key') || '');
     setPexelsKey(localStorage.getItem('pexels_key') || '');
@@ -1955,19 +2761,23 @@ export default function App() {
     check();
     window.addEventListener('resize', check);
     // Check for existing Supabase session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setSupaUser(session.user);
-        setAuthStep('done');
-        loadFromSupabase(session.user);
-      }
-    });
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) { setSupaUser(session.user); setAuthStep('done'); }
-      else { setSupaUser(null); setAuthStep('idle'); }
-    });
-    return () => { window.removeEventListener('resize', check); subscription.unsubscribe(); };
+    const sb = getSupabase();
+    if (sb) {
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setSupaUser(session.user);
+          setAuthStep('done');
+          loadFromSupabase(session.user);
+        }
+      }).catch(()=>{});
+      const authSub = sb.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) { setSupaUser(session.user); setAuthStep('done'); }
+        else { setSupaUser(null); setAuthStep('idle'); }
+      });
+      const subscription = authSub?.data?.subscription;
+      return () => { window.removeEventListener('resize', check); subscription?.unsubscribe(); };
+    }
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   // Persist data whenever it changes (skip before hydration to avoid overwriting with defaults)
@@ -1975,6 +2785,59 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_favorites', JSON.stringify(favorites)); }, [favorites, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_spends', JSON.stringify(shoppingSpends)); }, [shoppingSpends, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_macro_goals', JSON.stringify(macroGoals)); }, [macroGoals, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_cook_log', JSON.stringify(cookLog)); }, [cookLog, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_supplements', JSON.stringify(supplements)); }, [supplements, hydrated]);
+
+  // Canvas compress fallback (for when storage upload is unavailable)
+  const compressImageCanvas = (base64) => new Promise(resolve => {
+    if (!base64?.startsWith('data:')) { resolve(base64); return; }
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      const scale = img.width > MAX ? MAX / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => resolve(null);
+    img.src = base64;
+  });
+
+  // Upload a base64 image to Supabase Storage, returns public URL.
+  // Falls back to canvas compression if storage is unavailable.
+  const uploadImageToStorage = async (base64, storagePath) => {
+    if (!base64?.startsWith('data:')) return base64; // already a URL or null/undefined
+    const sb = getSupabase();
+    if (!sb || !supaUser) return compressImageCanvas(base64);
+    try {
+      const res = await fetch(base64);
+      const blob = await res.blob();
+      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+      const path = `${supaUser.id}/${storagePath}.${ext}`;
+      const { error } = await sb.storage.from('recipe-images').upload(path, blob, { upsert: true, contentType: blob.type });
+      if (error) throw error;
+      const { data } = sb.storage.from('recipe-images').getPublicUrl(path);
+      return data.publicUrl;
+    } catch(e) {
+      console.warn('Storage upload failed, using compression fallback:', e.message);
+      return compressImageCanvas(base64);
+    }
+  };
+
+  // Prepare recipes for sync — upload base64 images to Storage (returns public URLs)
+  const prepareRecipesForSync = async (recipeList) => {
+    return Promise.all(recipeList.map(async r => ({
+      ...r,
+      image: await uploadImageToStorage(r.image, `${r.id}/cover`),
+      ingredientsImage: await uploadImageToStorage(r.ingredientsImage, `${r.id}/ingredients`),
+      steps: await Promise.all((r.steps||[]).map(async (s,i) => ({...s, image: await uploadImageToStorage(s.image, `${r.id}/step-${i}`)}))),
+      ingredients: await Promise.all((r.ingredients||[]).map(async (ing,i) => ({...ing, image: await uploadImageToStorage(ing.image, `${r.id}/ingredient-${i}`)}))),
+    })));
+  };
 
   // Auto-save to Supabase whenever data changes (debounced 2s)
   useEffect(() => {
@@ -1983,16 +2846,17 @@ export default function App() {
     saveTimerRef.current = setTimeout(async () => {
       setSyncing(true);
       try {
-        await supabase.from('user_data').upsert({
+        const syncedRecipes = await prepareRecipesForSync(recipes);
+        await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes, favorites, mealPlanItems, ratings }),
+          data: JSON.stringify({ recipes: syncedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends }),
           updated_at: new Date().toISOString()
         });
       } catch(e) {}
       setSyncing(false);
     }, 2000);
     return () => clearTimeout(saveTimerRef.current);
-  }, [recipes, favorites, mealPlanItems, ratings, hydrated, supaUser]);
+  }, [recipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, cookLog, supplements, macroGoals, hydrated, supaUser]);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
@@ -2004,6 +2868,7 @@ export default function App() {
     if (tagF && !(r.tags||[]).includes(tagF)) return false;
     if (healthF && !(r.tags||[]).includes(healthF)) return false;
     if (goalF && !(r.goal||[]).includes(goalF)) return false;
+    if (cuisineF && r.cuisine!==cuisineF) return false;
     if (search && !(r.title||"").toLowerCase().includes(search.toLowerCase()) &&
         !(r.ingredients||[]).some(i=>(i.name||"").toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
@@ -2018,6 +2883,9 @@ export default function App() {
     {id:"optimizer",label:"Optimizer",icon:"⚡"},
     {id:"ingredient-search",label:"Ingredients",icon:"🔍"},
     {id:"favorites",label:"Favorites",icon:"♥"},
+    {id:"gallery",label:"Gallery",icon:"📸"},
+    {id:"supplements",label:"Supplements",icon:"💊"},
+    {id:"statistics",label:"Statistics",icon:"📊"},
   ];
 
   const toggleFav = r => setFavorites(p=>p.some(f=>f.id===r.id)?p.filter(f=>f.id!==r.id):[...p,{id:r.id}]);
@@ -2218,7 +3086,31 @@ export default function App() {
                     </div>
                     <button onClick={supaSignOut} style={{...GB,fontSize:11,padding:"4px 8px",color:"#f08080"}}>Sign out</button>
                   </div>
-                  <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:10}}>All changes save automatically across all your devices.</div>
+                  <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:8}}>All changes save automatically across all your devices.</div>
+                  <button onClick={async()=>{
+                    setSyncing(true);
+                    try {
+                      const syncedRecipes = await prepareRecipesForSync(recipes);
+                      const withImgs = syncedRecipes.filter(r=>r.image).length;
+                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:syncedRecipes,favorites,mealPlanItems,ratings,anthropicKey,pexelsKey,shoppingSpends,cookLog,supplements,macroGoals}),updated_at:new Date().toISOString()});
+                      alert(`✅ Synced! ${withImgs}/${syncedRecipes.length} recipes have images.`);
+                    } catch(e){ alert('❌ Sync failed: '+e.message); }
+                    setSyncing(false);
+                  }} style={{...GB,width:"100%",fontSize:12,marginBottom:4,background:"var(--accent)",color:"#fff",fontWeight:700}}>
+                    ☁️ Sync Now ({recipes.length} recipes)
+                  </button>
+                  <button onClick={async()=>{
+                    setSyncing(true);
+                    try {
+                      const d = await loadFromSupabase(supaUser, true);
+                      const total = d?.recipes?.length || 0;
+                      const withImg = (d?.recipes||[]).filter(r=>r.image).length;
+                      alert(`✅ Loaded ${total} recipes from cloud.\n${withImg} have images.\nFirst image: ${(d?.recipes||[]).find(r=>r.image)?.image?.slice(0,60) || 'none'}`);
+                    } catch(e){ alert('❌ Failed: '+e.message); }
+                    setSyncing(false);
+                  }} style={{...GB,width:"100%",fontSize:12,marginBottom:8}}>
+                    🔄 Get Latest from Cloud
+                  </button>
                 </div>
               ) : (
                 <div>
@@ -2236,12 +3128,12 @@ export default function App() {
                     </div>
                   ) : (
                     <div>
-                      <div style={{color:"var(--text-sub)",fontSize:11,marginBottom:8}}>Check your email for a 6-digit code:</div>
+                      <div style={{color:"var(--text-sub)",fontSize:11,marginBottom:6}}>Enter the 6-digit code sent to <strong>{authEmail}</strong>:</div>
                       <div style={{display:"flex",gap:8,marginBottom:8}}>
                         <input value={authOTP} onChange={e=>setAuthOTP(e.target.value)}
                           onKeyDown={e=>e.key==='Enter'&&verifyOTP()}
                           placeholder="123456" maxLength={6}
-                          style={{...IS,flex:1,fontSize:16,height:34,padding:"0 10px",letterSpacing:4,textAlign:"center"}}/>
+                          style={{...IS,flex:1,fontSize:18,height:38,padding:"0 10px",letterSpacing:6,textAlign:"center"}}/>
                         <button onClick={verifyOTP} disabled={authStep==='verifying'||!authOTP.trim()}
                           style={{...GB,fontSize:12,padding:"6px 12px",background:"var(--accent)",color:"#fff",fontWeight:700,opacity:authStep==='verifying'?0.6:1}}>
                           {authStep==='verifying'?'…':'Verify'}
@@ -2300,6 +3192,53 @@ export default function App() {
                   </div>
                 );
               })()}
+              {/* Macro Goal Tracker */}
+              {mealPlanItems.length>0 && (()=>{
+                const planned = {calories:mealPlanItems.reduce((s,i)=>s+(i.nutrition?.calories||0),0),protein:mealPlanItems.reduce((s,i)=>s+(i.nutrition?.protein||0),0),carbs:mealPlanItems.reduce((s,i)=>s+(i.nutrition?.carbs||0),0),fat:mealPlanItems.reduce((s,i)=>s+(i.nutrition?.fat||0),0)};
+                return (
+                  <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"16px 18px",marginBottom:24}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                      <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,margin:0}}>🎯 Daily Macro Goals vs Plan</h3>
+                      <button onClick={()=>setSec("statistics")} style={{...GB,fontSize:11,padding:"3px 8px",color:"var(--accent)"}}>Edit Goals</button>
+                    </div>
+                    {[["🔥 Calories",planned.calories,macroGoals.calories,"#e05a6a"],["💪 Protein",planned.protein,macroGoals.protein,"#5aad8e"],["🌾 Carbs",planned.carbs,macroGoals.carbs,"#5a8fd4"],["🥑 Fat",planned.fat,macroGoals.fat,"#d4875a"]].map(([l,v,g,col])=>{
+                      const pct=Math.min(v/Math.max(g,1)*100,120);const over=pct>100;
+                      return (
+                        <div key={l} style={{marginBottom:10}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                            <span style={{color:"var(--text-sub)"}}>{l}</span>
+                            <span style={{color:over?"#e07a40":col,fontWeight:700}}>{Math.round(v)} / {g}{l.includes("Cal")?"kcal":"g"} {over?"⚠ over":""}</span>
+                          </div>
+                          <div style={{height:7,background:"var(--nm-input-bg)",borderRadius:4,overflow:"hidden",boxShadow:"var(--nm-inset)"}}>
+                            <div style={{height:"100%",width:Math.min(pct,100)+"%",background:over?"#e07a40":col,borderRadius:4,transition:"width .5s"}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Cooking Streak */}
+              {(()=>{
+                const today = new Date().toDateString();
+                const todayCooked = cookLog.some(l=>new Date(l.date).toDateString()===today);
+                let streak=0;
+                const d=new Date();
+                while(true){const ds=d.toDateString();if(!cookLog.some(l=>new Date(l.date).toDateString()===ds))break;streak++;d.setDate(d.getDate()-1);}
+                if(streak===0&&!todayCooked) return null;
+                return (
+                  <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:14,borderLeft:"3px solid #ffd580"}}>
+                    <span style={{fontSize:28}}>🔥</span>
+                    <div>
+                      <div style={{color:"#ffd580",fontWeight:800,fontSize:20}}>{streak} day{streak!==1?"s":""} streak!</div>
+                      <div style={{color:"var(--text-sub)",fontSize:12}}>{todayCooked?"You cooked today":"Cook something today to keep the streak!"}</div>
+                    </div>
+                    <div style={{marginLeft:"auto",color:"var(--text-muted)",fontSize:12}}>{cookLog.length} total sessions</div>
+                  </div>
+                );
+              })()}
+
               <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,marginBottom:14}}>Recent Recipes</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18,marginBottom:28}}>
                 {recipes.slice(-4).reverse().map(r=>(
@@ -2360,11 +3299,21 @@ export default function App() {
               </div>
 
               {/* Health tag filter */}
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:18}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
                 {HEALTH_TAGS.map(t=>(
                   <button key={t} onClick={()=>setHealthF(healthF===t?null:t)}
                     style={{...CB,boxShadow:healthF===t?"var(--nm-inset)":"var(--nm-raised-sm)",color:healthF===t?(HEALTH_COLORS[t]||"var(--accent)"):"var(--text-sub)"}}>
                     {t}
+                  </button>
+                ))}
+              </div>
+
+              {/* Cuisine filter */}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:18}}>
+                {recipes.some(r=>r.cuisine) && CUISINES.filter(c=>recipes.some(r=>r.cuisine===c)).map(c=>(
+                  <button key={c} onClick={()=>setCuisineF(cuisineF===c?null:c)}
+                    style={{...CB,boxShadow:cuisineF===c?"var(--nm-inset)":"var(--nm-raised-sm)",color:cuisineF===c?(CUISINE_COLORS[c]||"var(--accent)"):"var(--text-sub)",fontSize:11}}>
+                    🌍 {c}
                   </button>
                 ))}
               </div>
@@ -2382,7 +3331,13 @@ export default function App() {
 
           {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")}/>}
 
-          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes}/>}
+          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])}/>}
+
+          {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing}/>}
+
+          {sec==="supplements" && <SupplementTracker supplements={supplements} setSupplements={setSupplements}/>}
+
+          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} cookLog={cookLog} macroGoals={macroGoals} setMacroGoals={setMacroGoals} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))}/>}
 
           {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])}/>}
 
@@ -2412,7 +3367,8 @@ export default function App() {
           recipe={viewing} onClose={()=>setViewing(null)}
           onFavorite={toggleFav} isFavorite={isFav(viewing)}
           onRate={r=>setRatingTarget(r)} ratings={ratings}
-          onEdit={()=>setEditTarget(viewing)}/>
+          onEdit={()=>setEditTarget(viewing)}
+          onMarkCooked={r=>setCookLog(p=>[...p,{id:Date.now(),recipeId:r.id,recipeName:r.title,date:new Date().toISOString()}])}/>
       )}
       {addOpen && <SmartAddModal onClose={()=>setAddOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
