@@ -1803,20 +1803,32 @@ export default function App() {
   };
 
   // Supabase helpers
-  const loadFromSupabase = async (user) => {
+  const loadFromSupabase = async (user, forceReplace = false) => {
     if (!user) return;
     setSyncing(true);
     try {
       const { data } = await getSupabase()?.from('user_data').select('data').eq('user_id', user.id).single();
       if (data?.data) {
         const d = JSON.parse(data.data);
-        // Merge recipes: keep all unique by id, local takes priority if same id
         if (d.recipes) setRecipes(local => {
-          const merged = [...local];
-          for (const r of d.recipes) {
-            if (!merged.some(x => x.id === r.id)) merged.push(r);
+          if (forceReplace) {
+            // Cloud takes priority — but keep local images if cloud has none
+            return d.recipes.map(r => {
+              const localR = local.find(x => x.id === r.id);
+              return {
+                ...r,
+                image: r.image || localR?.image || null,
+                ingredientsImage: r.ingredientsImage || localR?.ingredientsImage || null,
+                steps: (r.steps||[]).map((s,i) => ({...s, image: s.image || localR?.steps?.[i]?.image || null})),
+                ingredients: (r.ingredients||[]).map((ing,i) => ({...ing, image: ing.image || localR?.ingredients?.[i]?.image || null})),
+              };
+            }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
           }
-          return merged;
+          // On auto-login merge: cloud takes priority for existing recipes too
+          return d.recipes.map(r => {
+            const localR = local.find(x => x.id === r.id);
+            return localR ? {...localR, ...r, image: r.image || localR.image, ingredientsImage: r.ingredientsImage || localR.ingredientsImage} : r;
+          }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
         });
         if (d.favorites) setFavorites(local => {
           const merged = [...local];
@@ -1833,8 +1845,8 @@ export default function App() {
           return merged;
         });
         if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
-        if (d.anthropicKey && !localStorage.getItem('anthropic_key')) { setAnthropicKey(d.anthropicKey); localStorage.setItem('anthropic_key', d.anthropicKey); }
-        if (d.pexelsKey && !localStorage.getItem('pexels_key')) { setPexelsKey(d.pexelsKey); localStorage.setItem('pexels_key', d.pexelsKey); }
+        if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); localStorage.setItem('anthropic_key', d.anthropicKey); }
+        if (d.pexelsKey) { setPexelsKey(d.pexelsKey); localStorage.setItem('pexels_key', d.pexelsKey); }
       }
     } catch(e) {}
     setSyncing(false);
@@ -2208,7 +2220,7 @@ export default function App() {
                   <button onClick={async()=>{
                     setSyncing(true);
                     try {
-                      await loadFromSupabase(supaUser);
+                      await loadFromSupabase(supaUser, true);
                       alert('✅ Latest data loaded from cloud!');
                     } catch(e){ alert('❌ Failed: '+e.message); }
                     setSyncing(false);
