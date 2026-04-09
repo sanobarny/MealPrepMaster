@@ -1847,8 +1847,9 @@ export default function App() {
         if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
         if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); localStorage.setItem('anthropic_key', d.anthropicKey); }
         if (d.pexelsKey) { setPexelsKey(d.pexelsKey); localStorage.setItem('pexels_key', d.pexelsKey); }
+        return d;
       }
-    } catch(e) {}
+    } catch(e) { console.error('loadFromSupabase error', e); }
     setSyncing(false);
   };
 
@@ -2220,8 +2221,10 @@ export default function App() {
                   <button onClick={async()=>{
                     setSyncing(true);
                     try {
-                      await loadFromSupabase(supaUser, true);
-                      alert('✅ Latest data loaded from cloud!');
+                      const d = await loadFromSupabase(supaUser, true);
+                      const total = d?.recipes?.length || 0;
+                      const withImg = (d?.recipes||[]).filter(r=>r.image).length;
+                      alert(`✅ Loaded ${total} recipes from cloud.\n${withImg} have images.\nFirst image: ${(d?.recipes||[]).find(r=>r.image)?.image?.slice(0,60) || 'none'}`);
                     } catch(e){ alert('❌ Failed: '+e.message); }
                     setSyncing(false);
                   }} style={{...GB,width:"100%",fontSize:12,marginBottom:8}}>
