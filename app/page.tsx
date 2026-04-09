@@ -268,7 +268,8 @@ function exportRecipeToPDF(recipe, scale) {
   const win = window.open("","_blank");
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
   <style>
-    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a}
+    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a;opacity:0;transition:opacity 0.4s}
+    body.ready{opacity:1}
     h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
     .meta{color:#666;font-size:13px;margin-bottom:16px}
     .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
@@ -290,7 +291,10 @@ function exportRecipeToPDF(recipe, scale) {
     .stext{font-size:14px;flex:1;line-height:1.6}.stime{color:#888;font-size:12px;margin-top:4px}
     .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:12px 0}
     .spice{display:inline-block;margin-left:8px;font-size:13px}
-    @media print{button{display:none}.step{break-inside:avoid}}
+    #loader{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#666;font-size:15px;gap:12px;z-index:999}
+    .spinner{width:36px;height:36px;border:4px solid #eee;border-top-color:#333;border-radius:50%;animation:spin 0.8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media print{button{display:none}#loader{display:none}body{opacity:1!important}.step{break-inside:avoid}}
   </style></head><body>
   ${recipe.image ? `<img src="${recipe.image}" class="hero" alt="${recipe.title}" onerror="this.style.display='none'"/>` : ""}
   <h1>${recipe.title}${(recipe.spiceLevel||0)>0?`<span class="spice">${"🌶".repeat(recipe.spiceLevel)}</span>`:""}</h1>
@@ -325,6 +329,22 @@ function exportRecipeToPDF(recipe, scale) {
     </div>`).join("")}
   <div style="margin-top:32px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
   <div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">🖨 Print / Save PDF</button></div>
+  <div id="loader"><div class="spinner"></div>Loading images…</div>
+  <script>
+    (function(){
+      var imgs = Array.from(document.querySelectorAll('img'));
+      function showReady(){ document.getElementById('loader').style.display='none'; document.body.classList.add('ready'); }
+      if(!imgs.length){ showReady(); return; }
+      var count=0;
+      imgs.forEach(function(img){
+        function done(){ if(++count>=imgs.length) showReady(); }
+        if(img.complete && img.naturalWidth>0){ done(); return; }
+        img.addEventListener('load',done);
+        img.addEventListener('error',function(){ img.style.display='none'; done(); });
+        setTimeout(done, 12000);
+      });
+    })();
+  </script>
   </body></html>`);
   win.document.close();
 }
@@ -355,8 +375,16 @@ function exportMealBookToPDF(recipes, title) {
       </div>
     </div>`).join("");
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
-  <style>body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a}@media print{button{display:none}}</style>
+  <style>
+    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a;opacity:0;transition:opacity 0.4s}
+    body.ready{opacity:1}
+    #loader{position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;color:#666;font-size:15px;gap:12px;z-index:999}
+    .spinner{width:36px;height:36px;border:4px solid #eee;border-top-color:#333;border-radius:50%;animation:spin 0.8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media print{button{display:none}#loader{display:none}body{opacity:1!important}}
+  </style>
   </head><body>
+  <div id="loader"><div class="spinner"></div>Loading images…</div>
   <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:32px">
     <div style="font-size:40px;margin-bottom:8px">🥗</div>
     <h1 style="font-family:Georgia,serif;font-size:34px;margin:0 0 6px">${title||"My Meal Book"}</h1>
@@ -364,6 +392,21 @@ function exportMealBookToPDF(recipes, title) {
   </div>
   ${pages}
   <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer">🖨 Print / Save PDF</button></div>
+  <script>
+    (function(){
+      var imgs = Array.from(document.querySelectorAll('img'));
+      function showReady(){ document.getElementById('loader').style.display='none'; document.body.classList.add('ready'); }
+      if(!imgs.length){ showReady(); return; }
+      var count=0;
+      imgs.forEach(function(img){
+        function done(){ if(++count>=imgs.length) showReady(); }
+        if(img.complete && img.naturalWidth>0){ done(); return; }
+        img.addEventListener('load',done);
+        img.addEventListener('error',function(){ img.style.display='none'; done(); });
+        setTimeout(done, 12000);
+      });
+    })();
+  </script>
   </body></html>`);
   win.document.close();
 }
