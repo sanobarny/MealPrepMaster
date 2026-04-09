@@ -1797,75 +1797,296 @@ function RatingModal({recipe, existing, onSave, onClose}) {
 }
 
 // ─── COOK MODE ───────────────────────────────────────────────────────────────
+// Build a static prep guide from recipe data (no AI needed)
+function buildStaticPrepGuide(recipe) {
+  const guide = {preheat:[],startFirst:[],prep:[],wash:[],tips:[]};
+  const equip = recipe.equipment||[];
+  const ings = recipe.ingredients||[];
+  const steps = recipe.steps||[];
+
+  if (equip.includes("oven")) guide.preheat.push("Preheat oven to 400°F / 200°C");
+  if (equip.includes("air fryer")) guide.preheat.push("Preheat air fryer to 375°F / 190°C for 3 min");
+
+  ings.forEach(ing=>{
+    const n=(ing.name||"").toLowerCase();
+    if (/\brice\b/.test(n)) guide.startFirst.push(`Start rice cooker — rinse ${ing.amount} ${ing.unit} ${ing.name} first (takes ~20 min)`);
+    if (/quinoa/.test(n)) guide.startFirst.push(`Start quinoa first — simmer ${ing.amount} ${ing.unit} (takes ~15 min)`);
+    if (/pasta|spaghetti|penne|noodle/.test(n)) guide.startFirst.push("Put water on to boil for pasta now — takes time to heat");
+    if (/lentil|chickpea|dried bean/.test(n)) guide.startFirst.push(`Soak or boil ${ing.name} first — takes 20–40 min`);
+  });
+
+  ings.forEach(ing=>{
+    const n=(ing.name||"").toLowerCase();
+    if (/vegetable|broccoli|spinach|lettuce|tomato|pepper|zucchini|cucumber|celery|mushroom|herb|parsley|cilantro|kale|chard|carrot|asparagus|bean sprout/.test(n))
+      guide.wash.push(`Rinse ${ing.name} under cold water`);
+    if (/berr|fruit|apple|grape/.test(n)) guide.wash.push(`Wash ${ing.name}`);
+    if (/chicken|pork|lamb/.test(n)) guide.wash.push(`Pat ${ing.name} dry with paper towels (helps browning)`);
+  });
+
+  steps.forEach(s=>{
+    const t=(s.text||"").toLowerCase();
+    if (/\bchop\b|\bdice\b|\bslice\b|\bmince\b|\bjulienne\b|\bgrate\b|\bshred\b|\bpeel\b/.test(t))
+      guide.prep.push(s.text.length>90 ? s.text.slice(0,90)+"…" : s.text);
+  });
+
+  if ((recipe.nutrition?.protein||0)>25) guide.tips.push("High-protein meal — don't overcook the protein or it'll dry out");
+  if (equip.includes("stove")&&equip.includes("oven")) guide.tips.push("Use oven & stovetop simultaneously to cut total time");
+  if (ings.some(i=>/(garlic|onion)/i.test(i.name))) guide.tips.push("Prep garlic & onion first — they take longest to soften");
+  if (ings.some(i=>/olive oil|butter/i.test(i.name))) guide.tips.push("Heat oil/butter before adding ingredients for better searing");
+
+  return guide;
+}
+
 function CookMode({recipe, onClose}) {
+  const [phase, setPhase] = useState("prep"); // "prep" | "cook"
   const [step, setStep] = useState(0);
-  const steps = recipe.steps || [];
-  const current = steps[step] || {};
+  const [prepGuide, setPrepGuide] = useState(()=>buildStaticPrepGuide(recipe));
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [checked, setChecked] = useState({});
   const [timer, setTimer] = useState(null);
   const [running, setRunning] = useState(false);
   const timerRef = useRef(null);
+  const steps = recipe.steps||[];
+  const current = steps[step]||{};
+  const toggleCheck = key => setChecked(c=>({...c,[key]:!c[key]}));
 
+  // AI-enhance the prep guide
   useEffect(()=>{
-    if(current.timeMin) setTimer(current.timeMin*60);
-    setRunning(false);
-    clearInterval(timerRef.current);
-  },[step]);
+    const enhance = async () => {
+      setLoadingAI(true);
+      try {
+        const ingList = (recipe.ingredients||[]).map(i=>`${i.amount} ${i.unit} ${i.name}`).join(", ");
+        const stepList = (recipe.steps||[]).map((s,i)=>`${i+1}. ${s.text} (${s.timeMin||0}min)`).join("\n");
+        const raw = await anthropicCall({max_tokens:700,
+          system:"You are a professional chef. Given a recipe return a JSON prep guide. Return ONLY valid JSON, no markdown.",
+          messages:[{role:"user",content:`Recipe: ${recipe.title}\nEquipment: ${(recipe.equipment||[]).join(", ")}\nIngredients: ${ingList}\nSteps:\n${stepList}\n\nReturn JSON with keys: preheat (array of strings), startFirst (array), prep (array of cutting/chopping tasks), wash (array), tips (array of chef tips). Keep each item under 80 chars.`}]
+        });
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+          const ai = JSON.parse(m[0]);
+          setPrepGuide(g=>({
+            preheat:[...(ai.preheat||g.preheat)],
+            startFirst:[...(ai.startFirst||g.startFirst)],
+            prep:[...(ai.prep||g.prep)],
+            wash:[...(ai.wash||g.wash)],
+            tips:[...(ai.tips||g.tips)],
+          }));
+        }
+      } catch(e){}
+      setLoadingAI(false);
+    };
+    enhance();
+  }, [recipe.id]);
 
+  // Timer per step
+  useEffect(()=>{ if(current.timeMin) setTimer(current.timeMin*60); setRunning(false); clearInterval(timerRef.current); },[step]);
   useEffect(()=>{
-    if(running && timer>0) {
-      timerRef.current = setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);return 0;}return t-1;}),1000);
-    }
+    if(running&&timer>0){ timerRef.current=setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);try{new Notification("⏰ Step done!",{body:current.text?.slice(0,60)});}catch(e){}return 0;}return t-1;}),1000); }
     return ()=>clearInterval(timerRef.current);
   },[running]);
 
-  // Try screen wake lock
-  useEffect(()=>{
-    let wl;
-    try{ if(navigator.wakeLock) navigator.wakeLock.request("screen").then(w=>wl=w); }catch(e){}
-    return()=>{try{wl?.release();}catch(e){}};
-  },[]);
+  // Wake lock — keep screen on
+  useEffect(()=>{ let wl; try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(w=>wl=w);}catch(e){} return()=>{try{wl?.release();}catch(e){}};  },[]);
 
-  const fmtTime = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const fmtTime = s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  // Ingredients relevant to current step (name mentioned in step text)
+  const stepIngredients = (recipe.ingredients||[]).filter(ing=>
+    (current.text||"").toLowerCase().includes((ing.name||"").toLowerCase().split(" ")[0])
+  );
+
+  const totalAllTasks = [...(prepGuide.preheat||[]),...(prepGuide.startFirst||[]),...(prepGuide.wash||[]),...(prepGuide.prep||[])];
+  const doneCount = totalAllTasks.filter((_,i)=>checked[i]).length;
+
+  // ── PREP PHASE ──────────────────────────────────────────────────────────────
+  if (phase==="prep") {
+    const Section = ({icon,title,color,items,offset=0}) => items.length===0?null:(
+      <div style={{marginBottom:18}}>
+        <div style={{color,fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>{icon} {title}</div>
+        {items.map((t,i)=>{
+          const idx=offset+i; const done=!!checked[idx];
+          return (
+            <div key={i} onClick={()=>toggleCheck(idx)}
+              style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:5,cursor:"pointer",background:done?"var(--nm-input-bg)":"var(--bg-card)",boxShadow:done?"var(--nm-inset)":"var(--nm-raised-sm)",opacity:done?.6:1,transition:"all .15s"}}>
+              <div style={{width:22,height:22,borderRadius:6,border:"2px solid "+(done?color:"var(--border)"),background:done?color+"30":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color,flexShrink:0,marginTop:1}}>{done?"✓":""}</div>
+              <span style={{color:"var(--text)",fontSize:13,lineHeight:1.5,textDecoration:done?"line-through":"none",flex:1}}>{t}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    let offset=0;
+    const ph=prepGuide.preheat||[],sf=prepGuide.startFirst||[],ws=prepGuide.wash||[],pr=prepGuide.prep||[];
+
+    return (
+      <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{padding:"14px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <button onClick={onClose} style={{...GB,padding:"6px 12px",fontSize:13}}>✕</button>
+          <div style={{flex:1}}>
+            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15}}>{recipe.title}</div>
+            <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>🧑‍🍳 Prep Phase · {doneCount}/{totalAllTasks.length} tasks done {loadingAI&&"· AI enhancing…"}</div>
+          </div>
+          {doneCount>0&&<div style={{color:"var(--accent)",fontSize:12,fontWeight:700}}>{Math.round(doneCount/Math.max(totalAllTasks.length,1)*100)}%</div>}
+        </div>
+        {/* Progress */}
+        <div style={{height:3,background:"var(--border)"}}><div style={{height:"100%",width:(totalAllTasks.length?doneCount/totalAllTasks.length*100:0)+"%",background:"var(--accent)",transition:"width .3s"}}/></div>
+
+        <div style={{flex:1,overflowY:"auto",padding:"18px 16px 100px",maxWidth:680,margin:"0 auto",width:"100%"}}>
+          {/* Hero image */}
+          {recipe.image && <div style={{borderRadius:16,overflow:"hidden",marginBottom:18,height:160,boxShadow:"var(--nm-raised)"}}><img src={recipe.image} alt={recipe.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
+
+          {/* Optimization checklist */}
+          <Section icon="🔥" title="Preheat First" color="#e07a40" items={ph} offset={offset} />
+          {offset+=ph.length}
+          <Section icon="⏱" title="Start These First (Long Cook)" color="#ffd580" items={sf} offset={offset}/>
+          {offset+=sf.length}
+          <Section icon="🚿" title="Wash & Clean" color="#5a8fd4" items={ws} offset={offset}/>
+          {offset+=ws.length}
+          <Section icon="🔪" title="Prep & Cut" color="#d4875a" items={pr} offset={offset}/>
+
+          {/* Chef tips */}
+          {(prepGuide.tips||[]).length>0 && (
+            <div style={{background:"rgba(90,173,142,0.08)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"12px 14px",marginBottom:18}}>
+              <div style={{color:"#5aad8e",fontWeight:700,fontSize:12,marginBottom:8}}>👨‍🍳 Chef Tips</div>
+              {(prepGuide.tips||[]).map((t,i)=>(
+                <div key={i} style={{color:"var(--text-sub)",fontSize:13,lineHeight:1.5,marginBottom:4}}>• {t}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Ingredients overview */}
+          <div style={{marginBottom:18}}>
+            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>🥗 All Ingredients ({(recipe.ingredients||[]).length})</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
+              {(recipe.ingredients||[]).map((ing,i)=>(
+                <div key={i} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",borderRadius:10,overflow:"hidden"}}>
+                  {ing.image
+                    ? <img src={ing.image} alt={ing.name} style={{width:"100%",height:70,objectFit:"cover"}}/>
+                    : <div style={{width:"100%",height:70,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,background:"var(--nm-input-bg)"}}>{getItemEmoji(ing.name)}</div>
+                  }
+                  <div style={{padding:"6px 8px"}}>
+                    <div style={{color:"var(--text)",fontSize:11,fontWeight:600,lineHeight:1.3}}>{ing.name}</div>
+                    <div style={{color:"var(--accent)",fontSize:11,fontWeight:700}}>{ing.amount} {ing.unit}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Steps overview */}
+          <div>
+            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📋 {steps.length} Steps · {recipe.totalTime||0} min total</div>
+            {steps.map((s,i)=>(
+              <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
+                <div style={{width:22,height:22,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div>
+                <span style={{color:"var(--text-sub)",fontSize:12,flex:1,lineHeight:1.4}}>{s.text.slice(0,70)}{s.text.length>70?"…":""}</span>
+                {s.timeMin&&<span style={{color:"var(--text-muted)",fontSize:11,flexShrink:0}}>{s.timeMin}m</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Start cooking button */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 20px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)"}}>
+          <button onClick={()=>setPhase("cook")} style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:14,color:"#fff",padding:"16px",fontWeight:800,fontSize:17,cursor:"pointer",fontFamily:"inherit"}}>
+            🍳 Start Cooking →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── COOK PHASE ──────────────────────────────────────────────────────────────
   const progress = (step/(steps.length-1||1))*100;
-
   return (
     <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* Header */}
-      <div style={{padding:"16px 20px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-        <button onClick={onClose} style={{...GB,padding:"6px 12px"}}>✕ Exit</button>
+      <div style={{padding:"12px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <button onClick={()=>setPhase("prep")} style={{...GB,padding:"5px 10px",fontSize:12}}>← Prep</button>
         <div style={{flex:1,textAlign:"center"}}>
-          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:16}}>{recipe.title}</div>
+          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15}}>{recipe.title}</div>
         </div>
-        <div style={{color:"var(--text-muted)",fontSize:13}}>{step+1} / {steps.length}</div>
+        <div style={{color:"var(--text-muted)",fontSize:13,fontWeight:700}}>Step {step+1}/{steps.length}</div>
+        <button onClick={onClose} style={{...GB,padding:"5px 10px",fontSize:13}}>✕</button>
       </div>
       {/* Progress bar */}
-      <div style={{height:4,background:"var(--border)"}}>
-        <div style={{height:"100%",width:progress+"%",background:"var(--accent)",transition:"width .3s"}}/>
-      </div>
+      <div style={{height:4,background:"var(--border)"}}><div style={{height:"100%",width:progress+"%",background:"var(--accent)",transition:"width .4s"}}/></div>
+
       {/* Step content */}
-      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 24px",maxWidth:640,margin:"0 auto",width:"100%"}}>
-        {current.image && <img src={current.image} alt="" style={{width:"100%",maxHeight:260,objectFit:"cover",borderRadius:16,marginBottom:28,boxShadow:"var(--nm-raised)"}}/>}
-        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"28px 32px",width:"100%",textAlign:"center",marginBottom:28}}>
-          <div style={{width:44,height:44,borderRadius:"50%",background:"var(--accent)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:20,margin:"0 auto 20px"}}>{step+1}</div>
-          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.6,margin:0,fontFamily:"'Playfair Display',serif"}}>{current.text}</p>
+      <div style={{flex:1,overflowY:"auto",padding:"20px 16px 100px",maxWidth:640,margin:"0 auto",width:"100%"}}>
+        {/* Step image */}
+        {current.image && (
+          <div style={{borderRadius:16,overflow:"hidden",marginBottom:20,boxShadow:"var(--nm-raised)"}}>
+            <img src={current.image} alt="" style={{width:"100%",maxHeight:280,objectFit:"cover",display:"block"}}/>
+          </div>
+        )}
+
+        {/* Step card */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"24px",marginBottom:18,textAlign:"center"}}>
+          <div style={{width:48,height:48,borderRadius:"50%",background:STEP_COLORS[step%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:22,margin:"0 auto 16px"}}>{step+1}</div>
+          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.7,margin:0,fontFamily:"'Playfair Display',serif"}}>{current.text}</p>
         </div>
+
+        {/* Timer */}
         {current.timeMin && (
-          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"20px 28px",textAlign:"center",marginBottom:20}}>
-            <div style={{color:"var(--accent)",fontWeight:800,fontSize:48,fontVariantNumeric:"tabular-nums",marginBottom:12}}>{fmtTime(timer??current.timeMin*60)}</div>
+          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 24px",textAlign:"center",marginBottom:18}}>
+            <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>⏱ Timer</div>
+            <div style={{color:timer===0?"#5aad8e":running?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(timer??current.timeMin*60)}</div>
             <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-              <button onClick={()=>setRunning(r=>!r)} style={{...GB,padding:"10px 24px",fontSize:15,background:"var(--accent)",color:"#fff",fontWeight:700}}>{running?"⏸ Pause":"▶ Start"}</button>
-              <button onClick={()=>{setTimer(current.timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px"}}>↺</button>
+              <button onClick={()=>setRunning(r=>!r)} style={{background:running?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:running?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
+                {timer===0?"✅ Done":running?"⏸ Pause":"▶ Start"}
+              </button>
+              <button onClick={()=>{setTimer(current.timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
             </div>
           </div>
         )}
+
+        {/* Ingredients used in this step */}
+        {stepIngredients.length>0 && (
+          <div style={{marginBottom:18}}>
+            <div style={{color:"var(--text-sub)",fontSize:12,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🥗 Ingredients for this step</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {stepIngredients.map((ing,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:7,background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",borderRadius:10,padding:"6px 10px"}}>
+                  {ing.image
+                    ? <img src={ing.image} alt={ing.name} style={{width:28,height:28,borderRadius:6,objectFit:"cover"}}/>
+                    : <span style={{fontSize:20}}>{getItemEmoji(ing.name)}</span>
+                  }
+                  <div>
+                    <div style={{color:"var(--text)",fontSize:12,fontWeight:600}}>{ing.name}</div>
+                    <div style={{color:"var(--accent)",fontSize:11}}>{ing.amount} {ing.unit}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* All ingredients mini-strip */}
+        <div style={{marginBottom:8}}>
+          <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:6}}>All ingredients</div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+            {(recipe.ingredients||[]).map((ing,i)=>{
+              const used = stepIngredients.some(s=>s.name===ing.name);
+              return (
+                <span key={i} style={{background:used?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",border:used?"1px solid rgba(90,173,142,0.4)":"1px solid transparent",borderRadius:20,padding:"3px 10px",fontSize:11,color:used?"#5aad8e":"var(--text-muted)"}}>
+                  {getItemEmoji(ing.name)} {ing.name}
+                </span>
+              );
+            })}
+          </div>
+        </div>
       </div>
+
       {/* Nav buttons */}
-      <div style={{padding:"16px 24px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",gap:12,flexShrink:0}}>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 18px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",gap:10}}>
         <button onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0}
-          style={{...GB,flex:1,padding:"14px",fontSize:16,opacity:step===0?.4:1}}>← Previous</button>
+          style={{...GB,flex:1,padding:"13px",fontSize:15,opacity:step===0?.35:1}}>← Back</button>
         {step<steps.length-1
-          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>Next Step →</button>
-          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"14px",fontWeight:700,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>✅ Done!</button>
+          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>Next →</button>
+          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>✅ Done!</button>
         }
       </div>
     </div>
