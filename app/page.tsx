@@ -267,31 +267,64 @@ function exportRecipeToPDF(recipe, scale) {
   const r = s / (recipe.servings||1);
   const win = window.open("","_blank");
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
-  <style>body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a}h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
-  .meta{color:#666;font-size:13px;margin-bottom:16px}.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
-  .tag{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:12px}.health{background:#e8f5e9;color:#2e7d32}
-  .nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#f9f9f9;border-radius:12px;padding:16px;margin:16px 0}
-  .nbox{text-align:center}.nval{font-size:22px;font-weight:700}.nlbl{font-size:11px;color:#888;text-transform:uppercase}
-  .stitle{font-size:18px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:6px;margin:20px 0 10px;font-family:Georgia,serif}
-  .ing{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
-  .amt{font-weight:600;color:#2e7d32}.step{display:flex;gap:14px;margin-bottom:14px}
-  .snum{min-width:28px;height:28px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
-  .stext{font-size:14px;flex:1}.stime{color:#888;font-size:12px;margin-top:2px}
-  .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:12px 0}
-  @media print{button{display:none}}</style></head><body>
-  <h1>${recipe.title}</h1>
-  <div class="meta">${recipe.category} · ${recipe.prepTime||0}min prep · ${recipe.cookTime||0}min cook · ${recipe.totalTime||0}min total · ${s} servings</div>
+  <style>
+    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a}
+    h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
+    .meta{color:#666;font-size:13px;margin-bottom:16px}
+    .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+    .tag{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:12px}
+    .health{background:#e8f5e9;color:#2e7d32}
+    .hero{width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-bottom:20px;display:block}
+    .nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#f9f9f9;border-radius:12px;padding:16px;margin:16px 0}
+    .nbox{text-align:center}.nval{font-size:22px;font-weight:700}.nlbl{font-size:11px;color:#888;text-transform:uppercase}
+    .stitle{font-size:18px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:6px;margin:24px 0 12px;font-family:Georgia,serif}
+    .ing{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+    .ing-img{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0}
+    .ing-emoji{width:42px;height:42px;border-radius:8px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .ing-name{flex:1}.amt{font-weight:600;color:#2e7d32;white-space:nowrap}
+    .ing-overall{width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-bottom:14px;display:block}
+    .step{margin-bottom:20px;border-radius:12px;overflow:hidden;border:1px solid #f0f0f0}
+    .step-img{width:100%;max-height:220px;object-fit:cover;display:block}
+    .step-body{display:flex;gap:14px;padding:14px;background:#fafafa}
+    .snum{min-width:30px;height:30px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
+    .stext{font-size:14px;flex:1;line-height:1.6}.stime{color:#888;font-size:12px;margin-top:4px}
+    .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:12px 0}
+    .spice{display:inline-block;margin-left:8px;font-size:13px}
+    @media print{button{display:none}.step{break-inside:avoid}}
+  </style></head><body>
+  ${recipe.image ? `<img src="${recipe.image}" class="hero" alt="${recipe.title}" onerror="this.style.display='none'"/>` : ""}
+  <h1>${recipe.title}${(recipe.spiceLevel||0)>0?`<span class="spice">${"🌶".repeat(recipe.spiceLevel)}</span>`:""}</h1>
+  <div class="meta">${recipe.category}${recipe.cuisine?" · 🌍 "+recipe.cuisine:""} · ${recipe.prepTime||0}min prep · ${recipe.cookTime||0}min cook · ${recipe.totalTime||0}min total · ${s} servings</div>
   ${recipe.healthBenefits ? `<div class="hbnote">${recipe.healthBenefits}</div>` : ""}
-  <div class="tags">${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">! ${a}</span>`).join("")}</div>
+  <div class="tags">
+    ${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}
+    ${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">⚠ ${a}</span>`).join("")}
+  </div>
   <div class="nutrition">
     ${[["Calories",Math.round(recipe.nutrition.calories*r),""],["Protein",Math.round(recipe.nutrition.protein*r),"g"],["Carbs",Math.round(recipe.nutrition.carbs*r),"g"],["Fat",Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
   </div>
   <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
-  ${(recipe.ingredients||[]).map(i=>`<div class="ing"><span>${i.name}</span><span class="amt">${scaleAmt(i.amount,r)} ${i.unit}</span></div>`).join("")}
+  ${recipe.ingredientsImage ? `<img src="${recipe.ingredientsImage}" class="ing-overall" alt="All ingredients" onerror="this.style.display='none'"/>` : ""}
+  ${(recipe.ingredients||[]).map(i=>`
+    <div class="ing">
+      ${i.image ? `<img src="${i.image}" class="ing-img" alt="${i.name}" onerror="this.style.display='none'"/>` : `<div class="ing-emoji">${getItemEmoji(i.name)}</div>`}
+      <span class="ing-name">${i.name}</span>
+      <span class="amt">${scaleAmt(i.amount,r)} ${i.unit}</span>
+    </div>`).join("")}
   <div class="stitle">Steps</div>
-  ${(recipe.steps||[]).map((s,i)=>`<div class="step"><div class="snum">${i+1}</div><div><div class="stext">${s.text}</div>${s.timeMin?`<div class="stime">${s.timeMin} min</div>`:""}</div></div>`).join("")}
-  <div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
-  <div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">Print / Save PDF</button></div>
+  ${(recipe.steps||[]).map((step,i)=>`
+    <div class="step">
+      ${step.image ? `<img src="${step.image}" class="step-img" alt="Step ${i+1}" onerror="this.style.display='none'"/>` : ""}
+      <div class="step-body">
+        <div class="snum">${i+1}</div>
+        <div>
+          <div class="stext">${step.text}</div>
+          ${step.timeMin ? `<div class="stime">⏱ ${step.timeMin} min</div>` : ""}
+        </div>
+      </div>
+    </div>`).join("")}
+  <div style="margin-top:32px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
+  <div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">🖨 Print / Save PDF</button></div>
   </body></html>`);
   win.document.close();
 }
@@ -300,12 +333,25 @@ function exportMealBookToPDF(recipes, title) {
   const win = window.open("","_blank");
   const pages = recipes.map((r,idx)=>`
     <div style="page-break-before:${idx>0?"always":"auto"};padding:24px">
-      <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">${r.title}</h2>
-      <div style="color:#666;font-size:12px;margin-bottom:10px">${r.category} · ${r.totalTime||0}min · ${r.servings} servings</div>
+      ${r.image ? `<img src="${r.image}" style="width:100%;height:220px;object-fit:cover;border-radius:12px;margin-bottom:16px;display:block" alt="${r.title}" onerror="this.style.display='none'"/>` : ""}
+      <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶".repeat(r.spiceLevel)}`:""}</h2>
+      <div style="color:#666;font-size:12px;margin-bottom:10px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
       ${(r.tags||[]).slice(0,4).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0">
-        <div><b style="font-size:14px">Ingredients</b><br/><br/>${(r.ingredients||[]).map(i=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5;display:flex;justify-content:space-between"><span>${i.name}</span><span style="color:#2e7d32;font-weight:600">${i.amount} ${i.unit}</span></div>`).join("")}</div>
-        <div><b style="font-size:14px">Steps</b><br/><br/>${(r.steps||[]).map((s,i)=>`<div style="font-size:12px;margin-bottom:5px"><b>${i+1}.</b> ${s.text}</div>`).join("")}</div>
+        <div>
+          <b style="font-size:14px">Ingredients</b><br/><br/>
+          ${(r.ingredients||[]).map(i=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:8px">
+            ${i.image?`<img src="${i.image}" style="width:28px;height:28px;border-radius:5px;object-fit:cover" onerror="this.style.display='none'"/>`:`<span style="font-size:16px">${getItemEmoji(i.name)}</span>`}
+            <span style="flex:1">${i.name}</span><span style="color:#2e7d32;font-weight:600">${i.amount} ${i.unit}</span>
+          </div>`).join("")}
+        </div>
+        <div>
+          <b style="font-size:14px">Steps</b><br/><br/>
+          ${(r.steps||[]).map((s,i)=>`
+            ${s.image?`<img src="${s.image}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:4px;display:block" onerror="this.style.display='none'"/>`:""}
+            <div style="font-size:12px;margin-bottom:8px"><b>${i+1}.</b> ${s.text}${s.timeMin?` <span style="color:#888">(${s.timeMin}m)</span>`:""}</div>
+          `).join("")}
+        </div>
       </div>
     </div>`).join("");
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
@@ -317,7 +363,7 @@ function exportMealBookToPDF(recipes, title) {
     <div style="color:#666;font-size:14px">${recipes.length} recipes · ${new Date().toLocaleDateString()}</div>
   </div>
   ${pages}
-  <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer">Print / Save PDF</button></div>
+  <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer">🖨 Print / Save PDF</button></div>
   </body></html>`);
   win.document.close();
 }
