@@ -1933,9 +1933,8 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
 
-  // Upload a base64 image to Supabase Storage, return public URL (or null on fail)
-  // Compress a base64 image to max 800px wide at 75% quality for cloud sync
-  const compressImage = (base64) => new Promise(resolve => {
+  // Canvas compress fallback (for when storage upload is unavailable)
+  const compressImageCanvas = (base64) => new Promise(resolve => {
     if (!base64?.startsWith('data:')) { resolve(base64); return; }
     const img = new Image();
     img.onload = () => {
@@ -1951,14 +1950,35 @@ export default function App() {
     img.src = base64;
   });
 
-  // Compress all images in recipes before syncing to cloud
+  // Upload a base64 image to Supabase Storage, returns public URL.
+  // Falls back to canvas compression if storage is unavailable.
+  const uploadImageToStorage = async (base64, storagePath) => {
+    if (!base64?.startsWith('data:')) return base64; // already a URL or null/undefined
+    const sb = getSupabase();
+    if (!sb || !supaUser) return compressImageCanvas(base64);
+    try {
+      const res = await fetch(base64);
+      const blob = await res.blob();
+      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+      const path = `${supaUser.id}/${storagePath}.${ext}`;
+      const { error } = await sb.storage.from('recipe-images').upload(path, blob, { upsert: true, contentType: blob.type });
+      if (error) throw error;
+      const { data } = sb.storage.from('recipe-images').getPublicUrl(path);
+      return data.publicUrl;
+    } catch(e) {
+      console.warn('Storage upload failed, using compression fallback:', e.message);
+      return compressImageCanvas(base64);
+    }
+  };
+
+  // Prepare recipes for sync — upload base64 images to Storage (returns public URLs)
   const prepareRecipesForSync = async (recipeList) => {
     return Promise.all(recipeList.map(async r => ({
       ...r,
-      image: await compressImage(r.image),
-      ingredientsImage: await compressImage(r.ingredientsImage),
-      steps: await Promise.all((r.steps||[]).map(async s => ({...s, image: await compressImage(s.image)}))),
-      ingredients: await Promise.all((r.ingredients||[]).map(async i => ({...i, image: await compressImage(i.image)}))),
+      image: await uploadImageToStorage(r.image, `${r.id}/cover`),
+      ingredientsImage: await uploadImageToStorage(r.ingredientsImage, `${r.id}/ingredients`),
+      steps: await Promise.all((r.steps||[]).map(async (s,i) => ({...s, image: await uploadImageToStorage(s.image, `${r.id}/step-${i}`)}))),
+      ingredients: await Promise.all((r.ingredients||[]).map(async (ing,i) => ({...ing, image: await uploadImageToStorage(ing.image, `${r.id}/ingredient-${i}`)}))),
     })));
   };
 
