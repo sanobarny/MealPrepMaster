@@ -750,11 +750,10 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           </div>
         </div>
       </div>
+      {cookMode && <CookMode recipe={recipe} onClose={()=>setCookMode(false)}/>}
     </div>
   );
 }
-
-// ─── EDIT RECIPE MODAL ────────────────────────────────────────────────────────
 function EditRecipeModal({recipe:init, onClose, onSave}) {
   const [data, setData] = useState({...init});
   const mainImgRef = useRef(null);
