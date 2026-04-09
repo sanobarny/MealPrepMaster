@@ -118,6 +118,11 @@ const getItemEmoji = name => {
   const n = (name||"").toLowerCase();
   return (FOOD_EMOJIS.find(([rx]) => rx.test(n)) || [,"🛒"])[1];
 };
+// Returns all images for a step — supports both legacy step.image and new step.images[]
+const getStepImages = step => {
+  if (step.images && step.images.length > 0) return step.images;
+  return step.image ? [step.image] : [];
+};
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const scaleAmt = (n, r) => {
@@ -271,7 +276,7 @@ RULES:
 - allergens from: ${ALLERGENS_LIST.join(", ")}
 - equipment from: ${EQUIPMENT_LIST.join(", ")}
 - goal from: ${GOALS.join(", ")}
-- 4-8 ingredients, 3-7 steps, each step has realistic timeMin and imagePrompt
+- 4-10 ingredients, 3-12 steps, each step has realistic timeMin and imagePrompt
 - difficulty: beginner, intermediate, or advanced`;
 
   const raw = await anthropicCall({
@@ -357,13 +362,13 @@ function exportRecipeToPDF(recipe, scale) {
     <span class="amt">${scaleAmt(i.amount,r)} ${i.unit}</span>
   </div>`).join("")}
   <div class="stitle">Steps</div>
-  ${(recipe.steps||[]).map((step,i)=>`<div class="step-card">
-    ${step.image ? `<img src="${step.image}" class="step-img" alt="Step ${i+1}"/>` : ""}
+  ${(recipe.steps||[]).map((step,i)=>{const imgs=(step.images&&step.images.length)?step.images:step.image?[step.image]:[];return`<div class="step-card">
+    ${imgs.length===1?`<img src="${imgs[0]}" class="step-img" alt="Step ${i+1}"/>`:imgs.length>1?`<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 8px 0">${imgs.map(img=>`<img src="${img}" style="width:160px;height:110px;object-fit:cover;border-radius:7px;flex-shrink:0"/>`).join("")}</div>`:""}
     <div class="step-body">
       <div class="snum">${i+1}</div>
       <div><div class="stext">${step.text}</div>${step.timeMin?`<div class="stime">⏱ ${step.timeMin} min</div>`:""}</div>
     </div>
-  </div>`).join("")}
+  </div>`}).join("")}
   <div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
   <div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">🖨 Print / Save PDF</button></div>
   ${PDF_WAIT_SCRIPT}
@@ -389,10 +394,10 @@ function exportMealBookToPDF(recipes, title) {
         </div>
         <div>
           <b style="font-size:14px">Steps</b><br/><br/>
-          ${(r.steps||[]).map((step,i)=>`
-            ${step.image?`<img src="${step.image}" style="width:100%;height:70px;object-fit:cover;border-radius:6px;margin-bottom:4px;display:block"/>` :""}
+          ${(r.steps||[]).map((step,i)=>{const imgs=(step.images&&step.images.length)?step.images:step.image?[step.image]:[];return`
+            ${imgs.length>0?`<div style="display:flex;gap:4px;margin-bottom:4px">${imgs.map(img=>`<img src="${img}" style="flex:1;min-width:0;height:60px;object-fit:cover;border-radius:5px"/>`).join("")}</div>`:""}
             <div style="font-size:12px;margin-bottom:7px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>
-          `).join("")}
+          `;}).join("")}
         </div>
       </div>
     </div>`).join("");
@@ -537,8 +542,18 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
     const rd = new FileReader(); rd.onload = ev => setRecipe(p=>({...p,image:ev.target.result})); rd.readAsDataURL(f);
   };
   const uploadStepImg = (i, e) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    const rd = new FileReader(); rd.onload = ev => setRecipe(p=>{const s=[...p.steps];s[i]={...s[i],image:ev.target.result};return{...p,steps:s};}); rd.readAsDataURL(f);
+    const files = Array.from(e.target.files||[]); if (!files.length) return;
+    files.forEach(f => {
+      const rd = new FileReader();
+      rd.onload = ev => setRecipe(p=>{
+        const s=[...p.steps];
+        const existing = getStepImages(s[i]);
+        s[i]={...s[i], images:[...existing, ev.target.result]};
+        return{...p,steps:s};
+      });
+      rd.readAsDataURL(f);
+    });
+    e.target.value = "";
   };
   const uploadIngImg = (i, e) => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -548,7 +563,12 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
     const f = e.target.files?.[0]; if (!f) return;
     const rd = new FileReader(); rd.onload = ev => setRecipe(p=>({...p,ingredientsImage:ev.target.result})); rd.readAsDataURL(f);
   };
-  const deleteStepImg = i => setRecipe(p=>{const s=[...p.steps];s[i]={...s[i],image:null};return{...p,steps:s};});
+  const deleteStepImg = (stepIdx, imgIdx) => setRecipe(p=>{
+    const s=[...p.steps];
+    const imgs = getStepImages(s[stepIdx]).filter((_,j)=>j!==imgIdx);
+    s[stepIdx]={...s[stepIdx], images:imgs, image:imgs[0]||null};
+    return{...p,steps:s};
+  });
   const r = scale / (recipe.servings||1);
   const total = recipe.totalTime||(recipe.prepTime||0)+(recipe.cookTime||0);
   const diff = DIFFICULTIES[recipe.difficulty||"beginner"]||DIFFICULTIES.beginner;
@@ -735,14 +755,17 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             const timer = timers[i];
             return (
             <div key={i} style={{background:STEP_COLORS[i%STEP_COLORS.length]+"0a",border:"1px solid "+STEP_COLORS[i%STEP_COLORS.length]+"22",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
-              <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadStepImg(i,e)}/>
-              {step.image && <div style={{position:"relative"}}>
-                <img src={step.image} alt="" style={{width:"100%",aspectRatio:"16/9",objectFit:"cover",display:"block"}}/>
-                <div style={{position:"absolute",top:6,right:6,display:"flex",gap:5}}>
-                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>📷 Change</button>
-                  <button onClick={()=>deleteStepImg(i)} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>🗑 Delete</button>
+              <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>uploadStepImg(i,e)}/>
+              {getStepImages(step).length > 0 && (
+                <div style={{display:"flex",gap:6,padding:"8px 10px 0",overflowX:"auto"}}>
+                  {getStepImages(step).map((img, imgIdx) => (
+                    <div key={imgIdx} style={{position:"relative",flexShrink:0}}>
+                      <img src={img} alt="" style={{width:130,height:90,objectFit:"cover",borderRadius:8,display:"block"}}/>
+                      <button onClick={()=>deleteStepImg(i,imgIdx)} style={{position:"absolute",top:3,right:3,background:"rgba(180,40,40,0.85)",border:"none",borderRadius:5,color:"#fff",width:20,height:20,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
+                    </div>
+                  ))}
                 </div>
-              </div>}
+              )}
               <div style={{padding:"12px 14px",display:"flex",gap:12,alignItems:"flex-start"}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,flexShrink:0}}>{i+1}</div>
                 <div style={{flex:1}}>
@@ -761,7 +784,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                     )}
                     <button onClick={()=>stepImgRefs.current[i]?.click()}
                       style={{background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",borderRadius:7,color:"#7ab0f0",padding:"2px 9px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
-                      📷 Upload
+                      📷 {getStepImages(step).length > 0 ? `+Photo (${getStepImages(step).length})` : "Upload"}
                     </button>
                     <button onClick={()=>genStepImg(i)} disabled={genIdx!==null}
                       style={{background:"rgba(142,90,173,0.2)",border:"1px solid rgba(180,130,255,0.3)",borderRadius:7,color:"#c8a8ff",padding:"2px 9px",fontSize:11,cursor:genIdx===null?"pointer":"not-allowed",fontFamily:"inherit"}}>
@@ -1000,15 +1023,18 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
                     style={{...IS,width:60,height:30,padding:"0 8px",fontSize:12}}/>
                   <span style={{color:"var(--text-muted)",fontSize:11}}>min</span>
                 </div>
-                <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>setStep(i,"image",url))}/>
-                {step.image
-                  ? <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <img src={step.image} alt="" style={{width:40,height:40,borderRadius:6,objectFit:"cover"}}/>
-                      <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"3px 9px",fontSize:11}}>📷 Change</button>
-                      <button onClick={()=>setStep(i,"image",null)} style={{...GB,padding:"3px 8px",color:"#f08080",fontSize:11}}>✕</button>
+                <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" multiple style={{display:"none"}}
+                  onChange={e=>{Array.from(e.target.files||[]).forEach(f=>{const r=new FileReader();r.onload=ev=>setData(d=>{const a=[...d.steps];const imgs=getStepImages(a[i]);a[i]={...a[i],images:[...imgs,ev.target.result]};return{...d,steps:a};});r.readAsDataURL(f);});e.target.value="";}}/>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                  {getStepImages(step).map((img,imgIdx)=>(
+                    <div key={imgIdx} style={{position:"relative"}}>
+                      <img src={img} alt="" style={{width:40,height:40,borderRadius:6,objectFit:"cover",display:"block"}}/>
+                      <button onClick={()=>setData(d=>{const a=[...d.steps];const imgs=getStepImages(a[i]).filter((_,j)=>j!==imgIdx);a[i]={...a[i],images:imgs,image:imgs[0]||null};return{...d,steps:a};})}
+                        style={{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:"50%",background:"#e05a6a",border:"none",color:"#fff",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
                     </div>
-                  : <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 Add Photo</button>
-                }
+                  ))}
+                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 {getStepImages(step).length>0?"Add More":"Add Photo"}</button>
+                </div>
               </div>
             </div>
           ))}
@@ -2084,10 +2110,19 @@ function CookMode({recipe, onClose}) {
 
       {/* Step content */}
       <div style={{flex:1,overflowY:"auto",padding:"20px 16px 100px",maxWidth:640,margin:"0 auto",width:"100%"}}>
-        {/* Step image */}
-        {current.image && (
-          <div style={{borderRadius:16,overflow:"hidden",marginBottom:20,boxShadow:"var(--nm-raised)"}}>
-            <img src={current.image} alt="" style={{width:"100%",maxHeight:280,objectFit:"cover",display:"block"}}/>
+        {/* Step images */}
+        {getStepImages(current).length > 0 && (
+          <div style={{marginBottom:20}}>
+            {getStepImages(current).length === 1
+              ? <div style={{borderRadius:16,overflow:"hidden",boxShadow:"var(--nm-raised)"}}><img src={getStepImages(current)[0]} alt="" style={{width:"100%",maxHeight:280,objectFit:"cover",display:"block"}}/></div>
+              : <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
+                  {getStepImages(current).map((img,idx)=>(
+                    <div key={idx} style={{borderRadius:12,overflow:"hidden",flexShrink:0,boxShadow:"var(--nm-raised-sm)"}}>
+                      <img src={img} alt="" style={{width:200,height:150,objectFit:"cover",display:"block"}}/>
+                    </div>
+                  ))}
+                </div>
+            }
           </div>
         )}
 
