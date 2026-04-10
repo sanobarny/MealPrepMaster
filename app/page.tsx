@@ -118,6 +118,11 @@ const getItemEmoji = name => {
   const n = (name||"").toLowerCase();
   return (FOOD_EMOJIS.find(([rx]) => rx.test(n)) || [,"🛒"])[1];
 };
+// Returns all images for a step — supports both legacy step.image and new step.images[]
+const getStepImages = step => {
+  if (step.images && step.images.length > 0) return step.images;
+  return step.image ? [step.image] : [];
+};
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const scaleAmt = (n, r) => {
@@ -164,6 +169,7 @@ async function anthropicCall(body, retries = 3) {
       throw new Error("RATE_LIMIT");
     }
     if (res.status === 401) throw new Error("INVALID_KEY");
+    if (res.status === 400 && errText.includes("credit_balance_too_low")) throw new Error("LOW_CREDITS");
     throw new Error("HTTP " + res.status + ": " + errText.slice(0, 200));
   }
 }
@@ -271,7 +277,7 @@ RULES:
 - allergens from: ${ALLERGENS_LIST.join(", ")}
 - equipment from: ${EQUIPMENT_LIST.join(", ")}
 - goal from: ${GOALS.join(", ")}
-- 4-8 ingredients, 3-7 steps, each step has realistic timeMin and imagePrompt
+- 4-10 ingredients, 3-12 steps, each step has realistic timeMin and imagePrompt
 - difficulty: beginner, intermediate, or advanced`;
 
   const raw = await anthropicCall({
@@ -291,65 +297,185 @@ RULES:
 }
 
 // ─── PDF EXPORT ──────────────────────────────────────────────────────────────
-function exportRecipeToPDF(recipe, scale) {
+// Pre-fetch an image URL → base64 data URI so PDF windows don't need async loading
+async function toBase64(url) {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const rd = new FileReader();
+      rd.onloadend = () => resolve(rd.result);
+      rd.onerror = reject;
+      rd.readAsDataURL(blob);
+    });
+  } catch(e) { return null; }
+}
+
+async function exportRecipeToPDF(recipe, scale) {
   const s = scale || recipe.servings || 1;
   const r = s / (recipe.servings||1);
+
+  // Open window immediately — must be synchronous inside the click handler
   const win = window.open("","_blank");
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
-  <style>body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a}h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
-  .meta{color:#666;font-size:13px;margin-bottom:16px}.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
-  .tag{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:12px}.health{background:#e8f5e9;color:#2e7d32}
-  .nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;background:#f9f9f9;border-radius:12px;padding:16px;margin:16px 0}
-  .nbox{text-align:center}.nval{font-size:22px;font-weight:700}.nlbl{font-size:11px;color:#888;text-transform:uppercase}
-  .stitle{font-size:18px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:6px;margin:20px 0 10px;font-family:Georgia,serif}
-  .ing{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
-  .amt{font-weight:600;color:#2e7d32}.step{display:flex;gap:14px;margin-bottom:14px}
-  .snum{min-width:28px;height:28px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;margin-top:2px}
-  .stext{font-size:14px;flex:1}.stime{color:#888;font-size:12px;margin-top:2px}
-  .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:12px 0}
-  @media print{button{display:none}}</style></head><body>
-  <h1>${recipe.title}</h1>
-  <div class="meta">${recipe.category} · ${recipe.prepTime||0}min prep · ${recipe.cookTime||0}min cook · ${recipe.totalTime||0}min total · ${s} servings</div>
+  if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
+  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#888;background:#fff;flex-direction:column;gap:14px}
+  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}</style></head>
+  <body><div class="sp"></div><div>Preparing PDF…</div></body></html>`);
+  win.document.close();
+
+  // Pre-fetch every image as an inline base64 data URI — eliminates all async loading issues
+  const [heroB64, ingOverallB64] = await Promise.all([toBase64(recipe.image), toBase64(recipe.ingredientsImage)]);
+  const ingB64s = await Promise.all((recipe.ingredients||[]).map(i => toBase64(i.image)));
+  const stepImgB64s = await Promise.all((recipe.steps||[]).map(step => Promise.all(getStepImages(step).map(toBase64))));
+
+  const PRINT_CSS = `
+    @media print {
+      button { display: none !important; }
+      body { padding: 0 !important; }
+      img { max-width: 100% !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .hero { max-height: 220px !important; border-radius: 0 !important; }
+      .step-card { break-inside: avoid; page-break-inside: avoid; }
+      .ing-emoji { background: #f5f5f5 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .nutrition { background: #f9f9f9 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px 28px;color:#1a1a1a}
+    h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
+    .meta{color:#666;font-size:13px;margin-bottom:14px}
+    .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+    .tag{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:12px}
+    .health{background:#e8f5e9;color:#2e7d32}
+    .hero{width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin-bottom:18px;display:block}
+    .nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:#f9f9f9;border-radius:10px;padding:14px;margin:14px 0}
+    .nbox{text-align:center}.nval{font-size:20px;font-weight:700}.nlbl{font-size:10px;color:#888;text-transform:uppercase;margin-top:2px}
+    .stitle{font-size:17px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:5px;margin:18px 0 10px;font-family:Georgia,serif}
+    .ing{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+    .ing-thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0}
+    .ing-emoji{width:36px;height:36px;border-radius:6px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .ing-name{flex:1}.amt{font-weight:600;color:#2e7d32;white-space:nowrap}
+    .ing-overall{width:100%;max-height:150px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block}
+    .step-card{margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #eee}
+    .step-img{width:100%;max-height:200px;object-fit:cover;display:block}
+    .step-imgs{display:flex;gap:5px;padding:6px 6px 0}
+    .step-imgs img{flex:1;min-width:0;height:120px;object-fit:cover;border-radius:6px}
+    .step-body{display:flex;gap:12px;padding:12px;background:#fafafa}
+    .snum{min-width:26px;height:26px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;margin-top:2px}
+    .stext{font-size:14px;flex:1;line-height:1.6;margin:0}.stime{color:#888;font-size:12px;margin-top:3px}
+    .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:10px 0}
+    .printbtn{display:block;margin:24px auto 0;background:#333;color:#fff;border:none;border-radius:8px;padding:11px 28px;font-size:14px;cursor:pointer;font-family:inherit}
+    ${PRINT_CSS}
+  </style></head><body>
+  ${heroB64 ? `<img src="${heroB64}" class="hero" alt="${recipe.title}"/>` : ""}
+  <h1>${recipe.title}${(recipe.spiceLevel||0)>0?` ${"🌶️".repeat(recipe.spiceLevel)}`:""}</h1>
+  <div class="meta">${recipe.category}${recipe.cuisine?" · 🌍 "+recipe.cuisine:""} · ${recipe.prepTime||0}min prep · ${recipe.cookTime||0}min cook · ${recipe.totalTime||0}min total · ${s} servings</div>
   ${recipe.healthBenefits ? `<div class="hbnote">${recipe.healthBenefits}</div>` : ""}
-  <div class="tags">${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">! ${a}</span>`).join("")}</div>
+  <div class="tags">${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">⚠ ${a}</span>`).join("")}</div>
   <div class="nutrition">
     ${[["Calories",Math.round(recipe.nutrition.calories*r),""],["Protein",Math.round(recipe.nutrition.protein*r),"g"],["Carbs",Math.round(recipe.nutrition.carbs*r),"g"],["Fat",Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
   </div>
   <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
-  ${(recipe.ingredients||[]).map(i=>`<div class="ing"><span>${i.name}</span><span class="amt">${scaleAmt(i.amount,r)} ${i.unit}</span></div>`).join("")}
+  ${ingOverallB64 ? `<img src="${ingOverallB64}" class="ing-overall" alt="All ingredients"/>` : ""}
+  ${(recipe.ingredients||[]).map((ing,i)=>`<div class="ing">
+    ${ingB64s[i] ? `<img src="${ingB64s[i]}" class="ing-thumb" alt="${ing.name}"/>` : `<div class="ing-emoji">${getItemEmoji(ing.name)}</div>`}
+    <span class="ing-name">${ing.name}</span>
+    <span class="amt">${scaleAmt(ing.amount,r)} ${ing.unit}</span>
+  </div>`).join("")}
   <div class="stitle">Steps</div>
-  ${(recipe.steps||[]).map((s,i)=>`<div class="step"><div class="snum">${i+1}</div><div><div class="stext">${s.text}</div>${s.timeMin?`<div class="stime">${s.timeMin} min</div>`:""}</div></div>`).join("")}
-  <div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
-  <div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">Print / Save PDF</button></div>
-  </body></html>`);
-  win.document.close();
+  ${(recipe.steps||[]).map((step,i)=>{
+    const imgs = stepImgB64s[i].filter(Boolean);
+    return `<div class="step-card">
+      ${imgs.length===1 ? `<img src="${imgs[0]}" class="step-img" alt="Step ${i+1}"/>` : imgs.length>1 ? `<div class="step-imgs">${imgs.map(b=>`<img src="${b}" alt=""/>`).join("")}</div>` : ""}
+      <div class="step-body">
+        <div class="snum">${i+1}</div>
+        <div style="flex:1"><p class="stext">${step.text}</p>${step.timeMin?`<div class="stime">⏱ ${step.timeMin} min</div>`:""}</div>
+      </div>
+    </div>`;
+  }).join("")}
+  <div style="margin-top:24px;padding-top:12px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
+  <button class="printbtn" onclick="window.print()">🖨 Print / Save PDF</button>
+  </body></html>`;
+
+  // Use Blob URL to navigate the popup — more reliable than document.write after async
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  win.location.replace(url);
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
-function exportMealBookToPDF(recipes, title) {
+async function exportMealBookToPDF(recipes, title) {
   const win = window.open("","_blank");
-  const pages = recipes.map((r,idx)=>`
-    <div style="page-break-before:${idx>0?"always":"auto"};padding:24px">
-      <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">${r.title}</h2>
-      <div style="color:#666;font-size:12px;margin-bottom:10px">${r.category} · ${r.totalTime||0}min · ${r.servings} servings</div>
-      ${(r.tags||[]).slice(0,4).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0">
-        <div><b style="font-size:14px">Ingredients</b><br/><br/>${(r.ingredients||[]).map(i=>`<div style="font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5;display:flex;justify-content:space-between"><span>${i.name}</span><span style="color:#2e7d32;font-weight:600">${i.amount} ${i.unit}</span></div>`).join("")}</div>
-        <div><b style="font-size:14px">Steps</b><br/><br/>${(r.steps||[]).map((s,i)=>`<div style="font-size:12px;margin-bottom:5px"><b>${i+1}.</b> ${s.text}</div>`).join("")}</div>
+  if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
+  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#888;flex-direction:column;gap:14px}
+  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}</style></head>
+  <body><div class="sp"></div><div>Preparing PDF…</div></body></html>`);
+  win.document.close();
+
+  const recipeData = await Promise.all(recipes.map(async rec => {
+    const heroB64 = await toBase64(rec.image);
+    const ingB64s = await Promise.all((rec.ingredients||[]).map(i => toBase64(i.image)));
+    const stepImgB64s = await Promise.all((rec.steps||[]).map(step => Promise.all(getStepImages(step).map(toBase64))));
+    return {heroB64, ingB64s, stepImgB64s};
+  }));
+
+  const pages = recipes.map((r,idx)=>{
+    const {heroB64, ingB64s, stepImgB64s} = recipeData[idx];
+    return `<div style="page-break-before:${idx>0?"always":"auto"};padding:24px 28px">
+      ${heroB64 ? `<img src="${heroB64}" style="width:100%;height:180px;object-fit:cover;border-radius:8px;margin-bottom:12px;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt="${r.title}"/>` : ""}
+      <h2 style="font-family:Georgia,serif;font-size:21px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
+      <div style="color:#666;font-size:12px;margin-bottom:8px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
+      ${(r.tags||[]).slice(0,5).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0">
+        <div>
+          <b style="font-size:13px">Ingredients</b><br/><br/>
+          ${(r.ingredients||[]).map((ing,i)=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:7px">
+            ${ingB64s[i] ? `<img src="${ingB64s[i]}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;flex-shrink:0"/>` : `<span style="font-size:14px">${getItemEmoji(ing.name)}</span>`}
+            <span style="flex:1">${ing.name}</span><span style="color:#2e7d32;font-weight:600;white-space:nowrap">${ing.amount} ${ing.unit}</span>
+          </div>`).join("")}
+        </div>
+        <div>
+          <b style="font-size:13px">Steps</b><br/><br/>
+          ${(r.steps||[]).map((step,i)=>{
+            const imgs = stepImgB64s[i].filter(Boolean);
+            return `${imgs.length>0?`<div style="display:flex;gap:3px;margin-bottom:4px">${imgs.map(b=>`<img src="${b}" style="flex:1;min-width:0;height:55px;object-fit:cover;border-radius:4px;print-color-adjust:exact;-webkit-print-color-adjust:exact"/>`).join("")}</div>`:""}
+            <div style="font-size:12px;margin-bottom:6px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>`;
+          }).join("")}
+        </div>
       </div>
-    </div>`).join("");
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
-  <style>body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a}@media print{button{display:none}}</style>
+    </div>`;
+  }).join("");
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a}
+    @media print{button{display:none!important}img{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+  </style>
   </head><body>
-  <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:32px">
-    <div style="font-size:40px;margin-bottom:8px">🥗</div>
-    <h1 style="font-family:Georgia,serif;font-size:34px;margin:0 0 6px">${title||"My Meal Book"}</h1>
+  <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:24px">
+    <div style="font-size:36px;margin-bottom:8px">🥗</div>
+    <h1 style="font-family:Georgia,serif;font-size:32px;margin:0 0 6px">${title||"My Meal Book"}</h1>
     <div style="color:#666;font-size:14px">${recipes.length} recipes · ${new Date().toLocaleDateString()}</div>
   </div>
   ${pages}
-  <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer">Print / Save PDF</button></div>
-  </body></html>`);
-  win.document.close();
+  <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer;font-family:inherit">🖨 Print / Save PDF</button></div>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  win.location.replace(url);
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
+
 
 // ─── STYLE CONSTANTS ─────────────────────────────────────────────────────────
 const IS = {background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"};
@@ -469,8 +595,18 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
     const rd = new FileReader(); rd.onload = ev => setRecipe(p=>({...p,image:ev.target.result})); rd.readAsDataURL(f);
   };
   const uploadStepImg = (i, e) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    const rd = new FileReader(); rd.onload = ev => setRecipe(p=>{const s=[...p.steps];s[i]={...s[i],image:ev.target.result};return{...p,steps:s};}); rd.readAsDataURL(f);
+    const files = Array.from(e.target.files||[]); if (!files.length) return;
+    files.forEach(f => {
+      const rd = new FileReader();
+      rd.onload = ev => setRecipe(p=>{
+        const s=[...p.steps];
+        const existing = getStepImages(s[i]);
+        s[i]={...s[i], images:[...existing, ev.target.result]};
+        return{...p,steps:s};
+      });
+      rd.readAsDataURL(f);
+    });
+    e.target.value = "";
   };
   const uploadIngImg = (i, e) => {
     const f = e.target.files?.[0]; if (!f) return;
@@ -480,7 +616,12 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
     const f = e.target.files?.[0]; if (!f) return;
     const rd = new FileReader(); rd.onload = ev => setRecipe(p=>({...p,ingredientsImage:ev.target.result})); rd.readAsDataURL(f);
   };
-  const deleteStepImg = i => setRecipe(p=>{const s=[...p.steps];s[i]={...s[i],image:null};return{...p,steps:s};});
+  const deleteStepImg = (stepIdx, imgIdx) => setRecipe(p=>{
+    const s=[...p.steps];
+    const imgs = getStepImages(s[stepIdx]).filter((_,j)=>j!==imgIdx);
+    s[stepIdx]={...s[stepIdx], images:imgs, image:imgs[0]||null};
+    return{...p,steps:s};
+  });
   const r = scale / (recipe.servings||1);
   const total = recipe.totalTime||(recipe.prepTime||0)+(recipe.cookTime||0);
   const diff = DIFFICULTIES[recipe.difficulty||"beginner"]||DIFFICULTIES.beginner;
@@ -667,14 +808,17 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             const timer = timers[i];
             return (
             <div key={i} style={{background:STEP_COLORS[i%STEP_COLORS.length]+"0a",border:"1px solid "+STEP_COLORS[i%STEP_COLORS.length]+"22",borderRadius:12,marginBottom:10,overflow:"hidden"}}>
-              <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadStepImg(i,e)}/>
-              {step.image && <div style={{position:"relative"}}>
-                <img src={step.image} alt="" style={{width:"100%",aspectRatio:"16/9",objectFit:"cover",display:"block"}}/>
-                <div style={{position:"absolute",top:6,right:6,display:"flex",gap:5}}>
-                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>📷 Change</button>
-                  <button onClick={()=>deleteStepImg(i)} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:8,color:"#fff",padding:"4px 9px",fontSize:11,cursor:"pointer",backdropFilter:"blur(4px)"}}>🗑 Delete</button>
+              <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>uploadStepImg(i,e)}/>
+              {getStepImages(step).length > 0 && (
+                <div style={{display:"flex",gap:6,padding:"8px 10px 0",overflowX:"auto"}}>
+                  {getStepImages(step).map((img, imgIdx) => (
+                    <div key={imgIdx} style={{position:"relative",flexShrink:0}}>
+                      <img src={img} alt="" style={{width:130,height:90,objectFit:"cover",borderRadius:8,display:"block"}}/>
+                      <button onClick={()=>deleteStepImg(i,imgIdx)} style={{position:"absolute",top:3,right:3,background:"rgba(180,40,40,0.85)",border:"none",borderRadius:5,color:"#fff",width:20,height:20,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
+                    </div>
+                  ))}
                 </div>
-              </div>}
+              )}
               <div style={{padding:"12px 14px",display:"flex",gap:12,alignItems:"flex-start"}}>
                 <div style={{width:26,height:26,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,flexShrink:0}}>{i+1}</div>
                 <div style={{flex:1}}>
@@ -693,7 +837,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                     )}
                     <button onClick={()=>stepImgRefs.current[i]?.click()}
                       style={{background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",borderRadius:7,color:"#7ab0f0",padding:"2px 9px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
-                      📷 Upload
+                      📷 {getStepImages(step).length > 0 ? `+Photo (${getStepImages(step).length})` : "Upload"}
                     </button>
                     <button onClick={()=>genStepImg(i)} disabled={genIdx!==null}
                       style={{background:"rgba(142,90,173,0.2)",border:"1px solid rgba(180,130,255,0.3)",borderRadius:7,color:"#c8a8ff",padding:"2px 9px",fontSize:11,cursor:genIdx===null?"pointer":"not-allowed",fontFamily:"inherit"}}>
@@ -932,15 +1076,18 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
                     style={{...IS,width:60,height:30,padding:"0 8px",fontSize:12}}/>
                   <span style={{color:"var(--text-muted)",fontSize:11}}>min</span>
                 </div>
-                <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>setStep(i,"image",url))}/>
-                {step.image
-                  ? <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <img src={step.image} alt="" style={{width:40,height:40,borderRadius:6,objectFit:"cover"}}/>
-                      <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"3px 9px",fontSize:11}}>📷 Change</button>
-                      <button onClick={()=>setStep(i,"image",null)} style={{...GB,padding:"3px 8px",color:"#f08080",fontSize:11}}>✕</button>
+                <input ref={el=>stepImgRefs.current[i]=el} type="file" accept="image/*" multiple style={{display:"none"}}
+                  onChange={e=>{Array.from(e.target.files||[]).forEach(f=>{const r=new FileReader();r.onload=ev=>setData(d=>{const a=[...d.steps];const imgs=getStepImages(a[i]);a[i]={...a[i],images:[...imgs,ev.target.result]};return{...d,steps:a};});r.readAsDataURL(f);});e.target.value="";}}/>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                  {getStepImages(step).map((img,imgIdx)=>(
+                    <div key={imgIdx} style={{position:"relative"}}>
+                      <img src={img} alt="" style={{width:40,height:40,borderRadius:6,objectFit:"cover",display:"block"}}/>
+                      <button onClick={()=>setData(d=>{const a=[...d.steps];const imgs=getStepImages(a[i]).filter((_,j)=>j!==imgIdx);a[i]={...a[i],images:imgs,image:imgs[0]||null};return{...d,steps:a};})}
+                        style={{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:"50%",background:"#e05a6a",border:"none",color:"#fff",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
                     </div>
-                  : <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 Add Photo</button>
-                }
+                  ))}
+                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 {getStepImages(step).length>0?"Add More":"Add Photo"}</button>
+                </div>
               </div>
             </div>
           ))}
@@ -981,11 +1128,13 @@ function SmartAddModal({onClose, onAdd}) {
       if (e.message === "NO_KEY") {
         setError("No API key — click ⚙️ in the topbar and add your Anthropic key first.");
       } else if (e.message === "RATE_LIMIT") {
-        setError("Rate limit hit — the app is automatically retrying. If this keeps happening, wait 60 seconds and try again.");
+        setError("Rate limit hit — wait 60 seconds and try again.");
       } else if (e.message === "INVALID_KEY") {
         setError("Invalid API key — click ⚙️ and re-enter your Anthropic key.");
+      } else if (e.message === "LOW_CREDITS") {
+        setError("Your Anthropic API credits are too low. Go to console.anthropic.com → Billing to top up, then try again.");
       } else {
-        setError(`Extraction failed: ${e.message}. Try pasting the recipe text directly.`);
+        setError(`Extraction failed. Try pasting the recipe text directly.`);
       }
       setPhase("input");
     }
@@ -2016,10 +2165,19 @@ function CookMode({recipe, onClose}) {
 
       {/* Step content */}
       <div style={{flex:1,overflowY:"auto",padding:"20px 16px 100px",maxWidth:640,margin:"0 auto",width:"100%"}}>
-        {/* Step image */}
-        {current.image && (
-          <div style={{borderRadius:16,overflow:"hidden",marginBottom:20,boxShadow:"var(--nm-raised)"}}>
-            <img src={current.image} alt="" style={{width:"100%",maxHeight:280,objectFit:"cover",display:"block"}}/>
+        {/* Step images */}
+        {getStepImages(current).length > 0 && (
+          <div style={{marginBottom:20}}>
+            {getStepImages(current).length === 1
+              ? <div style={{borderRadius:16,overflow:"hidden",boxShadow:"var(--nm-raised)"}}><img src={getStepImages(current)[0]} alt="" style={{width:"100%",maxHeight:280,objectFit:"cover",display:"block"}}/></div>
+              : <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
+                  {getStepImages(current).map((img,idx)=>(
+                    <div key={idx} style={{borderRadius:12,overflow:"hidden",flexShrink:0,boxShadow:"var(--nm-raised-sm)"}}>
+                      <img src={img} alt="" style={{width:200,height:150,objectFit:"cover",display:"block"}}/>
+                    </div>
+                  ))}
+                </div>
+            }
           </div>
         )}
 
@@ -2835,7 +2993,13 @@ export default function App() {
       const ctx = `User has ${recipes.length} recipes: ${recipes.slice(0,5).map(r=>r.title).join(", ")}. Meal plan has ${mealPlanItems.length} items.`;
       const reply = await anthropicCall({max_tokens:500, system:"You are a friendly meal prep and nutrition coach. Keep answers concise (2-4 sentences). Context: "+ctx, messages:[...coachMsgs.filter(m=>m.role==="user").slice(-4),{role:"user",content:msg}]});
       setCoachMsgs(p=>[...p,{role:"assistant",content:reply}]);
-    } catch(e){ setCoachMsgs(p=>[...p,{role:"assistant",content:"Sorry, I couldn't connect. Check your API key."}]); }
+    } catch(e){
+      const msg = e.message === "LOW_CREDITS" ? "Your Anthropic API credits are too low — go to console.anthropic.com → Billing to top up."
+        : e.message === "NO_KEY" ? "No API key set — click ⚙️ in the topbar to add your Anthropic key."
+        : e.message === "INVALID_KEY" ? "Invalid API key — click ⚙️ to re-enter it."
+        : "Sorry, I couldn't connect. Check your API key.";
+      setCoachMsgs(p=>[...p,{role:"assistant",content:msg}]);
+    }
     setCoachLoading(false);
   };
 
