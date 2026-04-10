@@ -169,6 +169,7 @@ async function anthropicCall(body, retries = 3) {
       throw new Error("RATE_LIMIT");
     }
     if (res.status === 401) throw new Error("INVALID_KEY");
+    if (res.status === 400 && errText.includes("credit_balance_too_low")) throw new Error("LOW_CREDITS");
     throw new Error("HTTP " + res.status + ": " + errText.slice(0, 200));
   }
 }
@@ -1201,11 +1202,13 @@ function SmartAddModal({onClose, onAdd}) {
       if (e.message === "NO_KEY") {
         setError("No API key — click ⚙️ in the topbar and add your Anthropic key first.");
       } else if (e.message === "RATE_LIMIT") {
-        setError("Rate limit hit — the app is automatically retrying. If this keeps happening, wait 60 seconds and try again.");
+        setError("Rate limit hit — wait 60 seconds and try again.");
       } else if (e.message === "INVALID_KEY") {
         setError("Invalid API key — click ⚙️ and re-enter your Anthropic key.");
+      } else if (e.message === "LOW_CREDITS") {
+        setError("Your Anthropic API credits are too low. Go to console.anthropic.com → Billing to top up, then try again.");
       } else {
-        setError(`Extraction failed: ${e.message}. Try pasting the recipe text directly.`);
+        setError(`Extraction failed. Try pasting the recipe text directly.`);
       }
       setPhase("input");
     }
@@ -3064,7 +3067,13 @@ export default function App() {
       const ctx = `User has ${recipes.length} recipes: ${recipes.slice(0,5).map(r=>r.title).join(", ")}. Meal plan has ${mealPlanItems.length} items.`;
       const reply = await anthropicCall({max_tokens:500, system:"You are a friendly meal prep and nutrition coach. Keep answers concise (2-4 sentences). Context: "+ctx, messages:[...coachMsgs.filter(m=>m.role==="user").slice(-4),{role:"user",content:msg}]});
       setCoachMsgs(p=>[...p,{role:"assistant",content:reply}]);
-    } catch(e){ setCoachMsgs(p=>[...p,{role:"assistant",content:"Sorry, I couldn't connect. Check your API key."}]); }
+    } catch(e){
+      const msg = e.message === "LOW_CREDITS" ? "Your Anthropic API credits are too low — go to console.anthropic.com → Billing to top up."
+        : e.message === "NO_KEY" ? "No API key set — click ⚙️ in the topbar to add your Anthropic key."
+        : e.message === "INVALID_KEY" ? "Invalid API key — click ⚙️ to re-enter it."
+        : "Sorry, I couldn't connect. Check your API key.";
+      setCoachMsgs(p=>[...p,{role:"assistant",content:msg}]);
+    }
     setCoachLoading(false);
   };
 
