@@ -2780,6 +2780,7 @@ export default function App() {
   const [authStep, setAuthStep] = useState('idle'); // 'idle'|'sending'|'sent'|'verifying'|'done'
   const [authError, setAuthError] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState('');
   const saveTimerRef = useRef(null);
   const supabaseRef = useRef(null);
   const getSupabase = () => {
@@ -2801,7 +2802,6 @@ export default function App() {
         const d = JSON.parse(data.data);
         if (d.recipes) setRecipes(local => {
           if (forceReplace) {
-            // Cloud takes priority — but keep local images if cloud has none
             return d.recipes.map(r => {
               const localR = local.find(x => x.id === r.id);
               return {
@@ -2813,7 +2813,6 @@ export default function App() {
               };
             }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
           }
-          // On auto-login merge: cloud takes priority for existing recipes too
           return d.recipes.map(r => {
             const localR = local.find(x => x.id === r.id);
             return localR ? {...localR, ...r, image: r.image || localR.image, ingredientsImage: r.ingredientsImage || localR.ingredientsImage} : r;
@@ -2840,6 +2839,7 @@ export default function App() {
         if (d.cookLog) setCookLog(d.cookLog);
         if (d.supplements) setSupplements(d.supplements);
         if (d.macroGoals) setMacroGoals(d.macroGoals);
+        setSyncing(false); // ← was missing — spinner never stopped on success
         return d;
       }
     } catch(e) { console.error('loadFromSupabase error', e); }
@@ -2995,12 +2995,14 @@ export default function App() {
       setSyncing(true);
       try {
         const syncedRecipes = await prepareRecipesForSync(recipes);
-        await getSupabase()?.from('user_data').upsert({
+        const { error } = await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes: syncedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends }),
+          data: JSON.stringify({ recipes: syncedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, cookLog, supplements, macroGoals }),
           updated_at: new Date().toISOString()
         });
-      } catch(e) {}
+        if (error) { console.error('Auto-save failed:', error.message); setSyncError(error.message); }
+        else setSyncError('');
+      } catch(e) { console.error('Auto-save error:', e); setSyncError(e.message); }
       setSyncing(false);
     }, 2000);
     return () => clearTimeout(saveTimerRef.current);
@@ -3233,7 +3235,8 @@ export default function App() {
                 : <div style={{color:"var(--text-sub)",fontSize:11}}>Free at <span style={{color:"#5a8fd4"}}>pexels.com/api</span></div>}
             </div>
             <div style={{borderTop:"1px solid var(--border)",marginTop:14,paddingTop:14}}>
-              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:.8}}>☁️ Cloud Sync {syncing && <span style={{color:"var(--accent)",fontWeight:400}}>· saving…</span>}</div>
+              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:6,textTransform:"uppercase",letterSpacing:.8}}>☁️ Cloud Sync {syncing && <span style={{color:"var(--accent)",fontWeight:400}}>· saving…</span>}</div>
+              {syncError && <div style={{background:"rgba(240,128,128,0.12)",border:"1px solid rgba(240,128,128,0.3)",borderRadius:8,padding:"7px 10px",color:"#f08080",fontSize:11,marginBottom:8}}>⚠ Sync error: {syncError}</div>}
               {authStep==='done' && supaUser ? (
                 <div>
                   <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(90,173,142,0.12)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
