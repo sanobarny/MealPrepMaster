@@ -2910,7 +2910,12 @@ export default function App() {
   const sendOTP = async () => {
     if (!authEmail.trim()) return;
     setAuthStep('sending'); setAuthError('');
-    const { error } = await getSupabase()?.auth.signInWithOtp({ email: authEmail.trim() });
+    // No emailRedirectTo = Supabase sends a 6-digit OTP code instead of a magic link.
+    // Requires "Email OTP" enabled in Supabase Dashboard → Authentication → Providers → Email.
+    const { error } = await getSupabase()?.auth.signInWithOtp({
+      email: authEmail.trim(),
+      options: { shouldCreateUser: true }
+    });
     if (error) { setAuthError(error.message); setAuthStep('idle'); }
     else setAuthStep('sent');
   };
@@ -3056,9 +3061,19 @@ export default function App() {
       setSyncing(true);
       try {
         const syncedRecipes = await prepareRecipesForSync(recipes);
+        // Merge with cloud to avoid last-write-wins overwriting recipes added on other devices.
+        let mergedRecipes = syncedRecipes;
+        try {
+          const { data: cloudRow } = await getSupabase()?.from('user_data').select('data').eq('user_id', supaUser.id).single();
+          if (cloudRow?.data) {
+            const cloudRecipes = JSON.parse(cloudRow.data).recipes || [];
+            const cloudOnly = cloudRecipes.filter(cr => !syncedRecipes.some(lr => lr.id === cr.id));
+            if (cloudOnly.length > 0) mergedRecipes = [...syncedRecipes, ...cloudOnly];
+          }
+        } catch(fetchErr) { /* proceed with local only if cloud fetch fails */ }
         const { error } = await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes: syncedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, cookLog, supplements, macroGoals }),
+          data: JSON.stringify({ recipes: mergedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, cookLog, supplements, macroGoals }),
           updated_at: new Date().toISOString()
         });
         if (error) { console.error('Auto-save failed:', error.message); setSyncError(error.message); }
@@ -3336,7 +3351,7 @@ export default function App() {
                 </div>
               ) : (
                 <div>
-                  <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:10}}>Sign in with your email to sync data across all devices automatically.</div>
+                  <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:10}}>Sign in to sync across devices. We'll email you a 6-digit code — no password needed.</div>
                   {authStep==='idle' || authStep==='sending' ? (
                     <div style={{display:"flex",gap:8}}>
                       <input value={authEmail} onChange={e=>setAuthEmail(e.target.value)}
