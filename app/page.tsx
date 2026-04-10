@@ -124,6 +124,25 @@ const getStepImages = step => {
   return step.image ? [step.image] : [];
 };
 
+// ─── BUDGET / COST ESTIMATION ─────────────────────────────────────────────────
+const INGREDIENT_COSTS = {meat:8, dairy:4, produce:2.5, grains:3, other:2};
+const ingredientCat = n => {
+  n = (n||"").toLowerCase();
+  if (/chicken|beef|salmon|tuna|fish|shrimp|egg|turkey|pork|lamb/.test(n)) return 'meat';
+  if (/milk|cheese|yogurt|butter|cream|feta|parmesan|ricotta/.test(n)) return 'dairy';
+  if (/onion|garlic|tomato|pepper|spinach|carrot|celery|broccoli|mushroom|zucchini|avocado|lemon|lime|berry|apple|banana|herb|basil|cilantro|parsley|ginger|lettuce|kale/.test(n)) return 'produce';
+  if (/rice|oat|quinoa|pasta|flour|bread|noodle|oil|sauce|vinegar|soy|salt|spice|cumin|paprika|sugar|honey|nut|almond|seed|tortilla/.test(n)) return 'grains';
+  return 'other';
+};
+// Returns estimated cost per serving (USD)
+const recipeEstCost = r => {
+  const total = (r.ingredients||[]).reduce((s, ing) => {
+    const mult = Math.min(2, Math.max(0.25, (ing.amount||1) / 4));
+    return s + INGREDIENT_COSTS[ingredientCat(ing.name)] * mult;
+  }, 0);
+  return Math.round(total / Math.max(r.servings||1, 1) * 10) / 10;
+};
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const scaleAmt = (n, r) => {
   const v = Math.round(n * r * 10) / 10;
@@ -525,7 +544,7 @@ function SmartImage({recipe, style, regen=0}) {
 }
 
 // ─── RECIPE CARD ─────────────────────────────────────────────────────────────
-function RecipeCard({recipe, onClick, onFavorite, isFavorite}) {
+function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
   const total = recipe.totalTime || (recipe.prepTime||0) + (recipe.cookTime||0);
   const isHealth = (recipe.tags||[]).some(t => HEALTH_TAGS.includes(t));
   return (
@@ -555,6 +574,11 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite}) {
             {(recipe.tags||[]).slice(0,2).map(t=><TagChip key={t} label={t} color={ALL_TAG_COLORS[t]||"#888"}/>)}
           </div>
           <NutriBadge n={recipe.nutrition}/>
+          {costPerServing !== undefined && (
+            <div style={{marginTop:6,display:"flex",alignItems:"center",gap:4}}>
+              <span style={{background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)",borderRadius:20,padding:"2px 8px",color:"#5aad8e",fontSize:11,fontWeight:700}}>💰 ~${costPerServing.toFixed(1)}/serving</span>
+            </div>
+          )}
           <div style={{marginTop:7,display:"flex",gap:10,fontSize:11,color:"var(--text-muted)",flexWrap:"wrap",alignItems:"center"}}>
             <span>{recipe.prepTime||0}m prep</span>
             <span>{recipe.cookTime||0}m cook</span>
@@ -1438,7 +1462,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 }
 
 // ─── SHOPPING LIST ───────────────────────────────────────────────────────────
-function ShoppingList({mealPlanItems, recipes, spends, onLogSpend}) {
+function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget}) {
   const [people, setPeople] = useState(1);
   const [weeks, setWeeks] = useState(1);
   const [checked, setChecked] = useState({});
@@ -1558,6 +1582,34 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend}) {
           {mealPlanItems.length} meals · auto-updates as you add to plan
         </div>
       </div>
+
+      {/* Budget tracker */}
+      {weeklyBudget && autoList.length > 0 && (() => {
+        const COST_BY_CAT = {produce:2.5,meat:8,dairy:4,grains:3,other:2};
+        const estimated = autoList.reduce((s,item) => {
+          const cat = item.section||"other";
+          const costCat = {produce:"produce",meat:"meat",dairy:"dairy",grains:"grains",other:"other"}[cat]||"other";
+          const mult = Math.min(2, Math.max(0.25, (item.amount||1)/4));
+          return s + COST_BY_CAT[costCat] * mult;
+        }, 0);
+        const under = estimated <= weeklyBudget;
+        return (
+          <div style={{background:under?"rgba(90,173,142,0.08)":"rgba(240,128,128,0.08)",border:"1px solid "+(under?"rgba(90,173,142,0.3)":"rgba(240,128,128,0.3)"),borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+            <span style={{fontSize:22}}>💰</span>
+            <div style={{flex:1}}>
+              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>Estimated grocery cost</div>
+              <div style={{color:"var(--text-muted)",fontSize:11}}>Based on {autoList.length} ingredients in your meal plan</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{color:under?"#5aad8e":"#f08080",fontWeight:800,fontSize:20}}>${estimated.toFixed(2)}</div>
+              <div style={{color:"var(--text-muted)",fontSize:11}}>of ${weeklyBudget} budget · {under?`$${(weeklyBudget-estimated).toFixed(2)} under`:`$${(estimated-weeklyBudget).toFixed(2)} over`}</div>
+            </div>
+            <div style={{width:"100%",height:6,background:"var(--nm-input-bg)",borderRadius:3,overflow:"hidden",boxShadow:"var(--nm-inset)"}}>
+              <div style={{height:"100%",width:Math.min(estimated/weeklyBudget*100,100)+"%",background:under?"#5aad8e":"#f08080",borderRadius:3,transition:"width .4s"}}/>
+            </div>
+          </div>
+        );
+      })()}
 
       {mealPlanItems.length===0 && manualItems.length===0 && (
         <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
@@ -2714,6 +2766,12 @@ export default function App() {
   const [coachMsgs, setCoachMsgs] = useState([{role:"assistant",content:"Hi! I'm your Meal Coach 👋 Ask me anything about your recipes, nutrition, or meal planning!"}]);
   const [coachInput, setCoachInput] = useState("");
   const [coachLoading, setCoachLoading] = useState(false);
+  // Filters
+  const [diffF, setDiffF] = useState(null);
+  const [maxTimeF, setMaxTimeF] = useState(null);
+  // Budget mode
+  const [budgetMode, setBudgetMode] = useState(false);
+  const [weeklyBudget, setWeeklyBudget] = useState(100);
 
   // Supabase sync state
   const [supaUser, setSupaUser] = useState(null);
@@ -2959,10 +3017,14 @@ export default function App() {
     if (healthF && !(r.tags||[]).includes(healthF)) return false;
     if (goalF && !(r.goal||[]).includes(goalF)) return false;
     if (cuisineF && r.cuisine!==cuisineF) return false;
+    if (diffF && (r.difficulty||"beginner")!==diffF) return false;
+    if (maxTimeF !== null && (r.totalTime||(r.prepTime||0)+(r.cookTime||0)) > maxTimeF) return false;
     if (search && !(r.title||"").toLowerCase().includes(search.toLowerCase()) &&
         !(r.ingredients||[]).some(i=>(i.name||"").toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
   });
+  const anyFilterActive = catF!=="all" || tagF || healthF || goalF || cuisineF || diffF || maxTimeF !== null || search;
+  const clearAllFilters = () => { setCatF("all"); setTagF(null); setHealthF(null); setGoalF(null); setCuisineF(null); setDiffF(null); setMaxTimeF(null); setSearch(""); };
 
   const navItems = [
     {id:"dashboard",label:"Dashboard",icon:"🏠"},
@@ -3369,13 +3431,44 @@ export default function App() {
           {/* Recipes */}
           {sec==="recipes" && (
             <div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:10}}>
-                <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>All Recipes</h2>
-                <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
+              {/* Header row */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+                <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+                  <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>All Recipes</h2>
+                  <span style={{color:"var(--text-muted)",fontSize:12}}>{filtered.length} of {recipes.length}</span>
+                </div>
+                <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+                  {anyFilterActive && (
+                    <button onClick={clearAllFilters} style={{...CB,fontSize:11,color:"#f08080",border:"1px solid rgba(240,128,128,0.3)"}}>✕ Clear filters</button>
+                  )}
+                  <button onClick={()=>setBudgetMode(b=>!b)}
+                    style={{...CB,fontSize:12,padding:"5px 12px",background:budgetMode?"rgba(90,173,142,0.18)":"var(--bg-card)",color:budgetMode?"#5aad8e":"var(--text-sub)",boxShadow:budgetMode?"var(--nm-inset)":"var(--nm-raised-sm)",border:budgetMode?"1px solid rgba(90,173,142,0.3)":"none"}}>
+                    💰 Budget Mode {budgetMode?"ON":"OFF"}
+                  </button>
+                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
+                </div>
               </div>
 
+              {/* Budget mode panel */}
+              {budgetMode && (
+                <div style={{background:"rgba(90,173,142,0.07)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
+                  <span style={{fontSize:20}}>💰</span>
+                  <div>
+                    <div style={{color:"#5aad8e",fontWeight:700,fontSize:13}}>Budget Mode</div>
+                    <div style={{color:"var(--text-muted)",fontSize:11}}>Showing estimated cost per serving on each recipe card</div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+                    <span style={{color:"var(--text-sub)",fontSize:12}}>Weekly budget $</span>
+                    <input type="number" value={weeklyBudget} onChange={e=>setWeeklyBudget(Math.max(1,+e.target.value))}
+                      style={{...IS,width:70,height:32,padding:"0 8px",fontSize:13}}/>
+                    <span style={{color:"var(--text-muted)",fontSize:11}}>/week</span>
+                  </div>
+                  <div style={{color:"var(--text-muted)",fontSize:11}}>~${(weeklyBudget/21).toFixed(2)}/meal max</div>
+                </div>
+              )}
+
               {/* Category filter */}
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
                 {CATEGORIES.map(c=>(
                   <button key={c.id} onClick={()=>setCatF(c.id)}
                     style={{...CB,boxShadow:catF===c.id?"var(--nm-inset)":"var(--nm-raised-sm)",color:catF===c.id?"var(--accent)":"var(--text-sub)",padding:"6px 14px"}}>
@@ -3385,7 +3478,7 @@ export default function App() {
               </div>
 
               {/* Diet tag filter */}
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
                 {DIET_TAGS.map(t=>(
                   <button key={t} onClick={()=>setTagF(tagF===t?null:t)}
                     style={{...CB,boxShadow:tagF===t?"var(--nm-inset)":"var(--nm-raised-sm)",color:tagF===t?(TAG_COLORS[t]||"var(--accent)"):"var(--text-sub)"}}>
@@ -3395,7 +3488,7 @@ export default function App() {
               </div>
 
               {/* Health tag filter */}
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
                 {HEALTH_TAGS.map(t=>(
                   <button key={t} onClick={()=>setHealthF(healthF===t?null:t)}
                     style={{...CB,boxShadow:healthF===t?"var(--nm-inset)":"var(--nm-raised-sm)",color:healthF===t?(HEALTH_COLORS[t]||"var(--accent)"):"var(--text-sub)"}}>
@@ -3404,20 +3497,46 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Cuisine filter */}
-              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:18}}>
-                {recipes.some(r=>r.cuisine) && CUISINES.filter(c=>recipes.some(r=>r.cuisine===c)).map(c=>(
-                  <button key={c} onClick={()=>setCuisineF(cuisineF===c?null:c)}
-                    style={{...CB,boxShadow:cuisineF===c?"var(--nm-inset)":"var(--nm-raised-sm)",color:cuisineF===c?(CUISINE_COLORS[c]||"var(--accent)"):"var(--text-sub)",fontSize:11}}>
-                    🌍 {c}
+              {/* Difficulty + Time filters */}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6,alignItems:"center"}}>
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginRight:2}}>Difficulty</span>
+                {[null,"beginner","intermediate","advanced"].map(d=>(
+                  <button key={d||"all"} onClick={()=>setDiffF(diffF===d?null:d)}
+                    style={{...CB,boxShadow:diffF===d&&d?"var(--nm-inset)":"var(--nm-raised-sm)",color:diffF===d&&d?(DIFFICULTIES[d]?.color||"var(--accent)"):"var(--text-sub)",fontSize:11}}>
+                    {d?DIFFICULTIES[d].icon+" "+DIFFICULTIES[d].label:"All"}
+                  </button>
+                ))}
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,margin:"0 2px 0 10px"}}>Time</span>
+                {[[null,"Any"],[15,"≤15m"],[30,"≤30m"],[60,"≤1hr"]].map(([val,label])=>(
+                  <button key={label} onClick={()=>setMaxTimeF(maxTimeF===val?null:val)}
+                    style={{...CB,boxShadow:maxTimeF===val&&val!==null?"var(--nm-inset)":"var(--nm-raised-sm)",color:maxTimeF===val&&val!==null?"var(--accent)":"var(--text-sub)",fontSize:11}}>
+                    {label}
                   </button>
                 ))}
               </div>
 
+              {/* Cuisine filter */}
+              {recipes.some(r=>r.cuisine) && (
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
+                  {CUISINES.filter(c=>recipes.some(r=>r.cuisine===c)).map(c=>(
+                    <button key={c} onClick={()=>setCuisineF(cuisineF===c?null:c)}
+                      style={{...CB,boxShadow:cuisineF===c?"var(--nm-inset)":"var(--nm-raised-sm)",color:cuisineF===c?(CUISINE_COLORS[c]||"var(--accent)"):"var(--text-sub)",fontSize:11}}>
+                      🌍 {c}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div style={{height:12}}/>
+
               {filtered.length===0
-                ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:36,marginBottom:10}}>🔍</div><div>No recipes match your filters</div></div>
+                ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
+                    <div style={{fontSize:36,marginBottom:10}}>🔍</div>
+                    <div style={{marginBottom:12}}>No recipes match your filters</div>
+                    {anyFilterActive && <button onClick={clearAllFilters} style={{...CB,color:"var(--accent)"}}>Clear all filters</button>}
+                  </div>
                 : <div className="r-grid">
-                    {filtered.map(r=><RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>)}
+                    {filtered.map(r=><RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined}/>)}
                   </div>
               }
             </div>
@@ -3427,7 +3546,7 @@ export default function App() {
 
           {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")}/>}
 
-          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])}/>}
+          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null}/>}
 
           {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing}/>}
 
