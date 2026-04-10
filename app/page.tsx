@@ -317,15 +317,163 @@ async function exportRecipeToPDF(recipe, scale) {
   const s = scale || recipe.servings || 1;
   const r = s / (recipe.servings||1);
 
-  // Open window immediately (must happen synchronously in the click handler)
+  // Open window immediately — must be synchronous inside the click handler
   const win = window.open("","_blank");
   if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
-  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#666;background:#fff}
-  .w{text-align:center}.sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px}
-  @keyframes s{to{transform:rotate(360deg)}}</style></head>
-  <body><div class="w"><div class="sp"></div>Preparing PDF…</div></body></html>`);
+  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#888;background:#fff;flex-direction:column;gap:14px}
+  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}</style></head>
+  <body><div class="sp"></div><div>Preparing PDF…</div></body></html>`);
   win.document.close();
+
+  // Pre-fetch every image as an inline base64 data URI — eliminates all async loading issues
+  const [heroB64, ingOverallB64] = await Promise.all([toBase64(recipe.image), toBase64(recipe.ingredientsImage)]);
+  const ingB64s = await Promise.all((recipe.ingredients||[]).map(i => toBase64(i.image)));
+  const stepImgB64s = await Promise.all((recipe.steps||[]).map(step => Promise.all(getStepImages(step).map(toBase64))));
+
+  const PRINT_CSS = `
+    @media print {
+      button { display: none !important; }
+      body { padding: 0 !important; }
+      img { max-width: 100% !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .hero { max-height: 220px !important; border-radius: 0 !important; }
+      .step-card { break-inside: avoid; page-break-inside: avoid; }
+      .ing-emoji { background: #f5f5f5 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .nutrition { background: #f9f9f9 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px 28px;color:#1a1a1a}
+    h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
+    .meta{color:#666;font-size:13px;margin-bottom:14px}
+    .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+    .tag{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:12px}
+    .health{background:#e8f5e9;color:#2e7d32}
+    .hero{width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin-bottom:18px;display:block}
+    .nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:#f9f9f9;border-radius:10px;padding:14px;margin:14px 0}
+    .nbox{text-align:center}.nval{font-size:20px;font-weight:700}.nlbl{font-size:10px;color:#888;text-transform:uppercase;margin-top:2px}
+    .stitle{font-size:17px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:5px;margin:18px 0 10px;font-family:Georgia,serif}
+    .ing{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+    .ing-thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0}
+    .ing-emoji{width:36px;height:36px;border-radius:6px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .ing-name{flex:1}.amt{font-weight:600;color:#2e7d32;white-space:nowrap}
+    .ing-overall{width:100%;max-height:150px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block}
+    .step-card{margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #eee}
+    .step-img{width:100%;max-height:200px;object-fit:cover;display:block}
+    .step-imgs{display:flex;gap:5px;padding:6px 6px 0}
+    .step-imgs img{flex:1;min-width:0;height:120px;object-fit:cover;border-radius:6px}
+    .step-body{display:flex;gap:12px;padding:12px;background:#fafafa}
+    .snum{min-width:26px;height:26px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;margin-top:2px}
+    .stext{font-size:14px;flex:1;line-height:1.6;margin:0}.stime{color:#888;font-size:12px;margin-top:3px}
+    .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:10px 0}
+    .printbtn{display:block;margin:24px auto 0;background:#333;color:#fff;border:none;border-radius:8px;padding:11px 28px;font-size:14px;cursor:pointer;font-family:inherit}
+    ${PRINT_CSS}
+  </style></head><body>
+  ${heroB64 ? `<img src="${heroB64}" class="hero" alt="${recipe.title}"/>` : ""}
+  <h1>${recipe.title}${(recipe.spiceLevel||0)>0?` ${"🌶️".repeat(recipe.spiceLevel)}`:""}</h1>
+  <div class="meta">${recipe.category}${recipe.cuisine?" · 🌍 "+recipe.cuisine:""} · ${recipe.prepTime||0}min prep · ${recipe.cookTime||0}min cook · ${recipe.totalTime||0}min total · ${s} servings</div>
+  ${recipe.healthBenefits ? `<div class="hbnote">${recipe.healthBenefits}</div>` : ""}
+  <div class="tags">${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">⚠ ${a}</span>`).join("")}</div>
+  <div class="nutrition">
+    ${[["Calories",Math.round(recipe.nutrition.calories*r),""],["Protein",Math.round(recipe.nutrition.protein*r),"g"],["Carbs",Math.round(recipe.nutrition.carbs*r),"g"],["Fat",Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
+  </div>
+  <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
+  ${ingOverallB64 ? `<img src="${ingOverallB64}" class="ing-overall" alt="All ingredients"/>` : ""}
+  ${(recipe.ingredients||[]).map((ing,i)=>`<div class="ing">
+    ${ingB64s[i] ? `<img src="${ingB64s[i]}" class="ing-thumb" alt="${ing.name}"/>` : `<div class="ing-emoji">${getItemEmoji(ing.name)}</div>`}
+    <span class="ing-name">${ing.name}</span>
+    <span class="amt">${scaleAmt(ing.amount,r)} ${ing.unit}</span>
+  </div>`).join("")}
+  <div class="stitle">Steps</div>
+  ${(recipe.steps||[]).map((step,i)=>{
+    const imgs = stepImgB64s[i].filter(Boolean);
+    return `<div class="step-card">
+      ${imgs.length===1 ? `<img src="${imgs[0]}" class="step-img" alt="Step ${i+1}"/>` : imgs.length>1 ? `<div class="step-imgs">${imgs.map(b=>`<img src="${b}" alt=""/>`).join("")}</div>` : ""}
+      <div class="step-body">
+        <div class="snum">${i+1}</div>
+        <div style="flex:1"><p class="stext">${step.text}</p>${step.timeMin?`<div class="stime">⏱ ${step.timeMin} min</div>`:""}</div>
+      </div>
+    </div>`;
+  }).join("")}
+  <div style="margin-top:24px;padding-top:12px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
+  <button class="printbtn" onclick="window.print()">🖨 Print / Save PDF</button>
+  </body></html>`;
+
+  // Use Blob URL to navigate the popup — more reliable than document.write after async
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  win.location.replace(url);
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
+
+async function exportMealBookToPDF(recipes, title) {
+  const win = window.open("","_blank");
+  if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
+  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#888;flex-direction:column;gap:14px}
+  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}</style></head>
+  <body><div class="sp"></div><div>Preparing PDF…</div></body></html>`);
+  win.document.close();
+
+  const recipeData = await Promise.all(recipes.map(async rec => {
+    const heroB64 = await toBase64(rec.image);
+    const ingB64s = await Promise.all((rec.ingredients||[]).map(i => toBase64(i.image)));
+    const stepImgB64s = await Promise.all((rec.steps||[]).map(step => Promise.all(getStepImages(step).map(toBase64))));
+    return {heroB64, ingB64s, stepImgB64s};
+  }));
+
+  const pages = recipes.map((r,idx)=>{
+    const {heroB64, ingB64s, stepImgB64s} = recipeData[idx];
+    return `<div style="page-break-before:${idx>0?"always":"auto"};padding:24px 28px">
+      ${heroB64 ? `<img src="${heroB64}" style="width:100%;height:180px;object-fit:cover;border-radius:8px;margin-bottom:12px;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt="${r.title}"/>` : ""}
+      <h2 style="font-family:Georgia,serif;font-size:21px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
+      <div style="color:#666;font-size:12px;margin-bottom:8px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
+      ${(r.tags||[]).slice(0,5).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0">
+        <div>
+          <b style="font-size:13px">Ingredients</b><br/><br/>
+          ${(r.ingredients||[]).map((ing,i)=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:7px">
+            ${ingB64s[i] ? `<img src="${ingB64s[i]}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;flex-shrink:0"/>` : `<span style="font-size:14px">${getItemEmoji(ing.name)}</span>`}
+            <span style="flex:1">${ing.name}</span><span style="color:#2e7d32;font-weight:600;white-space:nowrap">${ing.amount} ${ing.unit}</span>
+          </div>`).join("")}
+        </div>
+        <div>
+          <b style="font-size:13px">Steps</b><br/><br/>
+          ${(r.steps||[]).map((step,i)=>{
+            const imgs = stepImgB64s[i].filter(Boolean);
+            return `${imgs.length>0?`<div style="display:flex;gap:3px;margin-bottom:4px">${imgs.map(b=>`<img src="${b}" style="flex:1;min-width:0;height:55px;object-fit:cover;border-radius:4px;print-color-adjust:exact;-webkit-print-color-adjust:exact"/>`).join("")}</div>`:""}
+            <div style="font-size:12px;margin-bottom:6px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a}
+    @media print{button{display:none!important}img{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+  </style>
+  </head><body>
+  <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:24px">
+    <div style="font-size:36px;margin-bottom:8px">🥗</div>
+    <h1 style="font-family:Georgia,serif;font-size:32px;margin:0 0 6px">${title||"My Meal Book"}</h1>
+    <div style="color:#666;font-size:14px">${recipes.length} recipes · ${new Date().toLocaleDateString()}</div>
+  </div>
+  ${pages}
+  <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer;font-family:inherit">🖨 Print / Save PDF</button></div>
+  </body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  win.location.replace(url);
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
 
   // Pre-fetch all images as base64 (avoids async loading issues in about:blank windows)
   const [heroB64, ingOverallB64] = await Promise.all([
@@ -399,66 +547,6 @@ async function exportRecipeToPDF(recipe, scale) {
   win.document.close();
 }
 
-async function exportMealBookToPDF(recipes, title) {
-  const win = window.open("","_blank");
-  if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
-  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#666}
-  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px}
-  @keyframes s{to{transform:rotate(360deg)}}</style></head>
-  <body><div style="text-align:center"><div class="sp"></div>Preparing PDF…</div></body></html>`);
-  win.document.close();
-
-  // Pre-fetch all images for all recipes
-  const recipeData = await Promise.all(recipes.map(async rec => {
-    const [heroB64] = await Promise.all([toBase64(rec.image)]);
-    const ingB64s = await Promise.all((rec.ingredients||[]).map(i => toBase64(i.image)));
-    const stepImgB64s = await Promise.all((rec.steps||[]).map(step =>
-      Promise.all(getStepImages(step).map(toBase64))
-    ));
-    return { heroB64, ingB64s, stepImgB64s };
-  }));
-
-  const pages = recipes.map((r,idx)=>{
-    const { heroB64, ingB64s, stepImgB64s } = recipeData[idx];
-    return `<div style="page-break-before:${idx>0?"always":"auto"};padding:24px">
-      ${heroB64 ? `<img src="${heroB64}" style="width:100%;height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px;display:block" alt="${r.title}"/>` : ""}
-      <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
-      <div style="color:#666;font-size:12px;margin-bottom:10px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
-      ${(r.tags||[]).slice(0,4).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0">
-        <div>
-          <b style="font-size:14px">Ingredients</b><br/><br/>
-          ${(r.ingredients||[]).map((ing,i)=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:7px">
-            ${ingB64s[i]?`<img src="${ingB64s[i]}" style="width:26px;height:26px;border-radius:5px;object-fit:cover;flex-shrink:0"/>`:`<span style="font-size:15px">${getItemEmoji(ing.name)}</span>`}
-            <span style="flex:1">${ing.name}</span><span style="color:#2e7d32;font-weight:600;white-space:nowrap">${ing.amount} ${ing.unit}</span>
-          </div>`).join("")}
-        </div>
-        <div>
-          <b style="font-size:14px">Steps</b><br/><br/>
-          ${(r.steps||[]).map((step,i)=>{
-            const imgs = stepImgB64s[i].filter(Boolean);
-            return `${imgs.length>0?`<div style="display:flex;gap:4px;margin-bottom:4px">${imgs.map(b=>`<img src="${b}" style="flex:1;min-width:0;height:60px;object-fit:cover;border-radius:5px"/>`).join("")}</div>`:""}
-            <div style="font-size:12px;margin-bottom:7px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>`;
-          }).join("")}
-        </div>
-      </div>
-    </div>`;
-  }).join("");
-
-  win.document.open();
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
-  <style>body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a}@media print{button{display:none}}</style>
-  </head><body>
-  <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:32px">
-    <div style="font-size:40px;margin-bottom:8px">🥗</div>
-    <h1 style="font-family:Georgia,serif;font-size:34px;margin:0 0 6px">${title||"My Meal Book"}</h1>
-    <div style="color:#666;font-size:14px">${recipes.length} recipes · ${new Date().toLocaleDateString()}</div>
-  </div>
-  ${pages}
-  <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer">🖨 Print / Save PDF</button></div>
-  </body></html>`);
-  win.document.close();
 }
 
 
