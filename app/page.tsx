@@ -143,6 +143,60 @@ const recipeEstCost = r => {
   return Math.round(total / Math.max(r.servings||1, 1) * 10) / 10;
 };
 
+// ─── PWA STORAGE ──────────────────────────────────────────────────────────────
+// iOS "Add to Home Screen" gives the standalone app its OWN localStorage,
+// completely separate from Safari's. Cookies are shared across all contexts.
+// So we write small keys (API keys, auth session) to BOTH localStorage AND
+// cookies so they survive no matter how the app was opened.
+const pwaGet = key => {
+  if (typeof window === 'undefined') return null;
+  try { const v = localStorage.getItem(key); if (v) return v; } catch(e) {}
+  try {
+    const m = document.cookie.match('(?:^|; )mpm_' + key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '=([^;]*)');
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch(e) { return null; }
+};
+const pwaSet = (key, value) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (value != null) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch(e) {}
+  try {
+    if (value != null) {
+      // Only cookie-store values small enough to fit (< 3500 encoded chars)
+      const enc = encodeURIComponent(value);
+      if (enc.length < 3500)
+        document.cookie = 'mpm_' + key + '=' + enc + ';max-age=31536000;path=/;SameSite=Lax';
+    } else {
+      document.cookie = 'mpm_' + key + '=;max-age=0;path=/';
+    }
+  } catch(e) {}
+};
+// Custom storage adapter for Supabase — mirrors to cookies for PWA persistence
+const supaStorage = typeof window !== 'undefined' ? {
+  getItem: key => {
+    try { const v = localStorage.getItem(key); if (v) return v; } catch(e) {}
+    try {
+      const ck = 'mpm_sb_' + key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      const m = document.cookie.match('(?:^|; )' + ck + '=([^;]*)');
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch(e) { return null; }
+  },
+  setItem: (key, value) => {
+    try { localStorage.setItem(key, value); } catch(e) {}
+    try {
+      const enc = encodeURIComponent(value || '');
+      if (enc.length < 3500)
+        document.cookie = 'mpm_sb_' + key + '=' + enc + ';max-age=31536000;path=/;SameSite=Lax';
+    } catch(e) {}
+  },
+  removeItem: key => {
+    try { localStorage.removeItem(key); } catch(e) {}
+    try { document.cookie = 'mpm_sb_' + key + '=;max-age=0;path=/'; } catch(e) {}
+  }
+} : undefined;
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const scaleAmt = (n, r) => {
   const v = Math.round(n * r * 10) / 10;
@@ -154,7 +208,7 @@ let _lastCallTime = 0;
 const MIN_GAP_MS = 3000; // 3 s between calls → max 20 req/min, well under limits
 
 async function anthropicCall(body, retries = 3) {
-  const key = typeof localStorage !== 'undefined' && localStorage.getItem('anthropic_key');
+  const key = pwaGet('anthropic_key');
   if (!key) throw new Error("NO_KEY");
 
   // Throttle: enforce minimum gap between calls
@@ -238,7 +292,7 @@ async function fetchPageContent(url) {
 }
 
 async function fetchPexelsImage(title) {
-  const key = typeof localStorage !== 'undefined' && localStorage.getItem('pexels_key');
+  const key = pwaGet('pexels_key');
   if (!key) return null;
   const q = encodeURIComponent((title||'') + ' food meal');
   try {
@@ -2786,7 +2840,14 @@ export default function App() {
   const getSupabase = () => {
     if (!supabaseRef.current) {
       try {
-        supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_KEY);
+        supabaseRef.current = createClient(SUPABASE_URL, SUPABASE_KEY, {
+          auth: {
+            // Use cookie-aware storage so iOS home screen apps keep their session
+            storage: supaStorage,
+            persistSession: true,
+            autoRefreshToken: true,
+          }
+        });
       } catch(e) { console.warn('Supabase init failed', e); }
     }
     return supabaseRef.current;
@@ -2833,8 +2894,8 @@ export default function App() {
           return merged;
         });
         if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
-        if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); localStorage.setItem('anthropic_key', d.anthropicKey); }
-        if (d.pexelsKey) { setPexelsKey(d.pexelsKey); localStorage.setItem('pexels_key', d.pexelsKey); }
+        if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); pwaSet('anthropic_key', d.anthropicKey); }
+        if (d.pexelsKey) { setPexelsKey(d.pexelsKey); pwaSet('pexels_key', d.pexelsKey); }
         if (d.shoppingSpends) setShoppingSpends(d.shoppingSpends);
         if (d.cookLog) setCookLog(d.cookLog);
         if (d.supplements) setSupplements(d.supplements);
@@ -2901,8 +2962,8 @@ export default function App() {
       const sups = localStorage.getItem('mpm_supplements');
       if (sups) setSupplements(JSON.parse(sups));
     } catch(e) {}
-    setAnthropicKey(localStorage.getItem('anthropic_key') || '');
-    setPexelsKey(localStorage.getItem('pexels_key') || '');
+    setAnthropicKey(pwaGet('anthropic_key') || '');
+    setPexelsKey(pwaGet('pexels_key') || '');
     setDarkMode(localStorage.getItem('dark_mode') !== 'false');
     setHydrated(true);
     const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if(m) setSidebar(false); };
@@ -3217,7 +3278,7 @@ export default function App() {
             <div style={{marginBottom:16}}>
               <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🤖 Anthropic Key <span style={{color:"#f08080"}}>(required for AI)</span></div>
               <input type="password" placeholder="sk-ant-api03-…" value={anthropicKey}
-                onChange={e=>{setAnthropicKey(e.target.value);localStorage.setItem('anthropic_key',e.target.value);}}
+                onChange={e=>{setAnthropicKey(e.target.value);pwaSet('anthropic_key',e.target.value);}}
                 onKeyDown={e=>{if(e.key==='Enter') setSettingsOpen(false);}}
                 style={{...IS,fontSize:13,marginBottom:8}}/>
               {anthropicKey
@@ -3227,7 +3288,7 @@ export default function App() {
             <div>
               <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>📷 Pexels Key <span style={{color:"var(--text-muted)"}}>(optional, for real photos)</span></div>
               <input type="password" placeholder="Pexels API key…" value={pexelsKey}
-                onChange={e=>{setPexelsKey(e.target.value);localStorage.setItem('pexels_key',e.target.value);}}
+                onChange={e=>{setPexelsKey(e.target.value);pwaSet('pexels_key',e.target.value);}}
                 onKeyDown={e=>{if(e.key==='Enter') setSettingsOpen(false);}}
                 style={{...IS,fontSize:13,marginBottom:8}}/>
               {pexelsKey
