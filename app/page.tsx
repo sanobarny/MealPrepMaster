@@ -2823,6 +2823,7 @@ export default function App() {
   // Filters
   const [diffF, setDiffF] = useState(null);
   const [maxTimeF, setMaxTimeF] = useState(null);
+  const [maxCostF, setMaxCostF] = useState(null);
   // Budget mode
   const [budgetMode, setBudgetMode] = useState(false);
   const [weeklyBudget, setWeeklyBudget] = useState(100);
@@ -3097,12 +3098,13 @@ export default function App() {
     if (cuisineF && r.cuisine!==cuisineF) return false;
     if (diffF && (r.difficulty||"beginner")!==diffF) return false;
     if (maxTimeF !== null && (r.totalTime||(r.prepTime||0)+(r.cookTime||0)) > maxTimeF) return false;
+    if (maxCostF !== null && recipeEstCost(r) > maxCostF) return false;
     if (search && !(r.title||"").toLowerCase().includes(search.toLowerCase()) &&
         !(r.ingredients||[]).some(i=>(i.name||"").toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
   });
-  const anyFilterActive = catF!=="all" || tagF || healthF || goalF || cuisineF || diffF || maxTimeF !== null || search;
-  const clearAllFilters = () => { setCatF("all"); setTagF(null); setHealthF(null); setGoalF(null); setCuisineF(null); setDiffF(null); setMaxTimeF(null); setSearch(""); };
+  const anyFilterActive = catF!=="all" || tagF || healthF || goalF || cuisineF || diffF || maxTimeF !== null || maxCostF !== null || search;
+  const clearAllFilters = () => { setCatF("all"); setTagF(null); setHealthF(null); setGoalF(null); setCuisineF(null); setDiffF(null); setMaxTimeF(null); setMaxCostF(null); setSearch(""); };
 
   const navItems = [
     {id:"dashboard",label:"Dashboard",icon:"🏠"},
@@ -3589,6 +3591,13 @@ export default function App() {
                 {[[null,"Any"],[15,"≤15m"],[30,"≤30m"],[60,"≤1hr"]].map(([val,label])=>(
                   <button key={label} onClick={()=>setMaxTimeF(maxTimeF===val?null:val)}
                     style={{...CB,boxShadow:maxTimeF===val&&val!==null?"var(--nm-inset)":"var(--nm-raised-sm)",color:maxTimeF===val&&val!==null?"var(--accent)":"var(--text-sub)",fontSize:11}}>
+                    {label}
+                  </button>
+                ))}
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,margin:"0 2px 0 10px"}}>Budget</span>
+                {[[null,"Any"],[2,"≤$2"],[4,"≤$4"],[6,"≤$6"]].map(([val,label])=>(
+                  <button key={label} onClick={()=>setMaxCostF(maxCostF===val?null:val)}
+                    style={{...CB,boxShadow:maxCostF===val&&val!==null?"var(--nm-inset)":"var(--nm-raised-sm)",color:maxCostF===val&&val!==null?"#5aad8e":"var(--text-sub)",fontSize:11}}>
                     {label}
                   </button>
                 ))}
