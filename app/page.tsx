@@ -296,30 +296,50 @@ RULES:
 }
 
 // ─── PDF EXPORT ──────────────────────────────────────────────────────────────
-const PDF_WAIT_SCRIPT = `<script>
-  (function(){
-    var imgs=Array.from(document.querySelectorAll('img'));
-    function ready(){document.getElementById('pdfLoader').style.display='none';document.body.classList.add('pdfReady');}
-    if(!imgs.length){ready();return;}
-    var n=0;
-    imgs.forEach(function(img){
-      function done(){if(++n>=imgs.length)ready();}
-      if(img.complete&&img.naturalWidth>0){done();return;}
-      img.onload=done;
-      img.onerror=function(){img.style.display='none';done();};
-      setTimeout(done,10000);
+// Pre-fetch an image URL → base64 data URI so PDF windows don't need async loading
+async function toBase64(url) {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const rd = new FileReader();
+      rd.onloadend = () => resolve(rd.result);
+      rd.onerror = reject;
+      rd.readAsDataURL(blob);
     });
-  })();
-<\/script>`;
+  } catch(e) { return null; }
+}
 
-function exportRecipeToPDF(recipe, scale) {
+async function exportRecipeToPDF(recipe, scale) {
   const s = scale || recipe.servings || 1;
   const r = s / (recipe.servings||1);
+
+  // Open window immediately (must happen synchronously in the click handler)
   const win = window.open("","_blank");
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
+  if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
+  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#666;background:#fff}
+  .w{text-align:center}.sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px}
+  @keyframes s{to{transform:rotate(360deg)}}</style></head>
+  <body><div class="w"><div class="sp"></div>Preparing PDF…</div></body></html>`);
+  win.document.close();
+
+  // Pre-fetch all images as base64 (avoids async loading issues in about:blank windows)
+  const [heroB64, ingOverallB64] = await Promise.all([
+    toBase64(recipe.image),
+    toBase64(recipe.ingredientsImage),
+  ]);
+  const ingB64s = await Promise.all((recipe.ingredients||[]).map(i => toBase64(i.image)));
+  const stepImgB64s = await Promise.all((recipe.steps||[]).map(step =>
+    Promise.all(getStepImages(step).map(toBase64))
+  ));
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${recipe.title}</title>
   <style>
-    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a;opacity:0;transition:opacity .4s}
-    body.pdfReady{opacity:1}
+    body{font-family:'Segoe UI',sans-serif;max-width:720px;margin:0 auto;padding:32px;color:#1a1a1a}
     h1{font-family:Georgia,serif;font-size:28px;margin:0 0 6px}
     .meta{color:#666;font-size:13px;margin-bottom:16px}
     .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
@@ -336,17 +356,15 @@ function exportRecipeToPDF(recipe, scale) {
     .ing-overall{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:12px;display:block}
     .step-card{margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid #eee}
     .step-img{width:100%;max-height:200px;object-fit:cover;display:block}
+    .step-imgs{display:flex;gap:6px;padding:8px 8px 0;overflow-x:auto}
+    .step-imgs img{width:160px;height:110px;object-fit:cover;border-radius:7px;flex-shrink:0}
     .step-body{display:flex;gap:12px;padding:12px;background:#fafafa}
     .snum{min-width:28px;height:28px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;margin-top:2px}
     .stext{font-size:14px;flex:1;line-height:1.6}.stime{color:#888;font-size:12px;margin-top:3px}
     .hbnote{background:#e8f5e9;border-left:4px solid #4caf50;padding:12px 16px;border-radius:0 8px 8px 0;font-size:13px;color:#2e7d32;margin:12px 0}
-    #pdfLoader{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-size:14px;color:#888;z-index:999}
-    .spin{width:32px;height:32px;border:3px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .7s linear infinite}
-    @keyframes sp{to{transform:rotate(360deg)}}
-    @media print{button,#pdfLoader{display:none}body{opacity:1!important}.step-card{break-inside:avoid}}
+    @media print{button{display:none}.step-card{break-inside:avoid}}
   </style></head><body>
-  <div id="pdfLoader"><div class="spin"></div>Loading images…</div>
-  ${recipe.image ? `<img src="${recipe.image}" class="hero" alt="${recipe.title}"/>` : ""}
+  ${heroB64 ? `<img src="${heroB64}" class="hero" alt="${recipe.title}"/>` : ""}
   <h1>${recipe.title}${(recipe.spiceLevel||0)>0?` ${"🌶️".repeat(recipe.spiceLevel)}`:""}</h1>
   <div class="meta">${recipe.category}${recipe.cuisine?" · 🌍 "+recipe.cuisine:""} · ${recipe.prepTime||0}min prep · ${recipe.cookTime||0}min cook · ${recipe.totalTime||0}min total · ${s} servings</div>
   ${recipe.healthBenefits ? `<div class="hbnote">${recipe.healthBenefits}</div>` : ""}
@@ -355,63 +373,83 @@ function exportRecipeToPDF(recipe, scale) {
     ${[["Calories",Math.round(recipe.nutrition.calories*r),""],["Protein",Math.round(recipe.nutrition.protein*r),"g"],["Carbs",Math.round(recipe.nutrition.carbs*r),"g"],["Fat",Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
   </div>
   <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
-  ${recipe.ingredientsImage ? `<img src="${recipe.ingredientsImage}" class="ing-overall" alt="All ingredients"/>` : ""}
-  ${(recipe.ingredients||[]).map(i=>`<div class="ing">
-    ${i.image ? `<img src="${i.image}" class="ing-thumb" alt="${i.name}"/>` : `<div class="ing-emoji">${getItemEmoji(i.name)}</div>`}
-    <span class="ing-name">${i.name}</span>
-    <span class="amt">${scaleAmt(i.amount,r)} ${i.unit}</span>
+  ${ingOverallB64 ? `<img src="${ingOverallB64}" class="ing-overall" alt="All ingredients"/>` : ""}
+  ${(recipe.ingredients||[]).map((ing,i)=>`<div class="ing">
+    ${ingB64s[i] ? `<img src="${ingB64s[i]}" class="ing-thumb" alt="${ing.name}"/>` : `<div class="ing-emoji">${getItemEmoji(ing.name)}</div>`}
+    <span class="ing-name">${ing.name}</span>
+    <span class="amt">${scaleAmt(ing.amount,r)} ${ing.unit}</span>
   </div>`).join("")}
   <div class="stitle">Steps</div>
-  ${(recipe.steps||[]).map((step,i)=>{const imgs=(step.images&&step.images.length)?step.images:step.image?[step.image]:[];return`<div class="step-card">
-    ${imgs.length===1?`<img src="${imgs[0]}" class="step-img" alt="Step ${i+1}"/>`:imgs.length>1?`<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 8px 0">${imgs.map(img=>`<img src="${img}" style="width:160px;height:110px;object-fit:cover;border-radius:7px;flex-shrink:0"/>`).join("")}</div>`:""}
-    <div class="step-body">
-      <div class="snum">${i+1}</div>
-      <div><div class="stext">${step.text}</div>${step.timeMin?`<div class="stime">⏱ ${step.timeMin} min</div>`:""}</div>
-    </div>
-  </div>`}).join("")}
+  ${(recipe.steps||[]).map((step,i)=>{
+    const imgs = stepImgB64s[i].filter(Boolean);
+    return `<div class="step-card">
+      ${imgs.length===1 ? `<img src="${imgs[0]}" class="step-img" alt="Step ${i+1}"/>` : imgs.length>1 ? `<div class="step-imgs">${imgs.map(b=>`<img src="${b}"/>`).join("")}</div>` : ""}
+      <div class="step-body">
+        <div class="snum">${i+1}</div>
+        <div><div class="stext">${step.text}</div>${step.timeMin?`<div class="stime">⏱ ${step.timeMin} min</div>`:""}</div>
+      </div>
+    </div>`;
+  }).join("")}
   <div style="margin-top:28px;padding-top:14px;border-top:1px solid #eee;color:#aaa;font-size:11px;text-align:center">MealPrepMaster · ${new Date().toLocaleDateString()}</div>
   <div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;cursor:pointer">🖨 Print / Save PDF</button></div>
-  ${PDF_WAIT_SCRIPT}
-  </body></html>`);
+  </body></html>`;
+
+  win.document.open();
+  win.document.write(html);
   win.document.close();
 }
 
-function exportMealBookToPDF(recipes, title) {
+async function exportMealBookToPDF(recipes, title) {
   const win = window.open("","_blank");
-  const pages = recipes.map((r,idx)=>`
-    <div style="page-break-before:${idx>0?"always":"auto"};padding:24px">
-      ${r.image ? `<img src="${r.image}" style="width:100%;height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px;display:block" alt="${r.title}"/>` : ""}
+  if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
+  <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#666}
+  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:s .8s linear infinite;margin:0 auto 14px}
+  @keyframes s{to{transform:rotate(360deg)}}</style></head>
+  <body><div style="text-align:center"><div class="sp"></div>Preparing PDF…</div></body></html>`);
+  win.document.close();
+
+  // Pre-fetch all images for all recipes
+  const recipeData = await Promise.all(recipes.map(async rec => {
+    const [heroB64] = await Promise.all([toBase64(rec.image)]);
+    const ingB64s = await Promise.all((rec.ingredients||[]).map(i => toBase64(i.image)));
+    const stepImgB64s = await Promise.all((rec.steps||[]).map(step =>
+      Promise.all(getStepImages(step).map(toBase64))
+    ));
+    return { heroB64, ingB64s, stepImgB64s };
+  }));
+
+  const pages = recipes.map((r,idx)=>{
+    const { heroB64, ingB64s, stepImgB64s } = recipeData[idx];
+    return `<div style="page-break-before:${idx>0?"always":"auto"};padding:24px">
+      ${heroB64 ? `<img src="${heroB64}" style="width:100%;height:200px;object-fit:cover;border-radius:10px;margin-bottom:14px;display:block" alt="${r.title}"/>` : ""}
       <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
       <div style="color:#666;font-size:12px;margin-bottom:10px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
       ${(r.tags||[]).slice(0,4).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0">
         <div>
           <b style="font-size:14px">Ingredients</b><br/><br/>
-          ${(r.ingredients||[]).map(i=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:7px">
-            ${i.image?`<img src="${i.image}" style="width:26px;height:26px;border-radius:5px;object-fit:cover;flex-shrink:0"/>`:`<span style="font-size:15px">${getItemEmoji(i.name)}</span>`}
-            <span style="flex:1">${i.name}</span><span style="color:#2e7d32;font-weight:600;white-space:nowrap">${i.amount} ${i.unit}</span>
+          ${(r.ingredients||[]).map((ing,i)=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5;display:flex;align-items:center;gap:7px">
+            ${ingB64s[i]?`<img src="${ingB64s[i]}" style="width:26px;height:26px;border-radius:5px;object-fit:cover;flex-shrink:0"/>`:`<span style="font-size:15px">${getItemEmoji(ing.name)}</span>`}
+            <span style="flex:1">${ing.name}</span><span style="color:#2e7d32;font-weight:600;white-space:nowrap">${ing.amount} ${ing.unit}</span>
           </div>`).join("")}
         </div>
         <div>
           <b style="font-size:14px">Steps</b><br/><br/>
-          ${(r.steps||[]).map((step,i)=>{const imgs=(step.images&&step.images.length)?step.images:step.image?[step.image]:[];return`
-            ${imgs.length>0?`<div style="display:flex;gap:4px;margin-bottom:4px">${imgs.map(img=>`<img src="${img}" style="flex:1;min-width:0;height:60px;object-fit:cover;border-radius:5px"/>`).join("")}</div>`:""}
-            <div style="font-size:12px;margin-bottom:7px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>
-          `;}).join("")}
+          ${(r.steps||[]).map((step,i)=>{
+            const imgs = stepImgB64s[i].filter(Boolean);
+            return `${imgs.length>0?`<div style="display:flex;gap:4px;margin-bottom:4px">${imgs.map(b=>`<img src="${b}" style="flex:1;min-width:0;height:60px;object-fit:cover;border-radius:5px"/>`).join("")}</div>`:""}
+            <div style="font-size:12px;margin-bottom:7px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>`;
+          }).join("")}
         </div>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
+
+  win.document.open();
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
-  <style>
-    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a;opacity:0;transition:opacity .4s}
-    body.pdfReady{opacity:1}
-    #pdfLoader{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-size:14px;color:#888;z-index:999}
-    .spin{width:32px;height:32px;border:3px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .7s linear infinite}
-    @keyframes sp{to{transform:rotate(360deg)}}
-    @media print{button,#pdfLoader{display:none}body{opacity:1!important}}
-  </style>
+  <style>body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a}@media print{button{display:none}}</style>
   </head><body>
-  <div id="pdfLoader"><div class="spin"></div>Loading images…</div>
   <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:32px">
     <div style="font-size:40px;margin-bottom:8px">🥗</div>
     <h1 style="font-family:Georgia,serif;font-size:34px;margin:0 0 6px">${title||"My Meal Book"}</h1>
@@ -419,10 +457,10 @@ function exportMealBookToPDF(recipes, title) {
   </div>
   ${pages}
   <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer">🖨 Print / Save PDF</button></div>
-  ${PDF_WAIT_SCRIPT}
   </body></html>`);
   win.document.close();
 }
+
 
 // ─── STYLE CONSTANTS ─────────────────────────────────────────────────────────
 const IS = {background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"};
