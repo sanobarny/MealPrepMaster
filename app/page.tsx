@@ -1097,6 +1097,19 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
           </div>
         </div>
 
+        {/* Goals */}
+        <div style={{marginBottom:14}}>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🎯 Goals</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+            {GOALS.map(g=>{const on=(data.goal||[]).map(x=>(x||"").toLowerCase()).includes(g);return(
+              <button key={g} onClick={()=>set("goal",on?(data.goal||[]).filter(x=>(x||"").toLowerCase()!==g):[...(data.goal||[]),g])}
+                style={{...CB,boxShadow:on?"var(--nm-inset)":"var(--nm-raised-sm)",color:on?"var(--accent)":"var(--text-sub)",fontSize:11}}>
+                {on?"✓ ":""}{g}
+              </button>
+            );})}
+          </div>
+        </div>
+
         {/* Ingredients */}
         <div style={{marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -3094,7 +3107,7 @@ export default function App() {
     if (catF!=="all" && r.category!==catF) return false;
     if (tagF && !(r.tags||[]).includes(tagF)) return false;
     if (healthF && !(r.tags||[]).includes(healthF)) return false;
-    if (goalF && !(r.goal||[]).includes(goalF)) return false;
+    if (goalF && !(r.goal||[]).some(g=>(g||"").toLowerCase()===goalF.toLowerCase())) return false;
     if (cuisineF && r.cuisine!==cuisineF) return false;
     if (diffF && (r.difficulty||"beginner")!==diffF) return false;
     if (maxTimeF !== null && (r.totalTime||(r.prepTime||0)+(r.cookTime||0)) > maxTimeF) return false;
