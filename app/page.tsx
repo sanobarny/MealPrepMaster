@@ -1,8 +1,48 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Component } from "react";
 import { createClient } from '@supabase/supabase-js';
+
+// ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = {error:null}; }
+  static getDerivedStateFromError(e) { return {error:e}; }
+  componentDidCatch(e, info) { console.error('App crashed:', e, info); }
+  render() {
+    if (this.state.error) return (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',padding:32,fontFamily:'sans-serif',textAlign:'center',background:'#fff'}}>
+        <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+        <h2 style={{margin:'0 0 8px',fontSize:20}}>Something went wrong</h2>
+        <p style={{color:'#666',fontSize:14,marginBottom:8,maxWidth:340}}>{String(this.state.error?.message||'Unknown error')}</p>
+        <p style={{color:'#999',fontSize:12,marginBottom:24}}>Your data is safe. Tap below to reload.</p>
+        <button onClick={()=>{this.setState({error:null});window.location.reload();}}
+          style={{background:'#3a7d5e',color:'#fff',border:'none',borderRadius:10,padding:'12px 28px',fontSize:15,cursor:'pointer',fontFamily:'inherit',fontWeight:700}}>
+          Reload App
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+// ─── SAFE STORAGE ─────────────────────────────────────────────────────────────
+// localStorage.setItem throws QuotaExceededError on iOS when full — never let it crash the app
+const lsSave = (key, val) => {
+  try { localStorage.setItem(key, typeof val === 'string' ? val : JSON.stringify(val)); }
+  catch(e) { console.warn('localStorage full, could not save', key, e); }
+};
+
+// Validate and fill in any missing fields on a profile loaded from storage/cloud
+const sanitizeProfile = p => ({
+  id: p?.id || ('p_'+Date.now()),
+  name: p?.name || 'Me',
+  macroGoals: p?.macroGoals && typeof p.macroGoals === 'object'
+    ? {calories:p.macroGoals.calories||2000, protein:p.macroGoals.protein||50, carbs:p.macroGoals.carbs||130, fat:p.macroGoals.fat||65}
+    : {calories:2000,protein:50,carbs:130,fat:65},
+  cookLog: Array.isArray(p?.cookLog) ? p.cookLog : [],
+  supplements: Array.isArray(p?.supplements) ? p.supplements : [],
+});
 
 const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bnhlcmRlcGlzamZzYWF0enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njc5NjUsImV4cCI6MjA5MTE0Mzk2NX0.Bx9Rtywb9OOk3b6U_skK5IQz5EHZwK1vIsw4geW5sEs';
@@ -2969,7 +3009,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-export default function App() {
+function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
   const [sec, setSec] = useState("dashboard");
   const [catF, setCatF] = useState("all");
@@ -3089,8 +3129,10 @@ export default function App() {
         if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); pwaSet('anthropic_key', d.anthropicKey); }
         if (d.pexelsKey) { setPexelsKey(d.pexelsKey); pwaSet('pexels_key', d.pexelsKey); }
         if (d.shoppingSpends) setShoppingSpends(d.shoppingSpends);
-        if (d.profiles) {
-          setProfiles(d.profiles);
+        if (d.profiles && Array.isArray(d.profiles) && d.profiles.length > 0) {
+          const sanitized = d.profiles.map(sanitizeProfile);
+          setProfiles(sanitized);
+          setActiveProfileId(id => sanitized.some(p => p.id === id) ? id : sanitized[0].id);
         } else if (d.cookLog || d.supplements || d.macroGoals) {
           // Migrate old format into default profile
           setProfiles(ps => ps.map(p => p.id==='default' ? {
@@ -3162,9 +3204,12 @@ export default function App() {
       if (spends) setShoppingSpends(JSON.parse(spends));
       const savedProfiles = localStorage.getItem('mpm_profiles');
       if (savedProfiles) {
-        setProfiles(JSON.parse(savedProfiles));
+        const parsed = JSON.parse(savedProfiles);
+        const sanitized = Array.isArray(parsed) && parsed.length > 0 ? parsed.map(sanitizeProfile) : [{id:'default',name:'Me',macroGoals:{calories:2000,protein:50,carbs:130,fat:65},cookLog:[],supplements:[]}];
+        setProfiles(sanitized);
         const savedActive = localStorage.getItem('mpm_active_profile');
-        if (savedActive) setActiveProfileId(savedActive);
+        if (savedActive && sanitized.some(p => p.id === savedActive)) setActiveProfileId(savedActive);
+        else setActiveProfileId(sanitized[0].id);
       } else {
         // Migrate from old separate keys into default profile
         const def = {id:'default',name:'Me',macroGoals:{calories:2000,protein:50,carbs:130,fat:65},cookLog:[],supplements:[]};
@@ -3202,13 +3247,13 @@ export default function App() {
   }, []);
 
   // Persist data whenever it changes (skip before hydration to avoid overwriting with defaults)
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_recipes', JSON.stringify(recipes)); }, [recipes, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_favorites', JSON.stringify(favorites)); }, [favorites, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_spends', JSON.stringify(shoppingSpends)); }, [shoppingSpends, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_profiles', JSON.stringify(profiles)); }, [profiles, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_recipes', recipes); }, [recipes, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_favorites', favorites); }, [favorites, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_mealplan', mealPlanItems); }, [mealPlanItems, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_ratings', ratings); }, [ratings, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_spends', shoppingSpends); }, [shoppingSpends, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_profiles', profiles); }, [profiles, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
@@ -3917,4 +3962,8 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+export default function WrappedApp() {
+  return <ErrorBoundary><App/></ErrorBoundary>;
 }
