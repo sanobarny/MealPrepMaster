@@ -471,7 +471,8 @@ async function exportRecipeToPDF(recipe, scale) {
       body { padding: 0 !important; }
       img { max-width: 100% !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .hero { max-height: 260px !important; border-radius: 0 !important; }
-      .step-img,.ing-overall,.step-imgs img { background: #f5f5f5 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .step-img-wrap,.ing-overall-wrap,.step-imgs { background: #f5f5f5 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .step-img,.ing-overall { max-width: 100% !important; }
       .step-card { break-inside: avoid; page-break-inside: avoid; }
       .ing-emoji { background: #f5f5f5 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .nutrition { background: #f9f9f9 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
@@ -494,11 +495,13 @@ async function exportRecipeToPDF(recipe, scale) {
     .ing-thumb{width:42px;height:42px;border-radius:6px;object-fit:contain;background:#f5f5f5;flex-shrink:0}
     .ing-emoji{width:42px;height:42px;border-radius:6px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
     .ing-name{flex:1}.amt{font-weight:600;color:#2e7d32;white-space:nowrap}
-    .ing-overall{width:100%;max-height:220px;object-fit:contain;border-radius:8px;margin-bottom:10px;display:block;background:#f5f5f5}
+    .ing-overall-wrap{background:#f5f5f5;border-radius:8px;margin-bottom:10px;text-align:center;padding:4px}
+    .ing-overall{max-width:100%;max-height:240px;width:auto;height:auto;display:inline-block;border-radius:6px}
     .step-card{margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #eee}
-    .step-img{width:100%;max-height:280px;object-fit:contain;display:block;background:#f5f5f5}
-    .step-imgs{display:flex;gap:6px;padding:8px 8px 0;background:#f5f5f5}
-    .step-imgs img{flex:1;min-width:0;max-height:180px;object-fit:contain;border-radius:6px;background:#f5f5f5}
+    .step-img-wrap{background:#f5f5f5;text-align:center;padding:8px}
+    .step-img{max-width:100%;max-height:300px;width:auto;height:auto;display:inline-block;border-radius:6px}
+    .step-imgs{display:flex;gap:6px;padding:8px;background:#f5f5f5;justify-content:center;flex-wrap:wrap}
+    .step-imgs img{max-width:48%;max-height:200px;width:auto;height:auto;border-radius:6px}
     .step-body{display:flex;gap:12px;padding:12px;background:#fafafa}
     .snum{min-width:26px;height:26px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;margin-top:2px}
     .stext{font-size:14px;flex:1;line-height:1.6;margin:0}.stime{color:#888;font-size:12px;margin-top:3px}
@@ -515,7 +518,7 @@ async function exportRecipeToPDF(recipe, scale) {
     ${[["Calories",Math.round(recipe.nutrition.calories*r),""],["Protein",Math.round(recipe.nutrition.protein*r),"g"],["Carbs",Math.round(recipe.nutrition.carbs*r),"g"],["Fat",Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
   </div>
   <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
-  ${ingOverallB64 ? `<img src="${ingOverallB64}" class="ing-overall" alt="All ingredients"/>` : ""}
+  ${ingOverallB64 ? `<div class="ing-overall-wrap"><img src="${ingOverallB64}" class="ing-overall" alt="All ingredients"/></div>` : ""}
   ${(recipe.ingredients||[]).map((ing,i)=>`<div class="ing">
     ${ingB64s[i] ? `<img src="${ingB64s[i]}" class="ing-thumb" alt="${ing.name}"/>` : `<div class="ing-emoji">${getItemEmoji(ing.name)}</div>`}
     <span class="ing-name">${ing.name}</span>
@@ -525,7 +528,7 @@ async function exportRecipeToPDF(recipe, scale) {
   ${(recipe.steps||[]).map((step,i)=>{
     const imgs = stepImgB64s[i].filter(Boolean);
     return `<div class="step-card">
-      ${imgs.length===1 ? `<img src="${imgs[0]}" class="step-img" alt="Step ${i+1}"/>` : imgs.length>1 ? `<div class="step-imgs">${imgs.map(b=>`<img src="${b}" alt=""/>`).join("")}</div>` : ""}
+      ${imgs.length===1 ? `<div class="step-img-wrap"><img src="${imgs[0]}" class="step-img" alt="Step ${i+1}"/></div>` : imgs.length>1 ? `<div class="step-imgs">${imgs.map(b=>`<img src="${b}" alt=""/>`).join("")}</div>` : ""}
       <div class="step-body">
         <div class="snum">${i+1}</div>
         <div style="flex:1"><p class="stext">${step.text}</p>${step.timeMin?`<div class="stime">⏱ ${step.timeMin} min</div>`:""}</div>
@@ -788,8 +791,9 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
   };
 
   const fmtTime = secs => {
-    const m = Math.floor(secs/60), s = secs%60;
-    return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+    const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+    if (h > 0) return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   };
 
   const fetchSubs = async ing => {
@@ -2267,7 +2271,12 @@ function CookMode({recipe, onClose}) {
   // Wake lock — keep screen on
   useEffect(()=>{ let wl; try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(w=>wl=w);}catch(e){} return()=>{try{wl?.release();}catch(e){}};  },[]);
 
-  const fmtTime = s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+  const fmtTime = s => {
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    if (h > 0) return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+    return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  };
+
 
   // Ingredients relevant to current step (name mentioned in step text)
   const stepIngredients = (recipe.ingredients||[]).filter(ing=>
@@ -2399,13 +2408,13 @@ function CookMode({recipe, onClose}) {
         {getStepImages(current).length > 0 && (
           <div style={{marginBottom:20}}>
             {getStepImages(current).length === 1
-              ? <div style={{borderRadius:16,overflow:"hidden",boxShadow:"var(--nm-raised)",background:"rgba(0,0,0,0.45)",display:"flex",justifyContent:"center"}}>
-                  <img src={getStepImages(current)[0]} alt="" style={{width:"100%",maxHeight:320,objectFit:"contain",display:"block"}}/>
+              ? <div style={{borderRadius:16,overflow:"hidden",boxShadow:"var(--nm-raised)",background:"#0d0f17",textAlign:"center"}}>
+                  <img src={getStepImages(current)[0]} alt="" style={{maxWidth:"100%",maxHeight:380,width:"auto",height:"auto",display:"inline-block",verticalAlign:"bottom"}}/>
                 </div>
               : <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
                   {getStepImages(current).map((img,idx)=>(
-                    <div key={idx} style={{borderRadius:12,overflow:"hidden",flexShrink:0,boxShadow:"var(--nm-raised-sm)",background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center"}}>
-                      <img src={img} alt="" style={{maxWidth:240,maxHeight:180,objectFit:"contain",display:"block"}}/>
+                    <div key={idx} style={{borderRadius:12,overflow:"hidden",flexShrink:0,boxShadow:"var(--nm-raised-sm)",background:"#0d0f17",textAlign:"center"}}>
+                      <img src={img} alt="" style={{maxWidth:280,maxHeight:220,width:"auto",height:"auto",display:"inline-block",verticalAlign:"bottom"}}/>
                     </div>
                   ))}
                 </div>
