@@ -470,7 +470,8 @@ async function exportRecipeToPDF(recipe, scale) {
       button { display: none !important; }
       body { padding: 0 !important; }
       img { max-width: 100% !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      .hero { max-height: 220px !important; border-radius: 0 !important; }
+      .hero { max-height: 260px !important; border-radius: 0 !important; }
+      .step-img,.ing-overall,.step-imgs img { background: #f5f5f5 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .step-card { break-inside: avoid; page-break-inside: avoid; }
       .ing-emoji { background: #f5f5f5 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
       .nutrition { background: #f9f9f9 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
@@ -485,19 +486,19 @@ async function exportRecipeToPDF(recipe, scale) {
     .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
     .tag{background:#f0f0f0;border-radius:20px;padding:3px 10px;font-size:12px}
     .health{background:#e8f5e9;color:#2e7d32}
-    .hero{width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin-bottom:18px;display:block}
+    .hero{width:100%;max-height:300px;object-fit:cover;border-radius:10px;margin-bottom:18px;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact}
     .nutrition{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;background:#f9f9f9;border-radius:10px;padding:14px;margin:14px 0}
     .nbox{text-align:center}.nval{font-size:20px;font-weight:700}.nlbl{font-size:10px;color:#888;text-transform:uppercase;margin-top:2px}
     .stitle{font-size:17px;font-weight:700;border-bottom:2px solid #eee;padding-bottom:5px;margin:18px 0 10px;font-family:Georgia,serif}
     .ing{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
-    .ing-thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0}
-    .ing-emoji{width:36px;height:36px;border-radius:6px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .ing-thumb{width:42px;height:42px;border-radius:6px;object-fit:contain;background:#f5f5f5;flex-shrink:0}
+    .ing-emoji{width:42px;height:42px;border-radius:6px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
     .ing-name{flex:1}.amt{font-weight:600;color:#2e7d32;white-space:nowrap}
-    .ing-overall{width:100%;max-height:150px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block}
+    .ing-overall{width:100%;max-height:220px;object-fit:contain;border-radius:8px;margin-bottom:10px;display:block;background:#f5f5f5}
     .step-card{margin-bottom:14px;border-radius:10px;overflow:hidden;border:1px solid #eee}
-    .step-img{width:100%;max-height:200px;object-fit:cover;display:block}
-    .step-imgs{display:flex;gap:5px;padding:6px 6px 0}
-    .step-imgs img{flex:1;min-width:0;height:120px;object-fit:cover;border-radius:6px}
+    .step-img{width:100%;max-height:280px;object-fit:contain;display:block;background:#f5f5f5}
+    .step-imgs{display:flex;gap:6px;padding:8px 8px 0;background:#f5f5f5}
+    .step-imgs img{flex:1;min-width:0;max-height:180px;object-fit:contain;border-radius:6px;background:#f5f5f5}
     .step-body{display:flex;gap:12px;padding:12px;background:#fafafa}
     .snum{min-width:26px;height:26px;border-radius:50%;background:#333;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;margin-top:2px}
     .stext{font-size:14px;flex:1;line-height:1.6;margin:0}.stime{color:#888;font-size:12px;margin-top:3px}
@@ -562,7 +563,7 @@ async function exportMealBookToPDF(recipes, title) {
   const pages = recipes.map((r,idx)=>{
     const {heroB64, ingB64s, stepImgB64s} = recipeData[idx];
     return `<div style="page-break-before:${idx>0?"always":"auto"};padding:24px 28px">
-      ${heroB64 ? `<img src="${heroB64}" style="width:100%;height:180px;object-fit:cover;border-radius:8px;margin-bottom:12px;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt="${r.title}"/>` : ""}
+      ${heroB64 ? `<img src="${heroB64}" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;margin-bottom:12px;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt="${r.title}"/>` : ""}
       <h2 style="font-family:Georgia,serif;font-size:21px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
       <div style="color:#666;font-size:12px;margin-bottom:8px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
       ${(r.tags||[]).slice(0,5).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
@@ -628,7 +629,7 @@ const NutriBadge = ({n}) => (
 );
 
 // ─── SMART IMAGE ─────────────────────────────────────────────────────────────
-function SmartImage({recipe, style, regen=0}) {
+function SmartImage({recipe, style, regen=0, objectFit="cover"}) {
   const [src, setSrc] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -650,7 +651,7 @@ function SmartImage({recipe, style, regen=0}) {
 
   return (
     <div style={{position:"relative",...style}}>
-      {src && <img src={src} alt={recipe.title} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.src=makeFoodSVG(recipe.title,recipe.category);}}/>}
+      {src && <img src={src} alt={recipe.title} style={{width:"100%",height:"100%",objectFit}} onError={e=>{e.target.src=makeFoodSVG(recipe.title,recipe.category);}}/>}
       {loading && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.3)",fontSize:11,color:"rgba(255,255,255,0.6)"}}>Generating...</div>}
     </div>
   );
@@ -834,8 +835,8 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
       <div style={{background:"#0d0f17",border:"1px solid rgba(255,255,255,0.07)",borderRadius:24,maxWidth:760,width:"100%",maxHeight:"94vh",overflowY:"auto",boxShadow:"0 48px 120px rgba(0,0,0,0.9)"}}>
 
         {/* Hero */}
-        <div style={{position:"relative",height:260}}>
-          <SmartImage recipe={recipe} style={{width:"100%",height:"100%",borderRadius:"24px 24px 0 0"}} regen={imgVer}/>
+        <div style={{position:"relative",minHeight:220,maxHeight:380,overflow:"hidden",background:"#0d0f17"}}>
+          <SmartImage recipe={recipe} style={{width:"100%",maxHeight:380,borderRadius:"24px 24px 0 0"}} regen={imgVer} objectFit="contain"/>
           <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,#11141c 0%,transparent 55%)",borderRadius:"24px 24px 0 0"}}/>
           <input ref={mainImgRef} type="file" accept="image/*" style={{display:"none"}} onChange={uploadMainImg}/>
           <div style={{position:"absolute",top:12,right:12,display:"flex",gap:7}}>
@@ -888,7 +889,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
               <input ref={ingOverallRef} type="file" accept="image/*" style={{display:"none"}} onChange={uploadIngOverall}/>
               {recipe.ingredientsImage && (
                 <div style={{position:"relative",marginBottom:10,borderRadius:10,overflow:"hidden"}}>
-                  <img src={recipe.ingredientsImage} alt="All ingredients" style={{width:"100%",height:130,objectFit:"cover"}}/>
+                  <img src={recipe.ingredientsImage} alt="All ingredients" style={{width:"100%",maxHeight:220,objectFit:"contain",display:"block",background:"rgba(0,0,0,0.25)",borderRadius:8}}/>
                   <div style={{position:"absolute",top:5,right:5,display:"flex",gap:4}}>
                     <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 Change</button>
                     <button onClick={()=>setRecipe(p=>({...p,ingredientsImage:null}))} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
@@ -949,8 +950,8 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
               {getStepImages(step).length > 0 && (
                 <div style={{display:"flex",gap:6,padding:"8px 10px 0",overflowX:"auto"}}>
                   {getStepImages(step).map((img, imgIdx) => (
-                    <div key={imgIdx} style={{position:"relative",flexShrink:0}}>
-                      <img src={img} alt="" style={{width:130,height:90,objectFit:"cover",borderRadius:8,display:"block"}}/>
+                    <div key={imgIdx} style={{position:"relative",flexShrink:0,background:"rgba(0,0,0,0.25)",borderRadius:8,overflow:"hidden"}}>
+                      <img src={img} alt="" style={{maxWidth:200,maxHeight:140,objectFit:"contain",borderRadius:8,display:"block"}}/>
                       <button onClick={()=>deleteStepImg(i,imgIdx)} style={{position:"absolute",top:3,right:3,background:"rgba(180,40,40,0.85)",border:"none",borderRadius:5,color:"#fff",width:20,height:20,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
                     </div>
                   ))}
@@ -2398,11 +2399,13 @@ function CookMode({recipe, onClose}) {
         {getStepImages(current).length > 0 && (
           <div style={{marginBottom:20}}>
             {getStepImages(current).length === 1
-              ? <div style={{borderRadius:16,overflow:"hidden",boxShadow:"var(--nm-raised)"}}><img src={getStepImages(current)[0]} alt="" style={{width:"100%",maxHeight:280,objectFit:"cover",display:"block"}}/></div>
+              ? <div style={{borderRadius:16,overflow:"hidden",boxShadow:"var(--nm-raised)",background:"rgba(0,0,0,0.45)",display:"flex",justifyContent:"center"}}>
+                  <img src={getStepImages(current)[0]} alt="" style={{width:"100%",maxHeight:320,objectFit:"contain",display:"block"}}/>
+                </div>
               : <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
                   {getStepImages(current).map((img,idx)=>(
-                    <div key={idx} style={{borderRadius:12,overflow:"hidden",flexShrink:0,boxShadow:"var(--nm-raised-sm)"}}>
-                      <img src={img} alt="" style={{width:200,height:150,objectFit:"cover",display:"block"}}/>
+                    <div key={idx} style={{borderRadius:12,overflow:"hidden",flexShrink:0,boxShadow:"var(--nm-raised-sm)",background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center"}}>
+                      <img src={img} alt="" style={{maxWidth:240,maxHeight:180,objectFit:"contain",display:"block"}}/>
                     </div>
                   ))}
                 </div>
