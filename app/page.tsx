@@ -2654,8 +2654,54 @@ function SupplementTracker({supplements, setSupplements}) {
   );
 }
 
+// ─── PROFILE SELECTOR ────────────────────────────────────────────────────────
+function ProfileSelector({profiles, activeProfileId, setActiveProfileId, addProfile, deleteProfile, renameProfile}) {
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [editName, setEditName] = useState('');
+  const active = profiles.find(p=>p.id===activeProfileId) || profiles[0];
+  return (
+    <div style={{marginBottom:16}}>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+        {profiles.map(p=>(
+          <div key={p.id} style={{display:'flex',alignItems:'center',gap:3}}>
+            {editing===p.id
+              ? <input value={editName} onChange={e=>setEditName(e.target.value)} autoFocus
+                  onKeyDown={e=>{if(e.key==='Enter'){renameProfile(p.id,editName.trim()||p.name);setEditing(null);}if(e.key==='Escape')setEditing(null);}}
+                  style={{...IS,height:30,padding:'0 8px',fontSize:12,width:90}}/>
+              : <button onClick={()=>setActiveProfileId(p.id)}
+                  style={{...CB,background:activeProfileId===p.id?'var(--accent)':'var(--bg-card)',color:activeProfileId===p.id?'#fff':'var(--text-sub)',boxShadow:activeProfileId===p.id?'var(--nm-inset)':'var(--nm-raised-sm)',fontWeight:activeProfileId===p.id?700:400,fontSize:13,padding:'6px 14px'}}>
+                  👤 {p.name}
+                </button>
+            }
+            {activeProfileId===p.id && editing!==p.id && (
+              <button onClick={()=>{setEditing(p.id);setEditName(p.name);}} style={{...GB,padding:'3px 6px',fontSize:11,color:'var(--text-muted)'}} title="Rename">✏️</button>
+            )}
+          </div>
+        ))}
+        {adding
+          ? <div style={{display:'flex',gap:5,alignItems:'center'}}>
+              <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Name…" autoFocus
+                onKeyDown={e=>{if(e.key==='Enter'&&newName.trim()){addProfile(newName.trim());setAdding(false);setNewName('');}if(e.key==='Escape')setAdding(false);}}
+                style={{...IS,height:30,padding:'0 8px',fontSize:12,width:90}}/>
+              <button onClick={()=>{if(newName.trim()){addProfile(newName.trim());setAdding(false);setNewName('');}}} style={{...GB,padding:'4px 10px',fontSize:12,color:'var(--accent)',fontWeight:700}}>✓</button>
+              <button onClick={()=>{setAdding(false);setNewName('');}} style={{...GB,padding:'4px 8px',fontSize:12}}>✕</button>
+            </div>
+          : <button onClick={()=>setAdding(true)} style={{...GB,padding:'6px 12px',fontSize:12,color:'var(--text-muted)'}}>+ Add Person</button>
+        }
+      </div>
+      {profiles.length>1 && (
+        <button onClick={()=>deleteProfile(activeProfileId)} style={{marginTop:6,color:'#f08080',background:'none',border:'none',fontSize:11,cursor:'pointer',padding:0}}>
+          Remove {active?.name}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── STATISTICS PANEL ────────────────────────────────────────────────────────
-function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, cookLog, macroGoals, setMacroGoals, onDeleteSpend}) {
+function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, cookLog, macroGoals, setMacroGoals, onDeleteSpend, profileSelector}) {
   const [editingGoals, setEditingGoals] = useState(false);
   const [goalDraft, setGoalDraft] = useState(macroGoals||{calories:2000,protein:50,carbs:130,fat:65});
   const totalRecipes = recipes.length;
@@ -2706,7 +2752,8 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
   return (
     <div>
       <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📊 Statistics</h2>
-      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:22}}>Your meal prep insights at a glance</p>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:14}}>Your meal prep insights at a glance</p>
+      {profileSelector}
 
       {/* Summary cards */}
       <div className="r-grid-sm" style={{marginBottom:24}}>
@@ -2928,9 +2975,18 @@ export default function App() {
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
   const [shoppingSpends, setShoppingSpends] = useState([]);
-  const [macroGoals, setMacroGoals] = useState({calories:2000,protein:50,carbs:130,fat:65});
-  const [cookLog, setCookLog] = useState([]);
-  const [supplements, setSupplements] = useState([]);
+  const [profiles, setProfiles] = useState([{id:'default',name:'Me',macroGoals:{calories:2000,protein:50,carbs:130,fat:65},cookLog:[],supplements:[]}]);
+  const [activeProfileId, setActiveProfileId] = useState('default');
+  const activeProfile = profiles.find(p=>p.id===activeProfileId) || profiles[0];
+  const macroGoals = activeProfile?.macroGoals || {calories:2000,protein:50,carbs:130,fat:65};
+  const cookLog = activeProfile?.cookLog || [];
+  const supplements = activeProfile?.supplements || [];
+  const setMacroGoals = v => setProfiles(ps=>ps.map(p=>p.id===activeProfileId?{...p,macroGoals:typeof v==='function'?v(p.macroGoals):v}:p));
+  const setCookLog = v => setProfiles(ps=>ps.map(p=>p.id===activeProfileId?{...p,cookLog:typeof v==='function'?v(p.cookLog):v}:p));
+  const setSupplements = v => setProfiles(ps=>ps.map(p=>p.id===activeProfileId?{...p,supplements:typeof v==='function'?v(p.supplements):v}:p));
+  const addProfile = name => { const id='p_'+Date.now(); setProfiles(ps=>[...ps,{id,name,macroGoals:{calories:2000,protein:50,carbs:130,fat:65},cookLog:[],supplements:[]}]); setActiveProfileId(id); };
+  const deleteProfile = id => { if(profiles.length<=1) return; const rest=profiles.filter(p=>p.id!==id); setProfiles(rest); if(activeProfileId===id) setActiveProfileId(rest[0].id); };
+  const renameProfile = (id,name) => setProfiles(ps=>ps.map(p=>p.id===id?{...p,name}:p));
   const [pexelsKey, setPexelsKey] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -3021,9 +3077,17 @@ export default function App() {
         if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); pwaSet('anthropic_key', d.anthropicKey); }
         if (d.pexelsKey) { setPexelsKey(d.pexelsKey); pwaSet('pexels_key', d.pexelsKey); }
         if (d.shoppingSpends) setShoppingSpends(d.shoppingSpends);
-        if (d.cookLog) setCookLog(d.cookLog);
-        if (d.supplements) setSupplements(d.supplements);
-        if (d.macroGoals) setMacroGoals(d.macroGoals);
+        if (d.profiles) {
+          setProfiles(d.profiles);
+        } else if (d.cookLog || d.supplements || d.macroGoals) {
+          // Migrate old format into default profile
+          setProfiles(ps => ps.map(p => p.id==='default' ? {
+            ...p,
+            ...(d.macroGoals && {macroGoals:d.macroGoals}),
+            ...(d.cookLog && {cookLog:d.cookLog}),
+            ...(d.supplements && {supplements:d.supplements}),
+          } : p));
+        }
         setSyncing(false); // ← was missing — spinner never stopped on success
         return d;
       }
@@ -3084,12 +3148,19 @@ export default function App() {
       if (rats) setRatings(JSON.parse(rats));
       const spends = localStorage.getItem('mpm_spends');
       if (spends) setShoppingSpends(JSON.parse(spends));
-      const goals = localStorage.getItem('mpm_macro_goals');
-      if (goals) setMacroGoals(JSON.parse(goals));
-      const cl = localStorage.getItem('mpm_cook_log');
-      if (cl) setCookLog(JSON.parse(cl));
-      const sups = localStorage.getItem('mpm_supplements');
-      if (sups) setSupplements(JSON.parse(sups));
+      const savedProfiles = localStorage.getItem('mpm_profiles');
+      if (savedProfiles) {
+        setProfiles(JSON.parse(savedProfiles));
+        const savedActive = localStorage.getItem('mpm_active_profile');
+        if (savedActive) setActiveProfileId(savedActive);
+      } else {
+        // Migrate from old separate keys into default profile
+        const def = {id:'default',name:'Me',macroGoals:{calories:2000,protein:50,carbs:130,fat:65},cookLog:[],supplements:[]};
+        const goals = localStorage.getItem('mpm_macro_goals'); if (goals) def.macroGoals = JSON.parse(goals);
+        const cl = localStorage.getItem('mpm_cook_log'); if (cl) def.cookLog = JSON.parse(cl);
+        const sups = localStorage.getItem('mpm_supplements'); if (sups) def.supplements = JSON.parse(sups);
+        setProfiles([def]);
+      }
     } catch(e) {}
     setAnthropicKey(pwaGet('anthropic_key') || '');
     setPexelsKey(pwaGet('pexels_key') || '');
@@ -3124,9 +3195,8 @@ export default function App() {
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_mealplan', JSON.stringify(mealPlanItems)); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_ratings', JSON.stringify(ratings)); }, [ratings, hydrated]);
   useEffect(() => { if (hydrated) localStorage.setItem('mpm_spends', JSON.stringify(shoppingSpends)); }, [shoppingSpends, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_macro_goals', JSON.stringify(macroGoals)); }, [macroGoals, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_cook_log', JSON.stringify(cookLog)); }, [cookLog, hydrated]);
-  useEffect(() => { if (hydrated) localStorage.setItem('mpm_supplements', JSON.stringify(supplements)); }, [supplements, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_profiles', JSON.stringify(profiles)); }, [profiles, hydrated]);
+  useEffect(() => { if (hydrated) localStorage.setItem('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
@@ -3197,7 +3267,7 @@ export default function App() {
         } catch(fetchErr) { /* proceed with local only if cloud fetch fails */ }
         const { error } = await getSupabase()?.from('user_data').upsert({
           user_id: supaUser.id,
-          data: JSON.stringify({ recipes: mergedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, cookLog, supplements, macroGoals }),
+          data: JSON.stringify({ recipes: mergedRecipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, profiles }),
           updated_at: new Date().toISOString()
         });
         if (error) { console.error('Auto-save failed:', error.message); setSyncError(error.message); }
@@ -3206,7 +3276,7 @@ export default function App() {
       setSyncing(false);
     }, 2000);
     return () => clearTimeout(saveTimerRef.current);
-  }, [recipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, cookLog, supplements, macroGoals, hydrated, supaUser]);
+  }, [recipes, favorites, mealPlanItems, ratings, anthropicKey, pexelsKey, shoppingSpends, profiles, hydrated, supaUser]);
 
   useEffect(() => {
     const iv = setInterval(()=>setTipIdx(i=>(i+1)%4), 5000);
@@ -3454,7 +3524,7 @@ export default function App() {
                     try {
                       const syncedRecipes = await prepareRecipesForSync(recipes);
                       const withImgs = syncedRecipes.filter(r=>r.image).length;
-                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:syncedRecipes,favorites,mealPlanItems,ratings,anthropicKey,pexelsKey,shoppingSpends,cookLog,supplements,macroGoals}),updated_at:new Date().toISOString()});
+                      await getSupabase()?.from('user_data').upsert({user_id:supaUser.id,data:JSON.stringify({recipes:syncedRecipes,favorites,mealPlanItems,ratings,anthropicKey,pexelsKey,shoppingSpends,profiles}),updated_at:new Date().toISOString()});
                       alert(`✅ Synced! ${withImgs}/${syncedRecipes.length} recipes have images.`);
                     } catch(e){ alert('❌ Sync failed: '+e.message); }
                     setSyncing(false);
@@ -3761,9 +3831,14 @@ export default function App() {
 
           {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing}/>}
 
-          {sec==="supplements" && <SupplementTracker supplements={supplements} setSupplements={setSupplements}/>}
+          {sec==="supplements" && (
+            <div>
+              <ProfileSelector profiles={profiles} activeProfileId={activeProfileId} setActiveProfileId={setActiveProfileId} addProfile={addProfile} deleteProfile={deleteProfile} renameProfile={renameProfile}/>
+              <SupplementTracker supplements={supplements} setSupplements={setSupplements}/>
+            </div>
+          )}
 
-          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} cookLog={cookLog} macroGoals={macroGoals} setMacroGoals={setMacroGoals} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))}/>}
+          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} cookLog={cookLog} macroGoals={macroGoals} setMacroGoals={setMacroGoals} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))} profileSelector={<ProfileSelector profiles={profiles} activeProfileId={activeProfileId} setActiveProfileId={setActiveProfileId} addProfile={addProfile} deleteProfile={deleteProfile} renameProfile={renameProfile}/>}/>}
 
           {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])}/>}
 
