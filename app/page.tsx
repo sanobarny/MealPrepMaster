@@ -306,6 +306,65 @@ async function fetchPexelsImage(title) {
 }
 
 // ─── AI EXTRACTION ────────────────────────────────────────────────────────────
+async function aiExtractRecipeFromImage(base64DataUrl) {
+  const match = base64DataUrl.match(/^data:([^;]+);base64,(.+)$/s);
+  if (!match) throw new Error("Invalid image format");
+  const mediaType = match[1];
+  const base64Data = match[2];
+  const tagList = ALL_TAGS.join(", ");
+
+  const prompt = `Extract the complete recipe from this image. Read every ingredient, amount, step, and time you can see.
+
+Respond with ONLY a valid JSON object. No markdown.
+
+{
+  "title": "Recipe Name",
+  "category": "breakfast",
+  "tags": ["High Protein"],
+  "allergens": [],
+  "equipment": ["stove"],
+  "type": {"protein": true, "grain": false, "side": false},
+  "nutrition": {"calories": 420, "protein": 35, "carbs": 40, "fat": 12},
+  "goal": ["gain muscle"],
+  "prepTime": 10, "cookTime": 25, "totalTime": 35, "servings": 2,
+  "description": "Two-sentence description.",
+  "ingredients": [{"name": "Chicken Breast", "amount": 2, "unit": "pcs"}],
+  "steps": [{"text": "Detailed step.", "timeMin": 5, "image": null, "imagePrompt": "overhead studio shot on white marble"}],
+  "sourceUrl": "", "sourceType": "photo", "difficulty": "beginner",
+  "healthBenefits": "", "antiInflammatory": false, "bloodSugarFriendly": false
+}
+
+RULES:
+- category: breakfast, lunch, dessert, or drink
+- tags from: ${tagList}
+- allergens from: ${ALLERGENS_LIST.join(", ")}
+- equipment from: ${EQUIPMENT_LIST.join(", ")}
+- goal from: ${GOALS.join(", ")}
+- 4-10 ingredients, 3-12 steps
+- difficulty: beginner, intermediate, or advanced
+- Extract EVERYTHING visible: all ingredients with exact amounts/units, every step in order
+- If nutrition is shown extract it, otherwise estimate from ingredients
+- Fill any missing info using culinary knowledge`;
+
+  const raw = await anthropicCall({
+    max_tokens: 4000,
+    system: "You are a culinary AI that reads recipes from photos of recipe cards, cookbooks, or handwritten notes. Respond ONLY with a valid JSON object starting with { and ending with }. No markdown.",
+    messages: [{role:"user", content:[
+      {type:"image", source:{type:"base64", media_type:mediaType, data:base64Data}},
+      {type:"text", text:prompt}
+    ]}]
+  });
+  const stripped = raw.replace(/^```(?:json)?\s*/im,"").replace(/\s*```\s*$/im,"").trim();
+  const jStart = stripped.indexOf("{"), jEnd = stripped.lastIndexOf("}");
+  if (jStart===-1||jEnd===-1) throw new Error("No JSON in response");
+  const recipe = JSON.parse(stripped.slice(jStart, jEnd+1));
+  recipe.totalTime = recipe.totalTime || (recipe.prepTime||0)+(recipe.cookTime||0);
+  if (recipe.antiInflammatory && !(recipe.tags||[]).includes("Anti-Inflammatory")) recipe.tags=[...(recipe.tags||[]),"Anti-Inflammatory"];
+  if (recipe.bloodSugarFriendly && !(recipe.tags||[]).includes("Blood Sugar Stable")) recipe.tags=[...(recipe.tags||[]),"Blood Sugar Stable"];
+  recipe.image = base64DataUrl; // photo taken becomes the recipe image
+  return {...recipe, id:Date.now()};
+}
+
 async function aiExtractRecipe(input) {
   const isUrl = input.trim().startsWith("http");
   const src = isUrl ? (input.includes("tiktok")?"TikTok video":input.includes("instagram")?"Instagram reel":input.includes("youtu")?"YouTube video":"recipe webpage") : "text description";
@@ -1199,16 +1258,28 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
 // ─── ADD RECIPE MODAL ─────────────────────────────────────────────────────────
 function SmartAddModal({onClose, onAdd}) {
   const [phase, setPhase] = useState("input");
+  const [loadingMsg, setLoadingMsg] = useState("Extracting your recipe...");
   const [inputVal, setInputVal] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [imgUrlInput, setImgUrlInput] = useState("");
   const fileRef = useRef(null);
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
+
+  const handleError = (e) => {
+    if (e.message === "NO_KEY") return "No API key — click ⚙️ in the topbar and add your Anthropic key first.";
+    if (e.message === "RATE_LIMIT") return "Rate limit hit — wait 60 seconds and try again.";
+    if (e.message === "INVALID_KEY") return "Invalid API key — click ⚙️ and re-enter your Anthropic key.";
+    if (e.message === "LOW_CREDITS") return "Your Anthropic API credits are too low. Go to console.anthropic.com → Billing to top up.";
+    return null;
+  };
 
   const run = async () => {
     if (!inputVal.trim()) return;
     setLoading(true); setError(null); setPhase("loading");
+    setLoadingMsg("Extracting your recipe...");
     try {
       const result = await aiExtractRecipe(inputVal.trim());
       if (!result.image) result.image = makeFoodSVG(result.title, result.category);
@@ -1216,17 +1287,29 @@ function SmartAddModal({onClose, onAdd}) {
       setPhase("review");
     } catch(e) {
       console.error("Recipe extraction error:", e);
-      if (e.message === "NO_KEY") {
-        setError("No API key — click ⚙️ in the topbar and add your Anthropic key first.");
-      } else if (e.message === "RATE_LIMIT") {
-        setError("Rate limit hit — wait 60 seconds and try again.");
-      } else if (e.message === "INVALID_KEY") {
-        setError("Invalid API key — click ⚙️ and re-enter your Anthropic key.");
-      } else if (e.message === "LOW_CREDITS") {
-        setError("Your Anthropic API credits are too low. Go to console.anthropic.com → Billing to top up, then try again.");
-      } else {
-        setError(`Extraction failed. Try pasting the recipe text directly.`);
-      }
+      setError(handleError(e) || "Extraction failed. Try pasting the recipe text directly.");
+      setPhase("input");
+    }
+    setLoading(false);
+  };
+
+  const runFromImage = async (file) => {
+    if (!file) return;
+    setLoading(true); setError(null); setPhase("loading");
+    setLoadingMsg("Reading recipe from photo...");
+    try {
+      const base64DataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const result = await aiExtractRecipeFromImage(base64DataUrl);
+      setData({...result, id:Date.now()});
+      setPhase("review");
+    } catch(e) {
+      console.error("Image extraction error:", e);
+      setError(handleError(e) || "Could not read recipe from image. Try a clearer photo or paste the recipe text instead.");
       setPhase("input");
     }
     setLoading(false);
@@ -1245,10 +1328,37 @@ function SmartAddModal({onClose, onAdd}) {
 
         {phase==="input" && (
           <div>
-            <p style={{color:"#8a9bb0",fontSize:14,marginBottom:16}}>Paste a URL (TikTok, Instagram, YouTube, any recipe site) or describe a recipe.</p>
+            {/* Camera / Image scan */}
+            <div style={{border:"1px dashed rgba(90,173,142,0.4)",borderRadius:14,padding:"20px 16px",marginBottom:20,textAlign:"center",background:"rgba(90,173,142,0.04)"}}>
+              <div style={{fontSize:36,marginBottom:6}}>📷</div>
+              <div style={{color:"var(--text-sub)",fontSize:13,fontWeight:600,marginBottom:6}}>Scan a Recipe Photo</div>
+              <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>Point your camera at a recipe card, cookbook, or screenshot — AI reads it automatically</div>
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
+                onChange={e=>{const f=e.target.files?.[0];if(f) runFromImage(f); e.target.value="";}}/>
+              <input ref={galleryRef} type="file" accept="image/*" style={{display:"none"}}
+                onChange={e=>{const f=e.target.files?.[0];if(f) runFromImage(f); e.target.value="";}}/>
+              <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                <button onClick={()=>cameraRef.current?.click()}
+                  style={{...GB,padding:"10px 20px",fontSize:13,fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.35)"}}>
+                  📷 Take Photo
+                </button>
+                <button onClick={()=>galleryRef.current?.click()}
+                  style={{...GB,padding:"10px 20px",fontSize:13,fontWeight:700}}>
+                  🖼 Upload Image
+                </button>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+              <div style={{flex:1,height:1,background:"var(--border)"}}/>
+              <span style={{color:"var(--text-muted)",fontSize:12,flexShrink:0}}>or paste a URL / describe a recipe</span>
+              <div style={{flex:1,height:1,background:"var(--border)"}}/>
+            </div>
+
             {error && <div style={{background:"rgba(192,80,80,0.15)",border:"1px solid rgba(192,80,80,0.3)",borderRadius:10,padding:"10px 14px",color:"#f08080",fontSize:13,marginBottom:14}}>{error}</div>}
             <textarea value={inputVal} onChange={e=>setInputVal(e.target.value)}
-              style={{...IS,minHeight:100,resize:"vertical",marginBottom:14}}
+              style={{...IS,minHeight:90,resize:"vertical",marginBottom:14}}
               placeholder="https://www.tiktok.com/... or paste recipe text here..."/>
             <button onClick={run} style={{width:"100%",background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
               Extract Recipe with AI
@@ -1259,8 +1369,8 @@ function SmartAddModal({onClose, onAdd}) {
         {phase==="loading" && (
           <div style={{textAlign:"center",padding:"48px 0"}}>
             <div style={{fontSize:40,marginBottom:16,animation:"spin 2s linear infinite",display:"inline-block"}}>⏳</div>
-            <div style={{color:"#5aad8e",fontSize:16,fontWeight:600}}>Extracting your recipe...</div>
-            <div style={{color:"#6a7a90",fontSize:13,marginTop:8}}>Fetching page → reading content → building recipe</div>
+            <div style={{color:"#5aad8e",fontSize:16,fontWeight:600}}>{loadingMsg}</div>
+            <div style={{color:"#6a7a90",fontSize:13,marginTop:8}}>{loadingMsg.includes("photo") ? "Analyzing image → extracting ingredients & steps" : "Fetching page → reading content → building recipe"}</div>
           </div>
         )}
 
