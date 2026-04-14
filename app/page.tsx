@@ -476,7 +476,7 @@ async function aiExtractRecipe(input) {
   const prompt = `Extract a COMPLETE recipe from this ${src}. You MUST include every single ingredient and step — do not skip, summarize, or cut off.
 ${isUrl ? "SOURCE URL: " + input : "DESCRIPTION: " + input}
 ${pageText
-  ? `\nPAGE CONTENT — read this carefully and extract EVERYTHING:\n${pageText}\n\nCRITICAL: The page may have multiple ingredient sections (e.g. MOUSSE, TOPPINGS, SAUCE, GARNISH). Include every ingredient from EVERY section in the ingredients array. Include optional ingredients too. Do not stop early.`
+  ? `\n━━━ PAGE CONTENT (GROUND TRUTH) ━━━\n${pageText}\n━━━ END PAGE CONTENT ━━━\n\n🚨 STRICT VERBATIM EXTRACTION RULES (when page content is provided):\n1. Copy ingredient names EXACTLY as they appear on the page — do NOT substitute, paraphrase, or replace any ingredient with a similar one.\n2. Copy amounts and units EXACTLY as written (e.g. "3/4 cup" stays "3/4 cup", not "180ml").\n3. The page content above IS the recipe. Do NOT use your culinary knowledge to add, remove, or swap any ingredient.\n4. If the page says "medjool dates", write "medjool dates". If it says "cocoa butter", write "cocoa butter". Never substitute.\n5. Include EVERY ingredient section on the page (e.g. MOUSSE, TOPPINGS, SAUCE, GARNISH). Include optional ingredients too. Do not stop early.`
   : (isUrl ? "\nPage could not be fetched — infer a full recipe from the URL using culinary knowledge." : "")}
 
 Respond with ONLY a valid JSON object (no markdown, no extra text):
@@ -1676,9 +1676,9 @@ function SmartAddModal({onClose, onAdd}) {
     const stepList = (recipe.steps||[]).map((s,idx)=>`${idx+1}. ${s.text}`).join("\n");
     try {
       const raw = await anthropicCall({
-        max_tokens:1000,
-        system:"You are auditing an extracted recipe for completeness. Return ONLY valid JSON, no markdown.",
-        messages:[{role:"user",content:`A recipe was extracted from a webpage. Check if ANYTHING was missed.
+        max_tokens:1500,
+        system:"You are auditing an extracted recipe for completeness and accuracy. Return ONLY valid JSON, no markdown.",
+        messages:[{role:"user",content:`A recipe was extracted from a webpage. Audit it for missing AND wrong/substituted ingredients.
 
 EXTRACTED ingredients:
 ${ingList||"(none)"}
@@ -1686,15 +1686,33 @@ ${ingList||"(none)"}
 EXTRACTED steps:
 ${stepList||"(none)"}
 
-SOURCE PAGE (ground truth — every ingredient and step must come from here):
+SOURCE PAGE (ground truth — the real recipe):
 ${pageText.slice(0,14000)}
 
-List every ingredient and step that appears in the source but is MISSING from the extracted version. Be thorough — include toppings, garnishes, optional items, every section.
+1. List every ingredient that appears in the SOURCE but is MISSING from the extracted version (include all sections: toppings, garnishes, optionals, every section header).
+2. List every ingredient in the EXTRACTED version that does NOT match the source (wrong name, wrong amount, substituted) — add it to missingIngredients with reason "substituted: source says X".
+3. List every step that appears in the source but is missing from the extracted version.
+
 Return JSON: {"missingIngredients":[{"name":"","amount":1,"unit":"","reason":""}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}]}
-Return empty arrays if nothing is missing.`}]
+Return empty arrays if nothing is missing or wrong.`}]
       });
       const m = raw.match(/\{[\s\S]*\}/);
-      setVerifyStatus(m ? JSON.parse(m[0]) : {missingIngredients:[],missingSteps:[]});
+      const result = m ? JSON.parse(m[0]) : {missingIngredients:[],missingSteps:[]};
+      // Auto-apply all missing items immediately — no click required
+      const missing = result.missingIngredients || [];
+      const missingSteps = result.missingSteps || [];
+      if (missing.length > 0 || missingSteps.length > 0) {
+        setData(d => {
+          const newIngs = missing.map(ing=>({name:ing.name,amount:ing.amount||1,unit:ing.unit||"",image:null,section:ing.section||"main"}));
+          const steps = [...d.steps];
+          [...missingSteps].reverse().forEach(st => {
+            const pos = st.insertAfter>=0 && st.insertAfter<steps.length ? st.insertAfter+1 : steps.length;
+            steps.splice(pos, 0, {text:st.text, timeMin:st.timeMin||5, imagePrompt:""});
+          });
+          return {...d, ingredients:[...d.ingredients, ...newIngs], steps};
+        });
+      }
+      setVerifyStatus({...result, autoAdded: missing.length + missingSteps.length});
     } catch(e) {
       setVerifyStatus({missingIngredients:[],missingSteps:[],error:e.message});
     }
@@ -1754,33 +1772,6 @@ Return empty arrays if nothing is missing.`}]
 
   const save = () => { if(data) { onAdd(data); onClose(); } };
   const set = (k,v) => setData(d=>({...d,[k]:v}));
-  const acceptMissingIng = ing => {
-    setData(d=>({...d,ingredients:[...d.ingredients,{name:ing.name,amount:ing.amount||1,unit:ing.unit||"",image:null}]}));
-    setVerifyStatus(v=>({...v,missingIngredients:(v.missingIngredients||[]).filter(i=>i.name!==ing.name)}));
-  };
-  const acceptMissingStep = st => {
-    setData(d=>{
-      const steps=[...d.steps];
-      const pos = st.insertAfter>=0&&st.insertAfter<steps.length ? st.insertAfter+1 : steps.length;
-      steps.splice(pos,0,{text:st.text,timeMin:st.timeMin||5,imagePrompt:""});
-      return {...d,steps};
-    });
-    setVerifyStatus(v=>({...v,missingSteps:(v.missingSteps||[]).filter(i=>i.text!==st.text)}));
-  };
-  const acceptAllMissing = () => {
-    if (!verifyStatus || verifyStatus==='checking') return;
-    const {missingIngredients=[],missingSteps=[]} = verifyStatus;
-    setData(d=>{
-      const newIngs = missingIngredients.map(ing=>({name:ing.name,amount:ing.amount||1,unit:ing.unit||"",image:null}));
-      const steps=[...d.steps];
-      [...missingSteps].reverse().forEach(st=>{
-        const pos = st.insertAfter>=0&&st.insertAfter<steps.length ? st.insertAfter+1 : steps.length;
-        steps.splice(pos,0,{text:st.text,timeMin:st.timeMin||5,imagePrompt:""});
-      });
-      return {...d,ingredients:[...d.ingredients,...newIngs],steps};
-    });
-    setVerifyStatus({missingIngredients:[],missingSteps:[]});
-  };
 
   return (
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
@@ -1858,42 +1849,23 @@ Return empty arrays if nothing is missing.`}]
               </div>
             )}
             {verifyStatus && verifyStatus!=='checking' && (() => {
-              const {missingIngredients=[],missingSteps=[]} = verifyStatus;
-              const total = missingIngredients.length + missingSteps.length;
-              if (total===0) return (
-                <div style={{background:"rgba(90,173,142,0.1)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+              const {autoAdded=0, error} = verifyStatus;
+              if (error) return (
+                <div style={{background:"rgba(212,90,90,0.08)",border:"1px solid rgba(212,90,90,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+                  <span>⚠️</span>
+                  <div style={{color:"#d45a5a",fontSize:13}}>Verification error: {error}</div>
+                </div>
+              );
+              if (autoAdded > 0) return (
+                <div style={{background:"rgba(90,143,212,0.1)",border:"1px solid rgba(90,143,212,0.3)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
                   <span>✅</span>
-                  <div style={{color:"#5aad8e",fontSize:13,fontWeight:600}}>All ingredients & steps verified against source page</div>
+                  <div style={{color:"#5a8fd4",fontSize:13,fontWeight:600}}>{autoAdded} missing item{autoAdded!==1?"s":""} found & automatically added from source page</div>
                 </div>
               );
               return (
-                <div style={{background:"rgba(255,180,50,0.08)",border:"1px solid rgba(255,180,50,0.35)",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                    <div style={{color:"#ffd580",fontWeight:700,fontSize:13}}>⚠️ {total} item{total!==1?"s":""} missing from source — review before saving</div>
-                    <button onClick={acceptAllMissing} style={{background:"rgba(255,213,128,0.2)",border:"1px solid rgba(255,213,128,0.4)",borderRadius:8,color:"#ffd580",padding:"4px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap"}}>+ Add All</button>
-                  </div>
-                  {missingIngredients.length>0 && (
-                    <div style={{marginBottom:8}}>
-                      <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:5,textTransform:"uppercase",letterSpacing:.5}}>Missing Ingredients</div>
-                      {missingIngredients.map((ing,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:7,background:"rgba(255,213,128,0.06)",marginBottom:3}}>
-                          <span style={{flex:1,color:"#e8e8e8",fontSize:12}}><b>{ing.amount} {ing.unit} {ing.name}</b>{ing.reason?<span style={{color:"#6a7a90",fontWeight:400}}> — {ing.reason}</span>:""}</span>
-                          <button onClick={()=>acceptMissingIng(ing)} style={{background:"rgba(90,173,142,0.2)",border:"1px solid rgba(90,173,142,0.35)",borderRadius:7,color:"#5aad8e",padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap"}}>+ Add</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {missingSteps.length>0 && (
-                    <div>
-                      <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:5,textTransform:"uppercase",letterSpacing:.5}}>Missing Steps</div>
-                      {missingSteps.map((st,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"5px 8px",borderRadius:7,background:"rgba(90,143,212,0.07)",marginBottom:3}}>
-                          <span style={{flex:1,color:"#e8e8e8",fontSize:12}}>{st.text}{st.timeMin?<span style={{color:"#6a7a90"}}> ({st.timeMin}m)</span>:""}{st.reason?<span style={{color:"#6a7a90",fontWeight:400}}> — {st.reason}</span>:""}</span>
-                          <button onClick={()=>acceptMissingStep(st)} style={{background:"rgba(90,143,212,0.2)",border:"1px solid rgba(90,143,212,0.35)",borderRadius:7,color:"#5a8fd4",padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>+ Add</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <div style={{background:"rgba(90,173,142,0.1)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+                  <span>✅</span>
+                  <div style={{color:"#5aad8e",fontSize:13,fontWeight:600}}>All ingredients & steps verified against source page</div>
                 </div>
               );
             })()}
