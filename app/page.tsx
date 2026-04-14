@@ -3887,9 +3887,12 @@ function App() {
   // Tombstone set — IDs the user deliberately deleted. Persisted to localStorage
   // so cloud sync never re-adds them from Supabase.
   const deletedIdsRef = useRef(new Set((() => { try { return JSON.parse(localStorage.getItem('mpm_deleted_ids')||'[]'); } catch(e) { return []; } })()));
-  const trackDeleted = id => {
+  const trackDeleted = (id, currentRecipes) => {
     deletedIdsRef.current.add(String(id));
     lsSave('mpm_deleted_ids', JSON.stringify([...deletedIdsRef.current]));
+    // Synchronously write the filtered recipe list so a refresh before React's
+    // save effect fires still reads the correct data.
+    if (currentRecipes) lsSave('mpm_recipes', currentRecipes.filter(r => String(r.id) !== String(id)));
   };
   const [sec, setSec] = useState("dashboard");
   const [catF, setCatF] = useState("all");
@@ -4081,8 +4084,9 @@ function App() {
     } catch(e){}
     // Load from localStorage first
     try {
+      const deleted = deletedIdsRef.current;
       const saved = localStorage.getItem('mpm_recipes');
-      if (saved) setRecipes(JSON.parse(saved));
+      if (saved) setRecipes(JSON.parse(saved).filter(r => !deleted.has(String(r.id))));
       const favs = localStorage.getItem('mpm_favorites');
       if (favs) setFavorites(JSON.parse(favs));
       const plan = localStorage.getItem('mpm_mealplan');
@@ -4849,7 +4853,7 @@ function App() {
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
-        onDelete={id=>{trackDeleted(id);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
+        onDelete={id=>{trackDeleted(id,recipes);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
 
       {/* AI Meal Coach */}
