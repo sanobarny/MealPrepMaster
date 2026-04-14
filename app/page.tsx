@@ -1226,6 +1226,8 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
   const ingImgRefs = useRef({});
   const ingOverallRef = useRef(null);
   const [imgUrlInput, setImgUrlInput] = useState("");
+  const [aiChecking, setAiChecking] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState(null); // {missingIngredients, missingSteps, notes}
 
   const set = (k,v) => setData(d=>({...d,[k]:v}));
   const setIng = (i,k,v) => setData(d=>{const a=[...d.ingredients];a[i]={...a[i],[k]:v};return{...d,ingredients:a};});
@@ -1236,6 +1238,46 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
   const removeStep = i => setData(d=>({...d,steps:d.steps.filter((_,j)=>j!==i)}));
 
   const uploadImg = (e, cb) => { const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>cb(ev.target.result); r.readAsDataURL(f); };
+
+  const checkWithAI = async () => {
+    setAiChecking(true); setAiSuggestions(null);
+    const ingList = (data.ingredients||[]).map(i=>`${i.amount} ${i.unit} ${i.name}`).join("\n");
+    const stepList = (data.steps||[]).map((s,idx)=>`${idx+1}. ${s.text}`).join("\n");
+    try {
+      const raw = await anthropicCall({
+        max_tokens:1200,
+        system:"You are a culinary expert reviewing recipes for completeness. Return ONLY valid JSON, no markdown.",
+        messages:[{role:"user",content:`Recipe: "${data.title}" (${data.category||"unknown"} dish)
+${data.sourceUrl?"Source URL: "+data.sourceUrl+"\n":""}
+Current ingredients:\n${ingList||"(none)"}
+
+Current steps:\n${stepList||"(none)"}
+
+Review this recipe. Identify any ingredients or steps that appear clearly missing or incomplete based on the dish name and what's there.
+Return JSON: {"missingIngredients":[{"name":"","amount":1,"unit":"","reason":""}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}],"notes":"brief assessment"}
+Use empty arrays if the recipe seems complete. Be conservative — only flag clearly missing items.`}]
+      });
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) setAiSuggestions(JSON.parse(m[0]));
+    } catch(e) {
+      setAiSuggestions({error: e.message === "NO_KEY" ? "No API key set — add it in ⚙️ Settings." : e.message === "INVALID_KEY" ? "Invalid API key." : "AI check failed: "+e.message});
+    }
+    setAiChecking(false);
+  };
+
+  const acceptIngredient = ing => {
+    setData(d=>({...d,ingredients:[...d.ingredients,{name:ing.name,amount:ing.amount||1,unit:ing.unit||"",image:null}]}));
+    setAiSuggestions(s=>({...s,missingIngredients:(s.missingIngredients||[]).filter(i=>i.name!==ing.name)}));
+  };
+  const acceptStep = st => {
+    setData(d=>{
+      const steps=[...d.steps];
+      const pos = st.insertAfter >= 0 && st.insertAfter < steps.length ? st.insertAfter+1 : steps.length;
+      steps.splice(pos,0,{text:st.text,timeMin:st.timeMin||5,imagePrompt:""});
+      return {...d,steps};
+    });
+    setAiSuggestions(s=>({...s,missingSteps:(s.missingSteps||[]).filter(i=>i.text!==st.text)}));
+  };
 
   return (
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
@@ -1425,6 +1467,58 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* AI Completeness Check */}
+        <div style={{marginBottom:18,background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:14,padding:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:aiSuggestions?12:0}}>
+            <div>
+              <span style={{color:"var(--text-sub)",fontSize:12,fontWeight:700}}>🔍 AI Completeness Check</span>
+              <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:8}}>Find missing ingredients & steps</span>
+            </div>
+            <button onClick={checkWithAI} disabled={aiChecking}
+              style={{...GB,padding:"5px 12px",fontSize:12,background:aiChecking?"var(--nm-input-bg)":"linear-gradient(135deg,var(--accent2),var(--accent))",color:aiChecking?"var(--text-muted)":"#fff",border:"none"}}>
+              {aiChecking?"⏳ Checking…":"🔍 Check Now"}
+            </button>
+          </div>
+          {aiSuggestions && (
+            <div>
+              {aiSuggestions.error && <div style={{color:"#f08080",fontSize:12}}>{aiSuggestions.error}</div>}
+              {aiSuggestions.notes && <div style={{color:"var(--text-sub)",fontSize:12,marginBottom:10,padding:"6px 10px",background:"rgba(90,173,142,0.08)",borderRadius:8}}>{aiSuggestions.notes}</div>}
+              {(aiSuggestions.missingIngredients||[]).length > 0 && (
+                <div style={{marginBottom:10}}>
+                  <div style={{color:"#ffd580",fontSize:11,fontWeight:700,marginBottom:6}}>⚠️ Possibly missing ingredients</div>
+                  {(aiSuggestions.missingIngredients||[]).map((ing,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:8,background:"rgba(255,213,128,0.08)",marginBottom:4,border:"1px solid rgba(255,213,128,0.2)"}}>
+                      <div style={{flex:1}}>
+                        <span style={{color:"var(--text)",fontSize:13,fontWeight:600}}>{ing.amount} {ing.unit} {ing.name}</span>
+                        <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:8}}>{ing.reason}</span>
+                      </div>
+                      <button onClick={()=>acceptIngredient(ing)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5aad8e",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)"}}>+ Add</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(aiSuggestions.missingSteps||[]).length > 0 && (
+                <div>
+                  <div style={{color:"#5a8fd4",fontSize:11,fontWeight:700,marginBottom:6}}>⚠️ Possibly missing steps</div>
+                  {(aiSuggestions.missingSteps||[]).map((st,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 8px",borderRadius:8,background:"rgba(90,143,212,0.08)",marginBottom:4,border:"1px solid rgba(90,143,212,0.2)"}}>
+                      <div style={{flex:1}}>
+                        <span style={{color:"var(--text)",fontSize:13}}>{st.text}</span>
+                        {st.timeMin > 0 && <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:6}}>⏱ {st.timeMin}m</span>}
+                        <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{st.reason}</div>
+                      </div>
+                      <button onClick={()=>acceptStep(st)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5a8fd4",background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",flexShrink:0}}>+ Add</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!aiSuggestions.error && (aiSuggestions.missingIngredients||[]).length===0 && (aiSuggestions.missingSteps||[]).length===0 && (
+                <div style={{color:"#5aad8e",fontSize:12,textAlign:"center",padding:"6px 0"}}>✅ Recipe looks complete!</div>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{display:"flex",gap:10}}>
@@ -2271,6 +2365,157 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
 }
 
 // ─── FAVORITES VIEW ───────────────────────────────────────────────────────────
+// ─── RECIPE AUDIT MODAL ──────────────────────────────────────────────────────
+function RecipeAuditModal({recipes, onClose, onSave}) {
+  // results: {recipeId, status: 'pending'|'checking'|'done'|'error', suggestions}
+  const [results, setResults] = useState(() =>
+    recipes.map(r => ({recipeId:r.id, recipeName:r.title, status:'pending', suggestions:null}))
+  );
+  const [currentIdx, setCurrentIdx] = useState(-1); // -1 = not started
+  const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
+
+  const updResult = (id, patch) => setResults(rs => rs.map(r => r.recipeId===id ? {...r,...patch} : r));
+
+  const runAudit = async () => {
+    setRunning(true); runningRef.current = true;
+    for (let i = 0; i < recipes.length; i++) {
+      if (!runningRef.current) break;
+      const recipe = recipes[i];
+      setCurrentIdx(i);
+      updResult(recipe.id, {status:'checking'});
+      const ingList = (recipe.ingredients||[]).map(x=>`${x.amount} ${x.unit} ${x.name}`).join("\n");
+      const stepList = (recipe.steps||[]).map((s,idx)=>`${idx+1}. ${s.text}`).join("\n");
+      try {
+        const raw = await anthropicCall({
+          max_tokens:800,
+          system:"You are a culinary expert reviewing recipes for completeness. Return ONLY valid JSON, no markdown.",
+          messages:[{role:"user",content:`Recipe: "${recipe.title}" (${recipe.category||"dish"})
+Ingredients:\n${ingList||"(none)"}
+Steps:\n${stepList||"(none)"}
+Identify clearly missing ingredients or steps. Return JSON:
+{"missingIngredients":[{"name":"","amount":1,"unit":"","reason":""}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}],"notes":""}`}]
+        });
+        const m = raw.match(/\{[\s\S]*\}/);
+        const suggestions = m ? JSON.parse(m[0]) : {missingIngredients:[],missingSteps:[]};
+        const hasIssues = (suggestions.missingIngredients||[]).length>0 || (suggestions.missingSteps||[]).length>0;
+        updResult(recipe.id, {status:'done', suggestions, hasIssues});
+      } catch(e) {
+        updResult(recipe.id, {status:'error', error: e.message});
+      }
+    }
+    setRunning(false); runningRef.current = false; setCurrentIdx(-1);
+  };
+
+  const stopAudit = () => { runningRef.current = false; setRunning(false); };
+
+  const acceptIng = (recipeId, ing) => {
+    const recipe = recipes.find(r=>r.id===recipeId);
+    if (!recipe) return;
+    const updated = {...recipe, ingredients:[...recipe.ingredients,{name:ing.name,amount:ing.amount||1,unit:ing.unit||"",image:null}]};
+    onSave(updated);
+    updResult(recipeId, {suggestions: results.find(r=>r.recipeId===recipeId)?.suggestions && {
+      ...results.find(r=>r.recipeId===recipeId).suggestions,
+      missingIngredients: (results.find(r=>r.recipeId===recipeId).suggestions.missingIngredients||[]).filter(i=>i.name!==ing.name)
+    }});
+  };
+
+  const acceptStep = (recipeId, st) => {
+    const recipe = recipes.find(r=>r.id===recipeId);
+    if (!recipe) return;
+    const steps = [...recipe.steps];
+    const pos = st.insertAfter >= 0 && st.insertAfter < steps.length ? st.insertAfter+1 : steps.length;
+    steps.splice(pos, 0, {text:st.text, timeMin:st.timeMin||5, imagePrompt:""});
+    onSave({...recipe, steps});
+    updResult(recipeId, {suggestions: results.find(r=>r.recipeId===recipeId)?.suggestions && {
+      ...results.find(r=>r.recipeId===recipeId).suggestions,
+      missingSteps: (results.find(r=>r.recipeId===recipeId).suggestions.missingSteps||[]).filter(i=>i.text!==st.text)
+    }});
+  };
+
+  const done = results.filter(r=>r.status==='done').length;
+  const withIssues = results.filter(r=>r.hasIssues).length;
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:680,width:"100%",maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"var(--nm-raised)"}}>
+        {/* Header */}
+        <div style={{padding:"18px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+          <div style={{flex:1}}>
+            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:17}}>🔍 Recipe Audit</div>
+            <div style={{color:"var(--text-muted)",fontSize:12,marginTop:2}}>
+              {currentIdx>=0 ? `Checking ${results[currentIdx]?.recipeName}… (${currentIdx+1}/${recipes.length})` :
+               done > 0 ? `${done}/${recipes.length} checked · ${withIssues} recipes with suggestions` :
+               `Check all ${recipes.length} recipes for missing ingredients & steps`}
+            </div>
+          </div>
+          {!running
+            ? <button onClick={runAudit} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:10,color:"#fff",padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                {done>0?"🔄 Re-check All":"▶ Start Audit"}
+              </button>
+            : <button onClick={stopAudit} style={{...GB,padding:"7px 14px",fontSize:13,color:"#f08080"}}>⏹ Stop</button>
+          }
+          <button onClick={onClose} style={{...GB,padding:"5px 10px",fontSize:16}}>×</button>
+        </div>
+
+        {/* Progress bar */}
+        {(running || done > 0) && (
+          <div style={{height:3,background:"var(--border)",flexShrink:0}}>
+            <div style={{height:"100%",width:(done/recipes.length*100)+"%",background:"var(--accent)",transition:"width .4s"}}/>
+          </div>
+        )}
+
+        {/* Results list */}
+        <div style={{flex:1,overflowY:"auto",padding:16}}>
+          {results.map(res => {
+            const {missingIngredients=[], missingSteps=[]} = res.suggestions||{};
+            const total = missingIngredients.length + missingSteps.length;
+            return (
+              <div key={res.recipeId} style={{background:"var(--nm-input-bg)",borderRadius:12,padding:"12px 14px",marginBottom:10,border: res.hasIssues?"1px solid rgba(255,213,128,0.25)":"1px solid transparent"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom: total>0?10:0}}>
+                  <span style={{fontSize:16}}>
+                    {res.status==='pending'?"⬜":res.status==='checking'?"⏳":res.status==='error'?"❌":res.hasIssues?"⚠️":"✅"}
+                  </span>
+                  <span style={{color:"var(--text)",fontSize:13,fontWeight:600,flex:1}}>{res.recipeName}</span>
+                  {res.status==='done' && !res.hasIssues && <span style={{color:"#5aad8e",fontSize:11}}>Complete</span>}
+                  {res.status==='done' && res.hasIssues && <span style={{color:"#ffd580",fontSize:11}}>{total} suggestion{total!==1?"s":""}</span>}
+                  {res.status==='error' && <span style={{color:"#f08080",fontSize:11}}>Error</span>}
+                  {res.status==='checking' && <span style={{color:"var(--accent)",fontSize:11}}>Analyzing…</span>}
+                </div>
+
+                {/* Suggestions */}
+                {missingIngredients.length > 0 && (
+                  <div style={{marginBottom:8}}>
+                    <div style={{color:"#ffd580",fontSize:11,fontWeight:700,marginBottom:5}}>Missing ingredients:</div>
+                    {missingIngredients.map((ing,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:7,background:"rgba(255,213,128,0.07)",marginBottom:3}}>
+                        <span style={{flex:1,color:"var(--text)",fontSize:12}}><b>{ing.amount} {ing.unit} {ing.name}</b> <span style={{color:"var(--text-muted)",fontWeight:400}}>— {ing.reason}</span></span>
+                        <button onClick={()=>acceptIng(res.recipeId,ing)} style={{...GB,padding:"2px 9px",fontSize:11,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.3)"}}>+ Add</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {missingSteps.length > 0 && (
+                  <div>
+                    <div style={{color:"#5a8fd4",fontSize:11,fontWeight:700,marginBottom:5}}>Missing steps:</div>
+                    {missingSteps.map((st,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"5px 8px",borderRadius:7,background:"rgba(90,143,212,0.07)",marginBottom:3}}>
+                        <span style={{flex:1,color:"var(--text)",fontSize:12}}>{st.text}{st.timeMin?<span style={{color:"var(--text-muted)"}}> ({st.timeMin}m)</span>:""} <span style={{color:"var(--text-muted)",fontWeight:400}}>— {st.reason}</span></span>
+                        <button onClick={()=>acceptStep(res.recipeId,st)} style={{...GB,padding:"2px 9px",fontSize:11,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.3)",flexShrink:0}}>+ Add</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {res.suggestions?.notes && <div style={{color:"var(--text-muted)",fontSize:11,marginTop:6,fontStyle:"italic"}}>{res.suggestions.notes}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── COMFORT MEAL MODAL ──────────────────────────────────────────────────────
 function ComfortMealModal({onClose, onLog}) {
   const [name, setName] = useState("");
@@ -3242,6 +3487,7 @@ function App() {
   const [applianceF, setApplianceF] = useState([]);
   const [search, setSearch] = useState("");
   const [comfortModalOpen, setComfortModalOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -4007,6 +4253,7 @@ function App() {
                     💰 Budget Mode {budgetMode?"ON":"OFF"}
                   </button>
                   {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>📚 Export Book</button>}
+                  {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>🔍 Audit Recipes</button>}
                   <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
                 </div>
               </div>
@@ -4178,6 +4425,9 @@ function App() {
 
       {/* Comfort meal log modal */}
       {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])}/>}
+
+      {/* Recipe audit modal */}
+      {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
