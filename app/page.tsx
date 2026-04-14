@@ -321,15 +321,46 @@ async function aiGenerateHeroSVG(title, category, ingredients) {
 }
 
 async function fetchPageContent(url) {
+  let text = null, ogImg = null;
+
+  // 1. Try Jina Reader (r.jina.ai) — returns clean article text, best for recipes
   try {
-    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(9000)});
-    if (!res.ok) return null;
-    const d = await res.json();
-    const html = d.contents || '';
-    const ogImg = (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) || [])[1] || null;
-    const text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,10000);
-    return {text, ogImg};
-  } catch(e) { return null; }
+    const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
+      signal: AbortSignal.timeout(12000),
+      headers: { Accept: 'text/plain' }
+    });
+    if (jinaRes.ok) {
+      const t = await jinaRes.text();
+      if (t && t.length > 300) text = t.slice(0, 18000);
+    }
+  } catch(e) {}
+
+  // 2. Fallback: allorigins proxy (gets raw HTML, we strip tags)
+  if (!text) {
+    try {
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(10000)});
+      if (res.ok) {
+        const d = await res.json();
+        const html = d.contents || '';
+        ogImg = (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) || [])[1] || null;
+        text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,18000);
+      }
+    } catch(e) {}
+  }
+
+  // 3. Second fallback: corsproxy.io
+  if (!text) {
+    try {
+      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(10000)});
+      if (res.ok) {
+        const html = await res.text();
+        if (!ogImg) ogImg = (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i)||[])[1]||null;
+        text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,18000);
+      }
+    } catch(e) {}
+  }
+
+  return text ? {text, ogImg} : null;
 }
 
 async function fetchPexelsImage(title) {
@@ -417,11 +448,13 @@ async function aiExtractRecipe(input) {
     if (page) { pageText = page.text; pageImage = page.ogImg; }
   }
 
-  const prompt = `Extract a complete recipe from this ${src}.
+  const prompt = `Extract a COMPLETE recipe from this ${src}. You MUST include every single ingredient and step — do not skip, summarize, or cut off.
 ${isUrl ? "SOURCE URL: " + input : "DESCRIPTION: " + input}
-${pageText ? "\nPAGE CONTENT (use this to extract the real recipe):\n" + pageText : (isUrl ? "\nPage could not be fetched — infer recipe from the URL path using culinary knowledge. ALWAYS produce a full recipe." : "")}
+${pageText
+  ? `\nPAGE CONTENT — read this carefully and extract EVERYTHING:\n${pageText}\n\nCRITICAL: The page may have multiple ingredient sections (e.g. MOUSSE, TOPPINGS, SAUCE, GARNISH). Include every ingredient from EVERY section in the ingredients array. Include optional ingredients too. Do not stop early.`
+  : (isUrl ? "\nPage could not be fetched — infer a full recipe from the URL using culinary knowledge." : "")}
 
-Respond with ONLY a valid JSON object. No markdown.
+Respond with ONLY a valid JSON object (no markdown, no extra text):
 
 {
   "title": "Recipe Name",
@@ -450,8 +483,11 @@ RULES:
 - allergens from: ${ALLERGENS_LIST.join(", ")}
 - equipment from: ${EQUIPMENT_LIST.join(", ")}
 - goal from: ${GOALS.join(", ")}
-- 4-10 ingredients, 3-12 steps, each step has realistic timeMin and imagePrompt
-- difficulty: beginner, intermediate, or advanced`;
+- INCLUDE ALL ingredients — no limit. If the recipe has 15 ingredients, list all 15. Include toppings, garnishes, optional items, every section.
+- INCLUDE ALL steps — no limit. Cover every instruction in full detail.
+- Each step: realistic timeMin and a short imagePrompt
+- difficulty: beginner, intermediate, or advanced
+- NEVER truncate or omit ingredients/steps`;
 
   const raw = await anthropicCall({
     max_tokens: 4000,
@@ -466,7 +502,8 @@ RULES:
   if (recipe.antiInflammatory && !(recipe.tags||[]).includes("Anti-Inflammatory")) recipe.tags = [...(recipe.tags||[]), "Anti-Inflammatory"];
   if (recipe.bloodSugarFriendly && !(recipe.tags||[]).includes("Blood Sugar Stable")) recipe.tags = [...(recipe.tags||[]), "Blood Sugar Stable"];
   if (pageImage && !recipe.image) recipe.image = pageImage;
-  return {...recipe, id:Date.now()};
+  // Return _pageText so the caller can verify completeness without re-fetching
+  return {...recipe, id:Date.now(), _pageText: pageText || null};
 }
 
 // ─── PDF EXPORT ──────────────────────────────────────────────────────────────
@@ -1561,9 +1598,41 @@ function SmartAddModal({onClose, onAdd}) {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [imgUrlInput, setImgUrlInput] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState(null); // null|'checking'|{missingIngredients,missingSteps}
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
+
+  const verifyCompleteness = async (recipe, pageText) => {
+    if (!pageText) return;
+    setVerifyStatus('checking');
+    const ingList = (recipe.ingredients||[]).map(i=>`${i.amount} ${i.unit} ${i.name}`).join("\n");
+    const stepList = (recipe.steps||[]).map((s,idx)=>`${idx+1}. ${s.text}`).join("\n");
+    try {
+      const raw = await anthropicCall({
+        max_tokens:1000,
+        system:"You are auditing an extracted recipe for completeness. Return ONLY valid JSON, no markdown.",
+        messages:[{role:"user",content:`A recipe was extracted from a webpage. Check if ANYTHING was missed.
+
+EXTRACTED ingredients:
+${ingList||"(none)"}
+
+EXTRACTED steps:
+${stepList||"(none)"}
+
+SOURCE PAGE (ground truth — every ingredient and step must come from here):
+${pageText.slice(0,14000)}
+
+List every ingredient and step that appears in the source but is MISSING from the extracted version. Be thorough — include toppings, garnishes, optional items, every section.
+Return JSON: {"missingIngredients":[{"name":"","amount":1,"unit":"","reason":""}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}]}
+Return empty arrays if nothing is missing.`}]
+      });
+      const m = raw.match(/\{[\s\S]*\}/);
+      setVerifyStatus(m ? JSON.parse(m[0]) : {missingIngredients:[],missingSteps:[]});
+    } catch(e) {
+      setVerifyStatus({missingIngredients:[],missingSteps:[],error:e.message});
+    }
+  };
 
   const handleError = (e) => {
     if (e.message === "NO_KEY") return "No API key — click ⚙️ in the topbar and add your Anthropic key first.";
@@ -1575,13 +1644,18 @@ function SmartAddModal({onClose, onAdd}) {
 
   const run = async () => {
     if (!inputVal.trim()) return;
-    setLoading(true); setError(null); setPhase("loading");
-    setLoadingMsg("Extracting your recipe...");
+    setLoading(true); setError(null); setPhase("loading"); setVerifyStatus(null);
+    setLoadingMsg("Fetching page & extracting recipe…");
     try {
       const result = await aiExtractRecipe(inputVal.trim());
+      const pageText = result._pageText;
+      delete result._pageText; // don't persist this field
       if (!result.image) result.image = makeFoodSVG(result.title, result.category);
-      setData({...result, id:Date.now()});
+      const recipe = {...result, id:Date.now()};
+      setData(recipe);
       setPhase("review");
+      // Fire completeness check in background using the already-fetched page text
+      if (pageText) verifyCompleteness(recipe, pageText);
     } catch(e) {
       console.error("Recipe extraction error:", e);
       setError(handleError(e) || "Extraction failed. Try pasting the recipe text directly.");
@@ -1614,6 +1688,33 @@ function SmartAddModal({onClose, onAdd}) {
 
   const save = () => { if(data) { onAdd(data); onClose(); } };
   const set = (k,v) => setData(d=>({...d,[k]:v}));
+  const acceptMissingIng = ing => {
+    setData(d=>({...d,ingredients:[...d.ingredients,{name:ing.name,amount:ing.amount||1,unit:ing.unit||"",image:null}]}));
+    setVerifyStatus(v=>({...v,missingIngredients:(v.missingIngredients||[]).filter(i=>i.name!==ing.name)}));
+  };
+  const acceptMissingStep = st => {
+    setData(d=>{
+      const steps=[...d.steps];
+      const pos = st.insertAfter>=0&&st.insertAfter<steps.length ? st.insertAfter+1 : steps.length;
+      steps.splice(pos,0,{text:st.text,timeMin:st.timeMin||5,imagePrompt:""});
+      return {...d,steps};
+    });
+    setVerifyStatus(v=>({...v,missingSteps:(v.missingSteps||[]).filter(i=>i.text!==st.text)}));
+  };
+  const acceptAllMissing = () => {
+    if (!verifyStatus || verifyStatus==='checking') return;
+    const {missingIngredients=[],missingSteps=[]} = verifyStatus;
+    setData(d=>{
+      const newIngs = missingIngredients.map(ing=>({name:ing.name,amount:ing.amount||1,unit:ing.unit||"",image:null}));
+      const steps=[...d.steps];
+      [...missingSteps].reverse().forEach(st=>{
+        const pos = st.insertAfter>=0&&st.insertAfter<steps.length ? st.insertAfter+1 : steps.length;
+        steps.splice(pos,0,{text:st.text,timeMin:st.timeMin||5,imagePrompt:""});
+      });
+      return {...d,ingredients:[...d.ingredients,...newIngs],steps};
+    });
+    setVerifyStatus({missingIngredients:[],missingSteps:[]});
+  };
 
   return (
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
@@ -1675,12 +1776,61 @@ function SmartAddModal({onClose, onAdd}) {
           <div>
             <div style={{background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.25)",borderRadius:12,padding:"14px 16px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
               {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
-              <div>
+              <div style={{flex:1,minWidth:0}}>
                 <div style={{color:"#5aad8e",fontSize:11,fontWeight:700,marginBottom:4}}>✅ RECIPE EXTRACTED</div>
                 <div style={{color:"#fff",fontWeight:700,fontFamily:"'Playfair Display',serif",fontSize:16}}>{data.title}</div>
                 <NutriBadge n={data.nutrition}/>
+                <div style={{color:"#6a7a90",fontSize:11,marginTop:4}}>{(data.ingredients||[]).length} ingredients · {(data.steps||[]).length} steps</div>
               </div>
             </div>
+
+            {/* Completeness verification banner */}
+            {verifyStatus==='checking' && (
+              <div style={{background:"rgba(90,143,212,0.1)",border:"1px solid rgba(90,143,212,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:16,animation:"spin 1.5s linear infinite",display:"inline-block"}}>🔍</span>
+                <div style={{color:"#5a8fd4",fontSize:13,fontWeight:600}}>Verifying completeness against source page…</div>
+              </div>
+            )}
+            {verifyStatus && verifyStatus!=='checking' && (() => {
+              const {missingIngredients=[],missingSteps=[]} = verifyStatus;
+              const total = missingIngredients.length + missingSteps.length;
+              if (total===0) return (
+                <div style={{background:"rgba(90,173,142,0.1)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+                  <span>✅</span>
+                  <div style={{color:"#5aad8e",fontSize:13,fontWeight:600}}>All ingredients & steps verified against source page</div>
+                </div>
+              );
+              return (
+                <div style={{background:"rgba(255,180,50,0.08)",border:"1px solid rgba(255,180,50,0.35)",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div style={{color:"#ffd580",fontWeight:700,fontSize:13}}>⚠️ {total} item{total!==1?"s":""} missing from source — review before saving</div>
+                    <button onClick={acceptAllMissing} style={{background:"rgba(255,213,128,0.2)",border:"1px solid rgba(255,213,128,0.4)",borderRadius:8,color:"#ffd580",padding:"4px 12px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap"}}>+ Add All</button>
+                  </div>
+                  {missingIngredients.length>0 && (
+                    <div style={{marginBottom:8}}>
+                      <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:5,textTransform:"uppercase",letterSpacing:.5}}>Missing Ingredients</div>
+                      {missingIngredients.map((ing,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:7,background:"rgba(255,213,128,0.06)",marginBottom:3}}>
+                          <span style={{flex:1,color:"#e8e8e8",fontSize:12}}><b>{ing.amount} {ing.unit} {ing.name}</b>{ing.reason?<span style={{color:"#6a7a90",fontWeight:400}}> — {ing.reason}</span>:""}</span>
+                          <button onClick={()=>acceptMissingIng(ing)} style={{background:"rgba(90,173,142,0.2)",border:"1px solid rgba(90,173,142,0.35)",borderRadius:7,color:"#5aad8e",padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap"}}>+ Add</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {missingSteps.length>0 && (
+                    <div>
+                      <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:5,textTransform:"uppercase",letterSpacing:.5}}>Missing Steps</div>
+                      {missingSteps.map((st,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"5px 8px",borderRadius:7,background:"rgba(90,143,212,0.07)",marginBottom:3}}>
+                          <span style={{flex:1,color:"#e8e8e8",fontSize:12}}>{st.text}{st.timeMin?<span style={{color:"#6a7a90"}}> ({st.timeMin}m)</span>:""}{st.reason?<span style={{color:"#6a7a90",fontWeight:400}}> — {st.reason}</span>:""}</span>
+                          <button onClick={()=>acceptMissingStep(st)} style={{background:"rgba(90,143,212,0.2)",border:"1px solid rgba(90,143,212,0.35)",borderRadius:7,color:"#5a8fd4",padding:"3px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>+ Add</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Image upload */}
             <div style={{marginBottom:14,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"12px 14px"}}>
