@@ -3032,6 +3032,53 @@ const convertStepForAirFryer = (text, timeMin) => {
   return { text: convText, timeMin: convTime, changed: convText !== text || (timeMin && convTime !== timeMin) };
 };
 
+const ALARM_SOUNDS = [
+  {key:"bell",  label:"Kitchen Bell", emoji:"🔔"},
+  {key:"beep",  label:"Oven Beep",    emoji:"📟"},
+  {key:"chime", label:"Chime",        emoji:"🎵"},
+  {key:"horn",  label:"Alarm Horn",   emoji:"🔊"},
+  {key:"zen",   label:"Zen Bell",     emoji:"🧘"},
+  {key:"none",  label:"Silent",       emoji:"🔕"},
+];
+
+function playAlarmSound(type) {
+  if (type === "none") return;
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const tone = (freq, startTime, duration, vol=0.45, wave="sine") => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = wave;
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(vol, startTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.start(startTime); osc.stop(startTime + duration + 0.05);
+    };
+    const t = ctx.currentTime;
+    if (type === "bell") {
+      // Three kitchen dings with harmonics
+      [0, 0.65, 1.3].forEach(d => { tone(880, t+d, 1.1, 0.4); tone(1320, t+d+0.01, 0.8, 0.15); });
+    } else if (type === "beep") {
+      // Classic oven beeps
+      [0, 0.38, 0.76, 1.14].forEach(d => tone(1100, t+d, 0.28, 0.5, "square"));
+    } else if (type === "chime") {
+      // Ascending chime melody
+      [[523,0],[659,0.22],[784,0.44],[1047,0.66],[784,1.0],[1047,1.22]].forEach(([f,d]) => tone(f, t+d, 0.65, 0.32));
+    } else if (type === "horn") {
+      // Rising alarm horn
+      tone(330, t,    0.5, 0.6, "sawtooth");
+      tone(440, t+0.5, 0.5, 0.6, "sawtooth");
+      tone(550, t+1.0, 0.9, 0.6, "sawtooth");
+    } else if (type === "zen") {
+      // Single long resonant bell
+      tone(528, t, 4.0, 0.5); tone(792, t+0.06, 3.0, 0.2); tone(1056, t+0.12, 2.0, 0.08);
+    }
+    setTimeout(() => { try { ctx.close(); } catch(e) {} }, 5000);
+  } catch(e) { console.warn("Audio playback failed", e); }
+}
+
 function CookMode({recipe, onClose}) {
   const [phase, setPhase] = useState("prep"); // "prep" | "cook"
   const [step, setStep] = useState(0);
@@ -3041,11 +3088,16 @@ function CookMode({recipe, onClose}) {
   const [timer, setTimer] = useState(null);
   const [running, setRunning] = useState(false);
   const [afMode, setAfMode] = useState(false); // air fryer conversion mode
+  const [alarmSound, setAlarmSound] = useState(()=>{ try{return localStorage.getItem("cookAlarm")||"bell";}catch(e){return "bell";} });
+  const alarmSoundRef = useRef(alarmSound);
   const timerRef = useRef(null);
   const steps = recipe.steps||[];
   const current = steps[step]||{};
   const afStep = afMode ? convertStepForAirFryer(current.text||"", current.timeMin) : null;
   const toggleCheck = key => setChecked(c=>({...c,[key]:!c[key]}));
+
+  // Persist alarm sound choice
+  useEffect(()=>{ alarmSoundRef.current=alarmSound; lsSave("cookAlarm",alarmSound); },[alarmSound]);
 
   // AI-enhance the prep guide
   useEffect(()=>{
@@ -3081,7 +3133,7 @@ function CookMode({recipe, onClose}) {
     if(mins) setTimer(mins*60); setRunning(false); clearInterval(timerRef.current);
   },[step, afMode]);
   useEffect(()=>{
-    if(running&&timer>0){ timerRef.current=setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);try{new Notification("⏰ Step done!",{body:current.text?.slice(0,60)});}catch(e){}return 0;}return t-1;}),1000); }
+    if(running&&timer>0){ timerRef.current=setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);playAlarmSound(alarmSoundRef.current);try{new Notification("⏰ Step done!",{body:current.text?.slice(0,60)});}catch(e){}return 0;}return t-1;}),1000); }
     return ()=>clearInterval(timerRef.current);
   },[running]);
 
@@ -3277,6 +3329,24 @@ function CookMode({recipe, onClose}) {
                   {timer===0?"✅ Done":running?"⏸ Pause":"▶ Start"}
                 </button>
                 <button onClick={()=>{setTimer(timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
+              </div>
+              {/* Alarm sound picker */}
+              <div style={{marginTop:14,borderTop:"1px solid var(--border)",paddingTop:12}}>
+                <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>🔊 Alarm Sound</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+                  {ALARM_SOUNDS.map(s=>(
+                    <button key={s.key}
+                      onClick={()=>{ setAlarmSound(s.key); if(s.key!=="none") playAlarmSound(s.key); }}
+                      style={{...GB,padding:"6px 11px",fontSize:12,
+                        background:alarmSound===s.key?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",
+                        border:alarmSound===s.key?"1px solid rgba(90,173,142,0.5)":"1px solid transparent",
+                        color:alarmSound===s.key?"#5aad8e":"var(--text-muted)",
+                        fontWeight:alarmSound===s.key?700:400,borderRadius:20}}>
+                      {s.emoji} {s.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{color:"var(--text-muted)",fontSize:10,marginTop:6,textAlign:"center"}}>Tap a sound to preview · selected plays when timer ends</div>
               </div>
             </div>
           );
