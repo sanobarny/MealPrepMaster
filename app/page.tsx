@@ -1318,7 +1318,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
     </div>
   );
 }
-function EditRecipeModal({recipe:init, onClose, onSave}) {
+function EditRecipeModal({recipe:init, onClose, onSave, onDelete}) {
   const [data, setData] = useState({...init});
   const mainImgRef = useRef(null);
   const stepImgRefs = useRef({});
@@ -1328,6 +1328,65 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
   const [aiChecking, setAiChecking] = useState(false);
   const [aiCheckStatus, setAiCheckStatus] = useState(""); // "Fetching source…" | "Comparing…"
   const [aiSuggestions, setAiSuggestions] = useState(null); // {missingIngredients, missingSteps, notes}
+  const [reimportUrl, setReimportUrl] = useState("");
+  const [reimporting, setReimporting] = useState(false);
+  const [reimportError, setReimportError] = useState(null);
+  const reimportFileRef = useRef(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const doReimport = async (inputVal) => {
+    if (!inputVal?.trim()) return;
+    setReimporting(true); setReimportError(null);
+    try {
+      const fresh = await aiExtractRecipe(inputVal.trim());
+      delete fresh._pageText;
+      // Preserve all images from current recipe
+      const keepImages = {
+        image: data.image || fresh.image,
+        ingredients: (fresh.ingredients||[]).map((ing, i) => ({
+          ...ing,
+          image: data.ingredients?.[i]?.image || ing.image || null,
+        })),
+        steps: (fresh.steps||[]).map((st, i) => ({
+          ...st,
+          image: data.steps?.[i]?.image || st.image || null,
+        })),
+      };
+      setData(d => ({...fresh, id: d.id, ...keepImages}));
+      setReimportUrl("");
+    } catch(e) {
+      setReimportError("Re-import failed: " + (e.message || "unknown error"));
+    }
+    setReimporting(false);
+  };
+
+  const doReimportFromImage = async (file) => {
+    setReimporting(true); setReimportError(null);
+    try {
+      const base64DataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const fresh = await aiExtractRecipeFromImage(base64DataUrl);
+      const keepImages = {
+        image: data.image || fresh.image,
+        ingredients: (fresh.ingredients||[]).map((ing, i) => ({
+          ...ing,
+          image: data.ingredients?.[i]?.image || ing.image || null,
+        })),
+        steps: (fresh.steps||[]).map((st, i) => ({
+          ...st,
+          image: data.steps?.[i]?.image || st.image || null,
+        })),
+      };
+      setData(d => ({...fresh, id: d.id, ...keepImages}));
+    } catch(e) {
+      setReimportError("Re-import failed: " + (e.message || "unknown error"));
+    }
+    setReimporting(false);
+  };
 
   const set = (k,v) => setData(d=>({...d,[k]:v}));
   const setIng = (i,k,v) => setData(d=>{const a=[...d.ingredients];a[i]={...a[i],[k]:v};return{...d,ingredients:a};});
@@ -1401,6 +1460,31 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>✏️ Edit Recipe</h2>
           <button onClick={onClose} style={{...GB,padding:"4px 10px",fontSize:18}}>×</button>
+        </div>
+
+        {/* Re-import section */}
+        <div style={{marginBottom:16,background:"rgba(90,143,212,0.06)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:12,padding:"12px 14px"}}>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>↩ Replace Recipe Content</div>
+          <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:10}}>Re-import from a URL or image — all your photos will be kept, only ingredients & steps are replaced.</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <input value={reimportUrl} onChange={e=>setReimportUrl(e.target.value)}
+              placeholder="Paste recipe URL…"
+              disabled={reimporting}
+              onKeyDown={e=>{if(e.key==="Enter"&&reimportUrl.trim())doReimport(reimportUrl.trim());}}
+              style={{...IS,flex:1,minWidth:200,height:36,padding:"0 10px",fontSize:13}}/>
+            <button onClick={()=>doReimport(reimportUrl.trim())} disabled={reimporting||!reimportUrl.trim()}
+              style={{...GB,padding:"8px 16px",fontSize:13,fontWeight:700,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.4)",opacity:reimporting||!reimportUrl.trim()?0.5:1,whiteSpace:"nowrap"}}>
+              {reimporting?"Importing…":"Re-import"}
+            </button>
+            <input ref={reimportFileRef} type="file" accept="image/*" style={{display:"none"}}
+              onChange={e=>{const f=e.target.files?.[0];if(f)doReimportFromImage(f);e.target.value="";}}/>
+            <button onClick={()=>reimportFileRef.current?.click()} disabled={reimporting}
+              style={{...GB,padding:"8px 14px",fontSize:13,fontWeight:700,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.4)",opacity:reimporting?0.5:1,whiteSpace:"nowrap"}}>
+              📷 From Image
+            </button>
+          </div>
+          {reimportError && <div style={{color:"#d45a5a",fontSize:12,marginTop:8}}>{reimportError}</div>}
+          {reimporting && <div style={{color:"#5a8fd4",fontSize:12,marginTop:8,display:"flex",alignItems:"center",gap:6}}><span style={{animation:"spin 1.2s linear infinite",display:"inline-block"}}>⟳</span> Fetching & extracting from source…</div>}
         </div>
 
         {/* Main image */}
@@ -1643,7 +1727,27 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           )}
         </div>
 
+        {/* Delete confirmation */}
+        {confirmDelete && (
+          <div style={{marginBottom:12,background:"rgba(212,90,90,0.1)",border:"1px solid rgba(212,90,90,0.35)",borderRadius:12,padding:"12px 14px"}}>
+            <div style={{color:"#d45a5a",fontWeight:700,fontSize:13,marginBottom:10}}>Delete "{data.title}"? This cannot be undone.</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setConfirmDelete(false)} style={{...GB,flex:1}}>Keep It</button>
+              <button onClick={()=>onDelete(data.id)}
+                style={{flex:1,background:"linear-gradient(135deg,#a03030,#d45a5a)",border:"none",borderRadius:12,color:"#fff",padding:"10px 0",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+                Delete Forever
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{display:"flex",gap:10}}>
+          {onDelete && !confirmDelete && (
+            <button onClick={()=>setConfirmDelete(true)}
+              style={{...GB,flex:"0 0 auto",padding:"0 14px",color:"#d45a5a",border:"1px solid rgba(212,90,90,0.35)"}}>
+              🗑 Delete
+            </button>
+          )}
           <button onClick={onClose} style={{...GB,flex:1}}>Cancel</button>
           <button onClick={()=>onSave({...data,totalTime:(data.prepTime||0)+(data.cookTime||0)})}
             style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
@@ -4661,7 +4765,8 @@ function App() {
       {/* Recipe audit modal */}
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
-        onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}/>}
+        onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
+        onDelete={id=>{setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
 
       {/* AI Meal Coach */}
