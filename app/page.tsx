@@ -3884,6 +3884,13 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
+  // Tombstone set — IDs the user deliberately deleted. Persisted to localStorage
+  // so cloud sync never re-adds them from Supabase.
+  const deletedIdsRef = useRef(new Set((() => { try { return JSON.parse(localStorage.getItem('mpm_deleted_ids')||'[]'); } catch(e) { return []; } })()));
+  const trackDeleted = id => {
+    deletedIdsRef.current.add(String(id));
+    lsSave('mpm_deleted_ids', JSON.stringify([...deletedIdsRef.current]));
+  };
   const [sec, setSec] = useState("dashboard");
   const [catF, setCatF] = useState("all");
   const [tagF, setTagF] = useState(null);
@@ -3971,21 +3978,27 @@ function App() {
         const d = JSON.parse(data.data);
         if (d.recipes) setRecipes(local => {
           if (forceReplace) {
-            return d.recipes.map(r => {
-              const localR = local.find(x => x.id === r.id);
-              return {
-                ...r,
-                image: r.image || localR?.image || null,
-                ingredientsImage: r.ingredientsImage || localR?.ingredientsImage || null,
-                steps: (r.steps||[]).map((s,i) => ({...s, image: s.image || localR?.steps?.[i]?.image || null})),
-                ingredients: (r.ingredients||[]).map((ing,i) => ({...ing, image: ing.image || localR?.ingredients?.[i]?.image || null})),
-              };
-            }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
+            const deleted = deletedIdsRef.current;
+            return d.recipes
+              .filter(r => !deleted.has(String(r.id)))
+              .map(r => {
+                const localR = local.find(x => x.id === r.id);
+                return {
+                  ...r,
+                  image: r.image || localR?.image || null,
+                  ingredientsImage: r.ingredientsImage || localR?.ingredientsImage || null,
+                  steps: (r.steps||[]).map((s,i) => ({...s, image: s.image || localR?.steps?.[i]?.image || null})),
+                  ingredients: (r.ingredients||[]).map((ing,i) => ({...ing, image: ing.image || localR?.ingredients?.[i]?.image || null})),
+                };
+              }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
           }
-          return d.recipes.map(r => {
-            const localR = local.find(x => x.id === r.id);
-            return localR ? {...localR, ...r, image: r.image || localR.image, ingredientsImage: r.ingredientsImage || localR.ingredientsImage} : r;
-          }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
+          const deleted = deletedIdsRef.current;
+          return d.recipes
+            .filter(r => !deleted.has(String(r.id)))
+            .map(r => {
+              const localR = local.find(x => x.id === r.id);
+              return localR ? {...localR, ...r, image: r.image || localR.image, ingredientsImage: r.ingredientsImage || localR.ingredientsImage} : r;
+            }).concat(local.filter(x => !d.recipes.some(r => r.id === x.id)));
         });
         if (d.favorites) setFavorites(local => {
           const merged = [...local];
@@ -4194,7 +4207,7 @@ function App() {
           const { data: cloudRow } = await getSupabase()?.from('user_data').select('data').eq('user_id', supaUser.id).single();
           if (cloudRow?.data) {
             const cloudRecipes = JSON.parse(cloudRow.data).recipes || [];
-            const cloudOnly = cloudRecipes.filter(cr => !syncedRecipes.some(lr => lr.id === cr.id));
+            const cloudOnly = cloudRecipes.filter(cr => !syncedRecipes.some(lr => lr.id === cr.id) && !deletedIdsRef.current.has(String(cr.id)));
             if (cloudOnly.length > 0) mergedRecipes = [...syncedRecipes, ...cloudOnly];
           }
         } catch(fetchErr) { /* proceed with local only if cloud fetch fails */ }
@@ -4836,7 +4849,7 @@ function App() {
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
-        onDelete={id=>{setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
+        onDelete={id=>{trackDeleted(id);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
 
       {/* AI Meal Coach */}
