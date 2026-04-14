@@ -1227,6 +1227,7 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
   const ingOverallRef = useRef(null);
   const [imgUrlInput, setImgUrlInput] = useState("");
   const [aiChecking, setAiChecking] = useState(false);
+  const [aiCheckStatus, setAiCheckStatus] = useState(""); // "Fetching source…" | "Comparing…"
   const [aiSuggestions, setAiSuggestions] = useState(null); // {missingIngredients, missingSteps, notes}
 
   const set = (k,v) => setData(d=>({...d,[k]:v}));
@@ -1243,26 +1244,41 @@ function EditRecipeModal({recipe:init, onClose, onSave}) {
     setAiChecking(true); setAiSuggestions(null);
     const ingList = (data.ingredients||[]).map(i=>`${i.amount} ${i.unit} ${i.name}`).join("\n");
     const stepList = (data.steps||[]).map((s,idx)=>`${idx+1}. ${s.text}`).join("\n");
+    let sourceText = "";
+    if (data.sourceUrl?.trim()) {
+      setAiCheckStatus("🌐 Fetching source page…");
+      const page = await fetchPageContent(data.sourceUrl.trim());
+      if (page?.text) sourceText = page.text.slice(0, 12000);
+    }
+    setAiCheckStatus("🤖 Comparing with source…");
     try {
+      const hasSource = !!sourceText;
       const raw = await anthropicCall({
-        max_tokens:1200,
-        system:"You are a culinary expert reviewing recipes for completeness. Return ONLY valid JSON, no markdown.",
-        messages:[{role:"user",content:`Recipe: "${data.title}" (${data.category||"unknown"} dish)
-${data.sourceUrl?"Source URL: "+data.sourceUrl+"\n":""}
-Current ingredients:\n${ingList||"(none)"}
+        max_tokens:1500,
+        system:"You are a culinary expert auditing recipes. Return ONLY valid JSON, no markdown.",
+        messages:[{role:"user",content:`Recipe in app: "${data.title}" (${data.category||"dish"})
 
-Current steps:\n${stepList||"(none)"}
+Current ingredients in app:
+${ingList||"(none)"}
 
-Review this recipe. Identify any ingredients or steps that appear clearly missing or incomplete based on the dish name and what's there.
-Return JSON: {"missingIngredients":[{"name":"","amount":1,"unit":"","reason":""}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}],"notes":"brief assessment"}
-Use empty arrays if the recipe seems complete. Be conservative — only flag clearly missing items.`}]
+Current steps in app:
+${stepList||"(none)"}
+
+${hasSource
+  ? `SOURCE PAGE CONTENT (the original recipe page — use this as ground truth):\n${sourceText}\n\nCompare the source page carefully against what is already in the app. List every ingredient and step that appears in the source but is MISSING or WRONG in the app version.`
+  : `No source URL available. Based on the dish name and existing content, identify clearly missing items.`
+}
+
+Return JSON:
+{"missingIngredients":[{"name":"","amount":1,"unit":"","reason":"from source" or "commonly needed"}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}],"notes":"brief summary"}
+Use empty arrays if everything matches. Be thorough — list every discrepancy you find.`}]
       });
       const m = raw.match(/\{[\s\S]*\}/);
-      if (m) setAiSuggestions(JSON.parse(m[0]));
+      if (m) setAiSuggestions({...JSON.parse(m[0]), usedSource: !!sourceText});
     } catch(e) {
       setAiSuggestions({error: e.message === "NO_KEY" ? "No API key set — add it in ⚙️ Settings." : e.message === "INVALID_KEY" ? "Invalid API key." : "AI check failed: "+e.message});
     }
-    setAiChecking(false);
+    setAiChecking(false); setAiCheckStatus("");
   };
 
   const acceptIngredient = ing => {
@@ -1474,15 +1490,18 @@ Use empty arrays if the recipe seems complete. Be conservative — only flag cle
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:aiSuggestions?12:0}}>
             <div>
               <span style={{color:"var(--text-sub)",fontSize:12,fontWeight:700}}>🔍 AI Completeness Check</span>
-              <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:8}}>Find missing ingredients & steps</span>
+              <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>
+                {aiChecking ? aiCheckStatus : data.sourceUrl ? "🌐 Will compare against source page" : "Uses AI culinary knowledge (no source URL)"}
+              </div>
             </div>
             <button onClick={checkWithAI} disabled={aiChecking}
-              style={{...GB,padding:"5px 12px",fontSize:12,background:aiChecking?"var(--nm-input-bg)":"linear-gradient(135deg,var(--accent2),var(--accent))",color:aiChecking?"var(--text-muted)":"#fff",border:"none"}}>
-              {aiChecking?"⏳ Checking…":"🔍 Check Now"}
+              style={{...GB,padding:"5px 12px",fontSize:12,background:aiChecking?"var(--nm-input-bg)":"linear-gradient(135deg,var(--accent2),var(--accent))",color:aiChecking?"var(--text-muted)":"#fff",border:"none",flexShrink:0}}>
+              {aiChecking?"⏳…":"🔍 Check Now"}
             </button>
           </div>
           {aiSuggestions && (
             <div>
+              {aiSuggestions.usedSource && <div style={{color:"#5a8fd4",fontSize:11,marginBottom:8}}>🌐 Compared against source page</div>}
               {aiSuggestions.error && <div style={{color:"#f08080",fontSize:12}}>{aiSuggestions.error}</div>}
               {aiSuggestions.notes && <div style={{color:"var(--text-sub)",fontSize:12,marginBottom:10,padding:"6px 10px",background:"rgba(90,173,142,0.08)",borderRadius:8}}>{aiSuggestions.notes}</div>}
               {(aiSuggestions.missingIngredients||[]).length > 0 && (
@@ -2383,25 +2402,46 @@ function RecipeAuditModal({recipes, onClose, onSave}) {
       if (!runningRef.current) break;
       const recipe = recipes[i];
       setCurrentIdx(i);
-      updResult(recipe.id, {status:'checking'});
+      updResult(recipe.id, {status:'checking', fetchMsg: recipe.sourceUrl ? "Fetching source…" : ""});
       const ingList = (recipe.ingredients||[]).map(x=>`${x.amount} ${x.unit} ${x.name}`).join("\n");
       const stepList = (recipe.steps||[]).map((s,idx)=>`${idx+1}. ${s.text}`).join("\n");
+
+      // Fetch the source page if URL is stored
+      let sourceText = "";
+      if (recipe.sourceUrl?.trim()) {
+        const page = await fetchPageContent(recipe.sourceUrl.trim());
+        if (page?.text) sourceText = page.text.slice(0, 12000);
+      }
+      updResult(recipe.id, {fetchMsg: "Comparing…"});
+
+      const hasSource = !!sourceText;
       try {
         const raw = await anthropicCall({
-          max_tokens:800,
-          system:"You are a culinary expert reviewing recipes for completeness. Return ONLY valid JSON, no markdown.",
-          messages:[{role:"user",content:`Recipe: "${recipe.title}" (${recipe.category||"dish"})
-Ingredients:\n${ingList||"(none)"}
-Steps:\n${stepList||"(none)"}
-Identify clearly missing ingredients or steps. Return JSON:
-{"missingIngredients":[{"name":"","amount":1,"unit":"","reason":""}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}],"notes":""}`}]
+          max_tokens:1000,
+          system:"You are a culinary expert auditing recipes. Return ONLY valid JSON, no markdown.",
+          messages:[{role:"user",content:`Recipe in app: "${recipe.title}" (${recipe.category||"dish"})
+
+Ingredients in app:
+${ingList||"(none)"}
+
+Steps in app:
+${stepList||"(none)"}
+
+${hasSource
+  ? `SOURCE PAGE CONTENT (use as ground truth — compare every ingredient and step):\n${sourceText}\n\nList everything present in the source page but missing from the app version.`
+  : `No source URL. Based on the dish name and existing content, flag clearly missing items.`
+}
+
+Return JSON:
+{"missingIngredients":[{"name":"","amount":1,"unit":"","reason":""}],"missingSteps":[{"text":"","timeMin":5,"insertAfter":-1,"reason":""}],"notes":""}
+Empty arrays if complete.`}]
         });
         const m = raw.match(/\{[\s\S]*\}/);
-        const suggestions = m ? JSON.parse(m[0]) : {missingIngredients:[],missingSteps:[]};
+        const suggestions = m ? {...JSON.parse(m[0]), usedSource: hasSource} : {missingIngredients:[],missingSteps:[],usedSource:false};
         const hasIssues = (suggestions.missingIngredients||[]).length>0 || (suggestions.missingSteps||[]).length>0;
-        updResult(recipe.id, {status:'done', suggestions, hasIssues});
+        updResult(recipe.id, {status:'done', suggestions, hasIssues, fetchMsg:""});
       } catch(e) {
-        updResult(recipe.id, {status:'error', error: e.message});
+        updResult(recipe.id, {status:'error', error: e.message, fetchMsg:""});
       }
     }
     setRunning(false); runningRef.current = false; setCurrentIdx(-1);
@@ -2476,11 +2516,15 @@ Identify clearly missing ingredients or steps. Return JSON:
                   <span style={{fontSize:16}}>
                     {res.status==='pending'?"⬜":res.status==='checking'?"⏳":res.status==='error'?"❌":res.hasIssues?"⚠️":"✅"}
                   </span>
-                  <span style={{color:"var(--text)",fontSize:13,fontWeight:600,flex:1}}>{res.recipeName}</span>
-                  {res.status==='done' && !res.hasIssues && <span style={{color:"#5aad8e",fontSize:11}}>Complete</span>}
-                  {res.status==='done' && res.hasIssues && <span style={{color:"#ffd580",fontSize:11}}>{total} suggestion{total!==1?"s":""}</span>}
-                  {res.status==='error' && <span style={{color:"#f08080",fontSize:11}}>Error</span>}
-                  {res.status==='checking' && <span style={{color:"var(--accent)",fontSize:11}}>Analyzing…</span>}
+                  <div style={{flex:1,minWidth:0}}>
+                    <span style={{color:"var(--text)",fontSize:13,fontWeight:600}}>{res.recipeName}</span>
+                    {res.status==='checking' && res.fetchMsg && <span style={{color:"var(--accent)",fontSize:11,marginLeft:8}}>{res.fetchMsg}</span>}
+                    {res.status==='done' && res.suggestions?.usedSource && <span style={{color:"#5a8fd4",fontSize:10,marginLeft:6}}>🌐 vs source</span>}
+                  </div>
+                  {res.status==='done' && !res.hasIssues && <span style={{color:"#5aad8e",fontSize:11,flexShrink:0}}>Complete</span>}
+                  {res.status==='done' && res.hasIssues && <span style={{color:"#ffd580",fontSize:11,flexShrink:0}}>{total} suggestion{total!==1?"s":""}</span>}
+                  {res.status==='error' && <span style={{color:"#f08080",fontSize:11,flexShrink:0}}>Error</span>}
+                  {res.status==='pending' && <span style={{color:"var(--text-muted)",fontSize:11,flexShrink:0}}>{res.recipeName.sourceUrl?"🌐":"📝"}</span>}
                 </div>
 
                 {/* Suggestions */}
