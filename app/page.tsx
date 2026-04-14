@@ -119,7 +119,8 @@ const CATEGORIES = [
 const DIET_TAGS = ["PCOS-Friendly","High Protein","Gluten-Free","Dairy-Free","Vegan","Low Carb","High Fiber","Low Calorie"];
 const HEALTH_TAGS = ["Anti-Inflammatory","Blood Sugar Stable","Omega-3 Rich","Antioxidant","Gut Health","Heart Healthy"];
 const ALL_TAGS = [...DIET_TAGS,...HEALTH_TAGS];
-const EQUIPMENT_LIST = ["stove","oven","air fryer","rice cooker","blender","none"];
+const EQUIPMENT_LIST = ["stove","oven","air fryer","rice cooker","blender","microwave","instant pot","none"];
+const APPLIANCE_ICONS = {stove:"🍳",oven:"🔥","air fryer":"🌬️","rice cooker":"🍚",blender:"🫙",microwave:"📡","instant pot":"🫕",none:"🙌"};
 const ALLERGENS_LIST = ["gluten","dairy","eggs","nuts","soy","shellfish"];
 const GOALS = ["lose weight","gain muscle","maintenance"];
 const DIFFICULTIES = {beginner:{label:"Beginner",color:"#5aad8e",icon:"\u{1F331}"},intermediate:{label:"Intermediate",color:"#d4875a",icon:"\u{1F373}"},advanced:{label:"Advanced",color:"#c06090",icon:"\u{1F468}\u200D\u{1F373}"}};
@@ -2260,6 +2261,16 @@ function buildStaticPrepGuide(recipe) {
   return guide;
 }
 
+// Convert a cooking step's temperatures and time for air fryer use
+// Rule: reduce oven temp by 25°F / 15°C, reduce time by ~25%
+const convertStepForAirFryer = (text, timeMin) => {
+  const convText = text
+    .replace(/(\d+)\s*°\s*F/gi, (_, t) => `${+t - 25}°F`)
+    .replace(/(\d+)\s*°\s*C/gi, (_, t) => `${+t - 15}°C`);
+  const convTime = timeMin ? Math.max(1, Math.round(timeMin * 0.75)) : null;
+  return { text: convText, timeMin: convTime, changed: convText !== text || (timeMin && convTime !== timeMin) };
+};
+
 function CookMode({recipe, onClose}) {
   const [phase, setPhase] = useState("prep"); // "prep" | "cook"
   const [step, setStep] = useState(0);
@@ -2268,9 +2279,11 @@ function CookMode({recipe, onClose}) {
   const [checked, setChecked] = useState({});
   const [timer, setTimer] = useState(null);
   const [running, setRunning] = useState(false);
+  const [afMode, setAfMode] = useState(false); // air fryer conversion mode
   const timerRef = useRef(null);
   const steps = recipe.steps||[];
   const current = steps[step]||{};
+  const afStep = afMode ? convertStepForAirFryer(current.text||"", current.timeMin) : null;
   const toggleCheck = key => setChecked(c=>({...c,[key]:!c[key]}));
 
   // AI-enhance the prep guide
@@ -2301,8 +2314,11 @@ function CookMode({recipe, onClose}) {
     enhance();
   }, [recipe.id]);
 
-  // Timer per step
-  useEffect(()=>{ if(current.timeMin) setTimer(current.timeMin*60); setRunning(false); clearInterval(timerRef.current); },[step]);
+  // Timer per step (uses converted time when AF mode is on)
+  useEffect(()=>{
+    const mins = afMode && afStep?.timeMin ? afStep.timeMin : current.timeMin;
+    if(mins) setTimer(mins*60); setRunning(false); clearInterval(timerRef.current);
+  },[step, afMode]);
   useEffect(()=>{
     if(running&&timer>0){ timerRef.current=setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);try{new Notification("⏰ Step done!",{body:current.text?.slice(0,60)});}catch(e){}return 0;}return t-1;}),1000); }
     return ()=>clearInterval(timerRef.current);
@@ -2431,12 +2447,16 @@ function CookMode({recipe, onClose}) {
   return (
     <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* Header */}
-      <div style={{padding:"12px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+      <div style={{padding:"12px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
         <button onClick={()=>setPhase("prep")} style={{...GB,padding:"5px 10px",fontSize:12}}>← Prep</button>
-        <div style={{flex:1,textAlign:"center"}}>
-          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15}}>{recipe.title}</div>
+        <div style={{flex:1,textAlign:"center",minWidth:0}}>
+          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{recipe.title}</div>
         </div>
-        <div style={{color:"var(--text-muted)",fontSize:13,fontWeight:700}}>Step {step+1}/{steps.length}</div>
+        <div style={{color:"var(--text-muted)",fontSize:12,fontWeight:700,flexShrink:0}}>Step {step+1}/{steps.length}</div>
+        <button onClick={()=>setAfMode(m=>!m)}
+          style={{...GB,padding:"5px 10px",fontSize:12,background:afMode?"rgba(255,160,50,0.18)":"var(--bg-card)",color:afMode?"#f5a623":"var(--text-sub)",border:afMode?"1px solid rgba(255,160,50,0.5)":"none",borderRadius:10,fontWeight:afMode?700:400,flexShrink:0}}>
+          🌬️ {afMode?"AF ON":"AF"}
+        </button>
         <button onClick={onClose} style={{...GB,padding:"5px 10px",fontSize:13}}>✕</button>
       </div>
       {/* Progress bar */}
@@ -2462,25 +2482,44 @@ function CookMode({recipe, onClose}) {
           </div>
         )}
 
-        {/* Step card */}
-        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"24px",marginBottom:18,textAlign:"center"}}>
-          <div style={{width:48,height:48,borderRadius:"50%",background:STEP_COLORS[step%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:22,margin:"0 auto 16px"}}>{step+1}</div>
-          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.7,margin:0,fontFamily:"'Playfair Display',serif"}}>{current.text}</p>
-        </div>
-
-        {/* Timer */}
-        {current.timeMin && (
-          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 24px",textAlign:"center",marginBottom:18}}>
-            <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>⏱ Timer</div>
-            <div style={{color:timer===0?"#5aad8e":running?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(timer??current.timeMin*60)}</div>
-            <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-              <button onClick={()=>setRunning(r=>!r)} style={{background:running?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:running?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
-                {timer===0?"✅ Done":running?"⏸ Pause":"▶ Start"}
-              </button>
-              <button onClick={()=>{setTimer(current.timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
+        {/* Air Fryer mode banner */}
+        {afMode && (
+          <div style={{background:"rgba(255,160,50,0.1)",border:"1px solid rgba(255,160,50,0.35)",borderRadius:14,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:10}}>
+            <span style={{fontSize:22,flexShrink:0}}>🌬️</span>
+            <div>
+              <div style={{color:"#f5a623",fontWeight:700,fontSize:13,marginBottom:3}}>Air Fryer Mode</div>
+              <div style={{color:"var(--text-sub)",fontSize:12,lineHeight:1.5}}>Temp reduced by 25°F / 15°C · Cook time reduced ~25% · Preheat air fryer 3–5 min first · Check food 2–3 min early</div>
             </div>
           </div>
         )}
+
+        {/* Step card */}
+        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"24px",marginBottom:18,textAlign:"center"}}>
+          <div style={{width:48,height:48,borderRadius:"50%",background:STEP_COLORS[step%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:22,margin:"0 auto 16px"}}>{step+1}</div>
+          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.7,margin:0,fontFamily:"'Playfair Display',serif"}}>{afMode&&afStep ? afStep.text : current.text}</p>
+          {afMode && afStep?.changed && (
+            <div style={{marginTop:10,padding:"6px 12px",background:"rgba(255,160,50,0.12)",borderRadius:8,display:"inline-block",fontSize:12,color:"#f5a623"}}>
+              🌬️ Converted for air fryer
+            </div>
+          )}
+        </div>
+
+        {/* Timer */}
+        {(afMode ? afStep?.timeMin : current.timeMin) ? (() => {
+          const timeMin = afMode && afStep?.timeMin ? afStep.timeMin : current.timeMin;
+          return (
+            <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 24px",textAlign:"center",marginBottom:18}}>
+              <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:4,textTransform:"uppercase",letterSpacing:.8}}>⏱ Timer{afMode&&afStep?.timeMin&&afStep.timeMin!==current.timeMin?<span style={{color:"#f5a623",marginLeft:6,fontWeight:700}}>🌬️ {timeMin}m (was {current.timeMin}m)</span>:""}</div>
+              <div style={{color:timer===0?"#5aad8e":running?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(timer??timeMin*60)}</div>
+              <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+                <button onClick={()=>setRunning(r=>!r)} style={{background:running?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:running?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
+                  {timer===0?"✅ Done":running?"⏸ Pause":"▶ Start"}
+                </button>
+                <button onClick={()=>{setTimer(timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
+              </div>
+            </div>
+          );
+        })() : null}
 
         {/* Ingredients used in this step */}
         {stepIngredients.length>0 && (
@@ -3017,6 +3056,7 @@ function App() {
   const [healthF, setHealthF] = useState(null);
   const [goalF, setGoalF] = useState(null);
   const [cuisineF, setCuisineF] = useState(null);
+  const [applianceF, setApplianceF] = useState([]);
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -3349,12 +3389,13 @@ function App() {
     if (diffF && (r.difficulty||"beginner")!==diffF) return false;
     if (maxTimeF !== null && (r.totalTime||(r.prepTime||0)+(r.cookTime||0)) > maxTimeF) return false;
     if (maxCostF !== null && recipeEstCost(r) > maxCostF) return false;
+    if (applianceF.length > 0 && !applianceF.some(a => (r.equipment||[]).includes(a))) return false;
     if (search && !(r.title||"").toLowerCase().includes(search.toLowerCase()) &&
         !(r.ingredients||[]).some(i=>(i.name||"").toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
   });
-  const anyFilterActive = catF!=="all" || tagF || healthF || goalF || cuisineF || diffF || maxTimeF !== null || maxCostF !== null || search;
-  const clearAllFilters = () => { setCatF("all"); setTagF(null); setHealthF(null); setGoalF(null); setCuisineF(null); setDiffF(null); setMaxTimeF(null); setMaxCostF(null); setSearch(""); };
+  const anyFilterActive = catF!=="all" || tagF || healthF || goalF || cuisineF || diffF || maxTimeF !== null || maxCostF !== null || applianceF.length > 0 || search;
+  const clearAllFilters = () => { setCatF("all"); setTagF(null); setHealthF(null); setGoalF(null); setCuisineF(null); setDiffF(null); setMaxTimeF(null); setMaxCostF(null); setApplianceF([]); setSearch(""); };
 
   const navItems = [
     {id:"dashboard",label:"Dashboard",icon:"🏠"},
@@ -3864,6 +3905,21 @@ function App() {
                   ))}
                 </div>
               )}
+
+              {/* Appliance filter */}
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6,alignItems:"center"}}>
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginRight:2}}>Appliance</span>
+                {EQUIPMENT_LIST.filter(a=>a!=="none").map(a=>{
+                  const on = applianceF.includes(a);
+                  return (
+                    <button key={a} onClick={()=>setApplianceF(f=>on?f.filter(x=>x!==a):[...f,a])}
+                      style={{...CB,boxShadow:on?"var(--nm-inset)":"var(--nm-raised-sm)",color:on?"var(--accent)":"var(--text-sub)",fontSize:11,fontWeight:on?700:400}}>
+                      {APPLIANCE_ICONS[a]||"🔧"} {a.split(" ").map(w=>w[0].toUpperCase()+w.slice(1)).join(" ")}
+                    </button>
+                  );
+                })}
+                {applianceF.length > 0 && <button onClick={()=>setApplianceF([])} style={{...CB,fontSize:10,color:"var(--text-muted)"}}>✕ clear</button>}
+              </div>
 
               <div style={{height:12}}/>
 
