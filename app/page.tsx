@@ -470,6 +470,21 @@ RULES:
 }
 
 // ─── PDF EXPORT ──────────────────────────────────────────────────────────────
+
+// Weekly cook streak: consecutive ISO-weeks (Mon–Sun) with ≥1 cook session
+const weekKey = d => {
+  const dt = new Date(d); const day = dt.getDay()||7;
+  dt.setDate(dt.getDate()+4-day);
+  const y1 = new Date(dt.getFullYear(),0,1);
+  return dt.getFullYear()+'-W'+Math.ceil(((dt-y1)/86400000+1)/7);
+};
+const computeWeeklyStreak = log => {
+  if (!log || log.length===0) return 0;
+  const weeks = new Set(log.map(l=>weekKey(l.date)));
+  let streak=0; const check=new Date();
+  while (weeks.has(weekKey(check))) { streak++; check.setDate(check.getDate()-7); }
+  return streak;
+};
 // Pre-fetch an image URL → base64 data URI so PDF windows don't need async loading
 async function toBase64(url) {
   if (!url) return null;
@@ -590,13 +605,17 @@ async function exportRecipeToPDF(recipe, scale) {
 async function exportMealBookToPDF(recipes, title) {
   const win = window.open("","_blank");
   if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
+  const bookTitle = title || "My Recipe Book";
+  const totalRecipes = recipes.length;
+
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
   <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#888;flex-direction:column;gap:14px}
-  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#555;border-radius:50%;animation:sp .8s linear infinite}
+  .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#3a7d5e;border-radius:50%;animation:sp .8s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}</style></head>
-  <body><div class="sp"></div><div>Preparing PDF…</div></body></html>`);
+  <body><div class="sp"></div><div>Building your recipe book (${totalRecipes} recipes)…</div></body></html>`);
   win.document.close();
 
+  // Pre-fetch all images
   const recipeData = await Promise.all(recipes.map(async rec => {
     const heroB64 = await toBase64(rec.image);
     const ingB64s = await Promise.all((rec.ingredients||[]).map(i => toBase64(i.image)));
@@ -604,47 +623,166 @@ async function exportMealBookToPDF(recipes, title) {
     return {heroB64, ingB64s, stepImgB64s};
   }));
 
+  // Group recipes by category for TOC
+  const catOrder = ["breakfast","lunch","dinner","snack","dessert","drink"];
+  const grouped = {};
+  recipes.forEach(r => { const c = r.category||"other"; (grouped[c]||(grouped[c]=[])).push(r); });
+
+  // Table of contents
+  const tocHtml = `
+    <div style="page-break-after:always;padding:48px 40px">
+      <div style="border-bottom:2px solid #2d5a3d;padding-bottom:16px;margin-bottom:32px">
+        <div style="color:#2d5a3d;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">Contents</div>
+        <h2 style="font-family:Georgia,serif;font-size:28px;margin:0;color:#1a1a1a">Table of Contents</h2>
+      </div>
+      ${[...catOrder,...Object.keys(grouped).filter(c=>!catOrder.includes(c))].filter(c=>grouped[c]).map(cat=>`
+        <div style="margin-bottom:20px">
+          <div style="color:#2d5a3d;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:700">${cat.charAt(0).toUpperCase()+cat.slice(1)}</div>
+          ${grouped[cat].map(r=>`
+            <div style="display:flex;align-items:baseline;padding:5px 0;border-bottom:1px dotted #ddd">
+              <span style="font-size:14px;color:#1a1a1a;flex:1">${r.title}${(r.spiceLevel||0)>0?" 🌶️".repeat(r.spiceLevel):""}</span>
+              <span style="color:#888;font-size:12px;white-space:nowrap;margin-left:8px">${r.totalTime||0} min · ${r.servings||1} srv</span>
+            </div>`).join("")}
+        </div>`).join("")}
+    </div>`;
+
+  // Recipe pages
+  const STEP_COLORS_PDF = ["#3a7d5e","#d4875a","#5a8fd4","#c06090","#ffd580","#5aad8e","#8b6fc0","#e05a6a"];
   const pages = recipes.map((r,idx)=>{
     const {heroB64, ingB64s, stepImgB64s} = recipeData[idx];
-    return `<div style="page-break-before:${idx>0?"always":"auto"};padding:24px 28px">
-      ${heroB64 ? `<img src="${heroB64}" style="width:100%;max-height:220px;object-fit:cover;border-radius:8px;margin-bottom:12px;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt="${r.title}"/>` : ""}
-      <h2 style="font-family:Georgia,serif;font-size:21px;margin:0 0 4px">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
-      <div style="color:#666;font-size:12px;margin-bottom:8px">${r.category}${r.cuisine?" · 🌍 "+r.cuisine:""} · ${r.totalTime||0}min · ${r.servings} servings</div>
-      ${(r.tags||[]).slice(0,5).map(t=>`<span style="background:#f0f0f0;border-radius:20px;padding:2px 8px;font-size:11px;margin-right:4px">${t}</span>`).join("")}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0">
-        <div>
-          <b style="font-size:13px">Ingredients</b><br/><br/>
-          ${(r.ingredients||[]).map((ing,i)=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:7px">
-            ${ingB64s[i] ? `<img src="${ingB64s[i]}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;flex-shrink:0"/>` : `<span style="font-size:14px">${getItemEmoji(ing.name)}</span>`}
-            <span style="flex:1">${ing.name}</span><span style="color:#2e7d32;font-weight:600;white-space:nowrap">${ing.amount} ${ing.unit}</span>
-          </div>`).join("")}
+    const nutrition = r.nutrition||{};
+    const catLabel = (r.category||"").charAt(0).toUpperCase()+(r.category||"").slice(1);
+
+    return `
+    <div style="page-break-before:always;min-height:100vh;display:flex;flex-direction:column">
+      <!-- Hero image (full bleed) -->
+      ${heroB64
+        ? `<div style="position:relative;width:100%;height:280px;overflow:hidden;flex-shrink:0">
+             <img src="${heroB64}" style="width:100%;height:100%;object-fit:cover;display:block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt="${r.title}"/>
+             <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.75) 0%,transparent 60%)"></div>
+             <div style="position:absolute;bottom:0;left:0;right:0;padding:20px 28px">
+               <div style="color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">${catLabel}${r.cuisine?" · "+r.cuisine:""}</div>
+               <h2 style="font-family:Georgia,serif;font-size:26px;color:#fff;margin:0;line-height:1.2;text-shadow:0 1px 4px rgba(0,0,0,0.4)">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
+             </div>
+           </div>`
+        : `<div style="background:linear-gradient(135deg,#2d5a3d,#3a7d5e);padding:36px 28px;flex-shrink:0">
+             <div style="color:rgba(255,255,255,0.6);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">${catLabel}${r.cuisine?" · "+r.cuisine:""}</div>
+             <h2 style="font-family:Georgia,serif;font-size:26px;color:#fff;margin:0;line-height:1.2">${r.title}${(r.spiceLevel||0)>0?` ${"🌶️".repeat(r.spiceLevel)}`:""}</h2>
+           </div>`
+      }
+
+      <!-- Body -->
+      <div style="padding:22px 28px 32px;flex:1">
+        <!-- Meta strip -->
+        <div style="display:flex;gap:18px;flex-wrap:wrap;padding:10px 16px;background:#f7f7f4;border-radius:10px;margin-bottom:16px;font-size:12px;color:#555">
+          <span>⏱ <b>${r.prepTime||0}</b>m prep</span>
+          <span>🔥 <b>${r.cookTime||0}</b>m cook</span>
+          <span>⏰ <b>${r.totalTime||0}</b>m total</span>
+          <span>🍽 <b>${r.servings||1}</b> servings</span>
+          ${r.difficulty?`<span>📊 ${r.difficulty}</span>`:""}
+          ${(r.equipment||[]).length?`<span>🔧 ${r.equipment.join(", ")}</span>`:""}
         </div>
-        <div>
-          <b style="font-size:13px">Steps</b><br/><br/>
-          ${(r.steps||[]).map((step,i)=>{
-            const imgs = stepImgB64s[i].filter(Boolean);
-            return `${imgs.length>0?`<div style="display:flex;gap:3px;margin-bottom:4px">${imgs.map(b=>`<img src="${b}" style="flex:1;min-width:0;height:55px;object-fit:cover;border-radius:4px;print-color-adjust:exact;-webkit-print-color-adjust:exact"/>`).join("")}</div>`:""}
-            <div style="font-size:12px;margin-bottom:6px"><b>${i+1}.</b> ${step.text}${step.timeMin?` <span style="color:#888">(${step.timeMin}m)</span>`:""}</div>`;
-          }).join("")}
+
+        <!-- Health note -->
+        ${r.healthBenefits ? `<div style="background:#e8f5e9;border-left:3px solid #4caf50;padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px;color:#2e7d32;margin-bottom:14px">${r.healthBenefits}</div>` : ""}
+
+        <!-- Tags -->
+        ${(r.tags||[]).length ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">${(r.tags||[]).map(t=>`<span style="background:#e8f5e9;color:#2d5a3d;border-radius:20px;padding:2px 9px;font-size:11px">${t}</span>`).join("")}</div>` : ""}
+
+        <!-- Nutrition row -->
+        ${(nutrition.calories||nutrition.protein) ? `
+        <div style="display:flex;gap:0;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden;margin-bottom:18px">
+          ${[["Calories",nutrition.calories||0,"kcal","#e05a6a"],["Protein",nutrition.protein||0,"g","#5aad8e"],["Carbs",nutrition.carbs||0,"g","#5a8fd4"],["Fat",nutrition.fat||0,"g","#d4875a"]].map(([l,v,u,c])=>`
+            <div style="flex:1;text-align:center;padding:10px 6px;border-right:1px solid #e8e8e8">
+              <div style="font-size:18px;font-weight:700;color:${c}">${Math.round(v)}${u}</div>
+              <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px">${l}</div>
+            </div>`).join("")}
+        </div>` : ""}
+
+        <!-- Two columns: ingredients + steps -->
+        <div style="display:grid;grid-template-columns:2fr 3fr;gap:22px">
+          <!-- Ingredients -->
+          <div>
+            <div style="font-family:Georgia,serif;font-size:15px;font-weight:700;color:#1a1a1a;border-bottom:2px solid #2d5a3d;padding-bottom:5px;margin-bottom:10px">Ingredients</div>
+            <div style="font-size:11px;color:#666;margin-bottom:10px">${r.servings||1} serving${(r.servings||1)!==1?"s":""}</div>
+            ${(r.ingredients||[]).map((ing,i)=>`
+              <div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid #f0f0f0">
+                ${ingB64s[i] ? `<img src="${ingB64s[i]}" style="width:28px;height:28px;border-radius:5px;object-fit:cover;flex-shrink:0;print-color-adjust:exact;-webkit-print-color-adjust:exact"/>` : `<span style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${getItemEmoji(ing.name)}</span>`}
+                <span style="flex:1;font-size:12px;color:#333">${ing.name}</span>
+                <span style="font-size:11px;font-weight:700;color:#2d5a3d;white-space:nowrap">${ing.amount} ${ing.unit}</span>
+              </div>`).join("")}
+          </div>
+
+          <!-- Steps -->
+          <div>
+            <div style="font-family:Georgia,serif;font-size:15px;font-weight:700;color:#1a1a1a;border-bottom:2px solid #2d5a3d;padding-bottom:5px;margin-bottom:10px">Instructions</div>
+            ${(r.steps||[]).map((step,i)=>{
+              const imgs = stepImgB64s[i].filter(Boolean);
+              const col = STEP_COLORS_PDF[i % STEP_COLORS_PDF.length];
+              return `
+              <div style="margin-bottom:12px">
+                ${imgs.length===1 ? `<div style="margin-bottom:5px;border-radius:7px;overflow:hidden;text-align:center;background:#f5f5f5"><img src="${imgs[0]}" style="max-width:100%;max-height:140px;width:auto;height:auto;display:inline-block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt=""/></div>` : imgs.length>1 ? `<div style="display:flex;gap:4px;margin-bottom:5px">${imgs.map(b=>`<div style="flex:1;border-radius:5px;overflow:hidden;background:#f5f5f5;text-align:center"><img src="${b}" style="max-width:100%;max-height:100px;width:auto;height:auto;display:inline-block;print-color-adjust:exact;-webkit-print-color-adjust:exact" alt=""/></div>`).join("")}</div>` : ""}
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                  <div style="min-width:22px;height:22px;border-radius:50%;background:${col};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;margin-top:1px">${i+1}</div>
+                  <div style="flex:1">
+                    <div style="font-size:12px;color:#333;line-height:1.5">${step.text}</div>
+                    ${step.timeMin ? `<div style="color:#888;font-size:10px;margin-top:2px">⏱ ${step.timeMin} min</div>` : ""}
+                  </div>
+                </div>
+              </div>`;
+            }).join("")}
+          </div>
         </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="border-top:1px solid #e8e8e8;padding:8px 28px;display:flex;justify-content:space-between;font-size:10px;color:#aaa;flex-shrink:0">
+        <span>${bookTitle}</span>
+        <span>${idx+1} / ${totalRecipes}</span>
       </div>
     </div>`;
   }).join("");
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title||"Meal Book"}</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${bookTitle}</title>
   <style>
-    *{box-sizing:border-box}
-    body{font-family:'Segoe UI',sans-serif;max-width:800px;margin:0 auto;color:#1a1a1a}
-    @media print{button{display:none!important}img{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
-  </style>
-  </head><body>
-  <div style="text-align:center;padding:48px 0;border-bottom:3px solid #333;margin-bottom:24px">
-    <div style="font-size:36px;margin-bottom:8px">🥗</div>
-    <h1 style="font-family:Georgia,serif;font-size:32px;margin:0 0 6px">${title||"My Meal Book"}</h1>
-    <div style="color:#666;font-size:14px">${recipes.length} recipes · ${new Date().toLocaleDateString()}</div>
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-family:'Georgia','Times New Roman',serif;max-width:800px;margin:0 auto;color:#1a1a1a;background:#fff}
+    @media print{
+      body{max-width:none;margin:0}
+      button{display:none!important}
+      img{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important;max-width:100%!important}
+      div[style*="page-break"]{page-break-before:always}
+    }
+  </style></head><body>
+
+  <!-- COVER PAGE -->
+  <div style="page-break-after:always;min-height:100vh;background:linear-gradient(160deg,#1a3828 0%,#2d5a3d 50%,#1a3828 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 40px;position:relative;overflow:hidden">
+    <!-- decorative circles -->
+    <div style="position:absolute;top:-60px;right:-60px;width:280px;height:280px;border-radius:50%;border:2px solid rgba(255,255,255,0.06)"></div>
+    <div style="position:absolute;top:-30px;right:-30px;width:180px;height:180px;border-radius:50%;border:2px solid rgba(255,255,255,0.08)"></div>
+    <div style="position:absolute;bottom:-80px;left:-80px;width:360px;height:360px;border-radius:50%;border:2px solid rgba(255,255,255,0.05)"></div>
+    <!-- emblem -->
+    <div style="width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:32px;backdrop-filter:blur(4px)">🥗</div>
+    <!-- title -->
+    <div style="color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:14px;font-family:'Segoe UI',sans-serif">Recipe Collection</div>
+    <h1 style="font-family:Georgia,serif;font-size:42px;color:#fff;margin:0 0 10px;text-align:center;line-height:1.2;font-weight:700">${bookTitle}</h1>
+    <div style="width:60px;height:2px;background:rgba(255,255,255,0.3);margin:18px auto 22px"></div>
+    <div style="color:rgba(255,255,255,0.65);font-size:16px;margin-bottom:6px;font-family:'Segoe UI',sans-serif">${totalRecipes} hand-picked recipes</div>
+    <div style="color:rgba(255,255,255,0.4);font-size:13px;font-family:'Segoe UI',sans-serif">Created ${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+    <!-- bottom bar -->
+    <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:linear-gradient(90deg,#5aad8e,#3a7d5e,#5a8fd4)"></div>
   </div>
+
+  <!-- TABLE OF CONTENTS -->
+  ${tocHtml}
+
+  <!-- RECIPES -->
   ${pages}
-  <div style="text-align:center;margin:32px 0"><button onclick="window.print()" style="background:#333;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer;font-family:inherit">🖨 Print / Save PDF</button></div>
+
+  <!-- PRINT BUTTON (hidden when printing) -->
+  <div style="text-align:center;padding:32px">
+    <button onclick="window.print()" style="background:#2d5a3d;color:#fff;border:none;border-radius:10px;padding:14px 32px;font-size:15px;cursor:pointer;font-family:'Segoe UI',sans-serif;font-weight:700;letter-spacing:.5px">🖨 Print / Save as PDF</button>
+  </div>
   </body></html>`;
 
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
@@ -2133,6 +2271,48 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
 }
 
 // ─── FAVORITES VIEW ───────────────────────────────────────────────────────────
+// ─── COMFORT MEAL MODAL ──────────────────────────────────────────────────────
+function ComfortMealModal({onClose, onLog}) {
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  const handle = () => {
+    if (!name.trim()) return;
+    onLog(name.trim(), notes.trim());
+    onClose();
+  };
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"var(--bg-card)",borderRadius:22,padding:28,width:"100%",maxWidth:380,boxShadow:"var(--nm-raised)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+          <div>
+            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18}}>🏠 Log Comfort Meal</div>
+            <div style={{color:"var(--text-muted)",fontSize:12,marginTop:3}}>Counts towards your weekly streak</div>
+          </div>
+          <button onClick={onClose} style={{background:"transparent",border:"none",color:"var(--text-muted)",fontSize:20,cursor:"pointer",padding:4,lineHeight:1}}>✕</button>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>What did you cook?</label>
+          <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="e.g. Mom's pasta, chicken stir-fry…"
+            autoFocus
+            style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{marginBottom:22}}>
+          <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>Notes (optional)</label>
+          <input value={notes} onChange={e=>setNotes(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="How did it turn out?"
+            style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
+        </div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onClose} style={{flex:1,background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:12,color:"var(--text-sub)",padding:"12px",fontWeight:600,cursor:"pointer",fontFamily:"inherit",fontSize:14}}>Cancel</button>
+          <button onClick={handle} disabled={!name.trim()}
+            style={{flex:2,background:name.trim()?"linear-gradient(135deg,#d4875a,#ffd580)":"var(--nm-input-bg)",border:"none",borderRadius:12,color:name.trim()?"#fff":"var(--text-muted)",padding:"12px",fontWeight:800,cursor:name.trim()?"pointer":"default",fontFamily:"inherit",fontSize:14,boxShadow:name.trim()?"var(--nm-raised-sm)":"none"}}>
+            🔥 Log It
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook}) {
   const favRecipes = favorites.map(f=>recipes.find(r=>r.id===f.id)||f).filter(Boolean);
   return (
@@ -2849,9 +3029,8 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Summary cards */}
       <div className="r-grid-sm" style={{marginBottom:24}}>
         {(()=>{
-          let streak=0;const d=new Date();
-          while(true){const ds=d.toDateString();if(!(cookLog||[]).some(l=>new Date(l.date).toDateString()===ds))break;streak++;d.setDate(d.getDate()-1);}
-          return <StatCard icon="🔥" value={streak} label="Cook Streak" color="#ffd580" sub={`${(cookLog||[]).length} total sessions`}/>;
+          const streak = computeWeeklyStreak(cookLog);
+          return <StatCard icon="🔥" value={streak} label="Week Streak" color="#ffd580" sub={`${(cookLog||[]).length} total sessions`}/>;
         })()}
         <StatCard icon="📖" value={totalRecipes} label="Total Recipes" color="#5a8fd4"/>
         <StatCard icon="⏱" value={avgCookTime+"m"} label="Avg Cook Time" color="#d4875a"/>
@@ -2983,10 +3162,14 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {(cookLog||[]).length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
           <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🍳 Recent Cooking Sessions</div>
-          {(cookLog||[]).slice().reverse().slice(0,8).map(l=>(
+          {(cookLog||[]).slice().reverse().slice(0,10).map(l=>(
             <div key={l.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
-              <span style={{fontSize:18}}>🍳</span>
-              <span style={{flex:1,color:"var(--text)"}}>{l.recipeName}</span>
+              <span style={{fontSize:18}}>{l.isComfortMeal ? "🏠" : "🍳"}</span>
+              <div style={{flex:1}}>
+                <span style={{color:"var(--text)"}}>{l.recipeName}</span>
+                {l.isComfortMeal && <span style={{marginLeft:6,fontSize:10,background:"rgba(255,213,128,0.2)",color:"#ffd580",borderRadius:8,padding:"1px 6px",fontWeight:600}}>comfort meal</span>}
+                {l.notes && <div style={{color:"var(--text-muted)",fontSize:11,marginTop:1}}>{l.notes}</div>}
+              </div>
               <span style={{color:"var(--text-muted)"}}>{new Date(l.date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
             </div>
           ))}
@@ -3058,6 +3241,7 @@ function App() {
   const [cuisineF, setCuisineF] = useState(null);
   const [applianceF, setApplianceF] = useState([]);
   const [search, setSearch] = useState("");
+  const [comfortModalOpen, setComfortModalOpen] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -3751,20 +3935,25 @@ function App() {
 
               {/* Cooking Streak */}
               {(()=>{
-                const today = new Date().toDateString();
-                const todayCooked = cookLog.some(l=>new Date(l.date).toDateString()===today);
-                let streak=0;
-                const d=new Date();
-                while(true){const ds=d.toDateString();if(!cookLog.some(l=>new Date(l.date).toDateString()===ds))break;streak++;d.setDate(d.getDate()-1);}
-                if(streak===0&&!todayCooked) return null;
+                const streak = computeWeeklyStreak(cookLog);
+                const thisWeek = weekKey(new Date());
+                const cookedThisWeek = cookLog.some(l=>weekKey(l.date)===thisWeek);
                 return (
-                  <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:14,borderLeft:"3px solid #ffd580"}}>
+                  <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:14,borderLeft:"3px solid #ffd580",flexWrap:"wrap"}}>
                     <span style={{fontSize:28}}>🔥</span>
-                    <div>
-                      <div style={{color:"#ffd580",fontWeight:800,fontSize:20}}>{streak} day{streak!==1?"s":""} streak!</div>
-                      <div style={{color:"var(--text-sub)",fontSize:12}}>{todayCooked?"You cooked today":"Cook something today to keep the streak!"}</div>
+                    <div style={{flex:1,minWidth:160}}>
+                      {streak > 0
+                        ? <div style={{color:"#ffd580",fontWeight:800,fontSize:20}}>{streak} week{streak!==1?"s":""} streak!</div>
+                        : <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:16}}>Start your streak!</div>}
+                      <div style={{color:"var(--text-sub)",fontSize:12,marginTop:2}}>
+                        {cookedThisWeek ? "✅ Cooked this week — streak safe!" : "Cook at least once this week to keep going"}
+                      </div>
+                      <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{cookLog.length} total sessions</div>
                     </div>
-                    <div style={{marginLeft:"auto",color:"var(--text-muted)",fontSize:12}}>{cookLog.length} total sessions</div>
+                    <button onClick={()=>setComfortModalOpen(true)}
+                      style={{background:"rgba(255,213,128,0.15)",border:"1px solid rgba(255,213,128,0.35)",borderRadius:10,color:"#ffd580",padding:"7px 14px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>
+                      🏠 Log Comfort Meal
+                    </button>
                   </div>
                 );
               })()}
@@ -3817,6 +4006,7 @@ function App() {
                     style={{...CB,fontSize:12,padding:"5px 12px",background:budgetMode?"rgba(90,173,142,0.18)":"var(--bg-card)",color:budgetMode?"#5aad8e":"var(--text-sub)",boxShadow:budgetMode?"var(--nm-inset)":"var(--nm-raised-sm)",border:budgetMode?"1px solid rgba(90,173,142,0.3)":"none"}}>
                     💰 Budget Mode {budgetMode?"ON":"OFF"}
                   </button>
+                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>📚 Export Book</button>}
                   <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
                 </div>
               </div>
@@ -3985,6 +4175,9 @@ function App() {
           onMarkCooked={r=>setCookLog(p=>[...p,{id:Date.now(),recipeId:r.id,recipeName:r.title,date:new Date().toISOString()}])}/>
       )}
       {addOpen && <SmartAddModal onClose={()=>setAddOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
+
+      {/* Comfort meal log modal */}
+      {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
