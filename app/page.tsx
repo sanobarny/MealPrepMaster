@@ -123,6 +123,30 @@ const EQUIPMENT_LIST = ["stove","oven","air fryer","rice cooker","blender","micr
 const APPLIANCE_ICONS = {stove:"🍳",oven:"🔥","air fryer":"🌬️","rice cooker":"🍚",blender:"🫙",microwave:"📡","instant pot":"🫕",none:"🙌"};
 const ALLERGENS_LIST = ["gluten","dairy","eggs","nuts","soy","shellfish"];
 const GOALS = ["lose weight","gain muscle","maintenance"];
+
+// Ingredient sections — used in RecipeDetail grouping and extraction
+const ING_SECTIONS = [
+  {key:"main",     label:"Main Ingredients", color:"#5aad8e"},
+  {key:"sauce",    label:"For the Sauce",    color:"#5a8fd4"},
+  {key:"marinade", label:"Marinade",          color:"#d4875a"},
+  {key:"dressing", label:"Dressing",          color:"#a0d0a0"},
+  {key:"batter",   label:"Batter / Breading", color:"#c8a8ff"},
+  {key:"filling",  label:"Filling",           color:"#f5a623"},
+  {key:"topping",  label:"Toppings",          color:"#ffd580"},
+  {key:"garnish",  label:"Garnish",           color:"#c06090"},
+];
+// Infer section from ingredient name when no section field is stored (backward compat)
+const inferIngSection = name => {
+  const n = (name||"").toLowerCase();
+  if (/\bsauce\b|gravy|glaze|salsa|chutney|pesto|aioli|vinaigrette/.test(n)) return "sauce";
+  if (/\bdressing\b/.test(n)) return "dressing";
+  if (/\bmarinade\b|marinating/.test(n)) return "marinade";
+  if (/\bfilling\b|\bstuffing\b/.test(n)) return "filling";
+  if (/\bbatter\b|\bbreading\b|coating/.test(n)) return "batter";
+  if (/\btopping\b|whipped cream|shaved|candied|crumble/.test(n)) return "topping";
+  if (/\bgarnish\b|sprinkle|for garnish|to garnish/.test(n)) return "garnish";
+  return "main";
+};
 const DIFFICULTIES = {beginner:{label:"Beginner",color:"#5aad8e",icon:"\u{1F331}"},intermediate:{label:"Intermediate",color:"#d4875a",icon:"\u{1F373}"},advanced:{label:"Advanced",color:"#c06090",icon:"\u{1F468}\u200D\u{1F373}"}};
 const TAG_COLORS = {"PCOS-Friendly":"#c06090","High Protein":"#3a7d5e","Dairy-Free":"#d4875a","Gluten-Free":"#5a8fd4","Vegan":"#6db85a","Low Carb":"#b8a23e","High Fiber":"#7b6cd4","Low Calorie":"#3eabb8"};
 const HEALTH_COLORS = {"Anti-Inflammatory":"#e07a40","Blood Sugar Stable":"#5aad8e","Omega-3 Rich":"#5a8fd4","Antioxidant":"#9b5aad","Gut Health":"#ad8e5a","Heart Healthy":"#e05a6a"};
@@ -400,7 +424,7 @@ Respond with ONLY a valid JSON object. No markdown.
   "goal": ["gain muscle"],
   "prepTime": 10, "cookTime": 25, "totalTime": 35, "servings": 2,
   "description": "Two-sentence description.",
-  "ingredients": [{"name": "Chicken Breast", "amount": 2, "unit": "pcs"}],
+  "ingredients": [{"name": "Chicken Breast", "amount": 2, "unit": "pcs", "section": "main"}],
   "steps": [{"text": "Detailed step.", "timeMin": 5, "image": null, "imagePrompt": "overhead studio shot on white marble"}],
   "sourceUrl": "", "sourceType": "photo", "difficulty": "beginner",
   "healthBenefits": "", "antiInflammatory": false, "bloodSugarFriendly": false
@@ -412,6 +436,7 @@ RULES:
 - allergens from: ${ALLERGENS_LIST.join(", ")}
 - equipment from: ${EQUIPMENT_LIST.join(", ")}
 - goal from: ${GOALS.join(", ")}
+- Each ingredient must include "section": one of main, sauce, marinade, dressing, batter, filling, topping, garnish
 - 4-10 ingredients, 3-12 steps
 - difficulty: beginner, intermediate, or advanced
 - Extract EVERYTHING visible: all ingredients with exact amounts/units, every step in order
@@ -467,7 +492,7 @@ Respond with ONLY a valid JSON object (no markdown, no extra text):
   "goal": ["gain muscle"],
   "prepTime": 10, "cookTime": 25, "totalTime": 35, "servings": 2,
   "description": "Two-sentence description.",
-  "ingredients": [{"name": "Chicken Breast", "amount": 2, "unit": "pcs"}],
+  "ingredients": [{"name": "Chicken Breast", "amount": 2, "unit": "pcs", "section": "main"}],
   "steps": [{"text": "Detailed step.", "timeMin": 5, "image": null, "imagePrompt": "overhead studio shot on white marble"}],
   "sourceUrl": "${isUrl ? input : ""}",
   "sourceType": "${src}",
@@ -487,7 +512,8 @@ RULES:
 - INCLUDE ALL steps — no limit. Cover every instruction in full detail.
 - Each step: realistic timeMin and a short imagePrompt
 - difficulty: beginner, intermediate, or advanced
-- NEVER truncate or omit ingredients/steps`;
+- NEVER truncate or omit ingredients/steps
+- Each ingredient MUST have a "section" field — use the section heading it appears under on the source page. Allowed values: main, sauce, marinade, dressing, batter, filling, topping, garnish. Default to "main" if no section applies.`;
 
   const raw = await anthropicCall({
     max_tokens: 4000,
@@ -612,11 +638,22 @@ async function exportRecipeToPDF(recipe, scale) {
   </div>
   <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
   ${ingOverallB64 ? `<div class="ing-overall-wrap"><img src="${ingOverallB64}" class="ing-overall" alt="All ingredients"/></div>` : ""}
-  ${(recipe.ingredients||[]).map((ing,i)=>`<div class="ing">
-    ${ingB64s[i] ? `<img src="${ingB64s[i]}" class="ing-thumb" alt="${ing.name}"/>` : `<div class="ing-emoji">${getItemEmoji(ing.name)}</div>`}
-    <span class="ing-name">${ing.name}</span>
-    <span class="amt">${scaleAmt(ing.amount,r)} ${ing.unit}</span>
-  </div>`).join("")}
+  ${(()=>{
+    const ings = (recipe.ingredients||[]).map((ing,i)=>({...ing,_i:i,_sec:ing.section||inferIngSection(ing.name)}));
+    const order = ING_SECTIONS.map(s=>s.key);
+    const groups = {};
+    ings.forEach(ing=>{ (groups[ing._sec]||(groups[ing._sec]=[])).push(ing); });
+    const multi = Object.keys(groups).length > 1;
+    return [...order,...Object.keys(groups).filter(k=>!order.includes(k))].filter(k=>groups[k]).map(k=>{
+      const meta = ING_SECTIONS.find(s=>s.key===k);
+      return `${multi?`<div style="font-size:11px;font-weight:700;color:${meta?.color||"#888"};letter-spacing:1px;text-transform:uppercase;padding:10px 0 4px;margin-top:4px;border-bottom:1px solid #eee">${meta?.label||k}</div>`:""}`+
+        groups[k].map((ing)=>`<div class="ing">
+          ${ingB64s[ing._i] ? `<img src="${ingB64s[ing._i]}" class="ing-thumb" alt="${ing.name}"/>` : `<div class="ing-emoji">${getItemEmoji(ing.name)}</div>`}
+          <span class="ing-name">${ing.name}</span>
+          <span class="amt">${scaleAmt(ing.amount,r)} ${ing.unit}</span>
+        </div>`).join("");
+    }).join("");
+  })()}
   <div class="stitle">Steps</div>
   ${(recipe.steps||[]).map((step,i)=>{
     const imgs = stepImgB64s[i].filter(Boolean);
@@ -1116,37 +1153,62 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                   </div>
                 </div>
               )}
-              {(recipe.ingredients||[]).map((ing,i)=>(
-                <div key={i}>
-                  <input ref={el=>ingImgRefs.current[i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadIngImg(i,e)}/>
-                  <div style={{display:"flex",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13,alignItems:"center"}}>
-                    {ing.image
-                      ? <img src={ing.image} alt={ing.name} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,cursor:"pointer"}} onClick={()=>ingImgRefs.current[i]?.click()} title="Change photo"/>
-                      : <button onClick={()=>ingImgRefs.current[i]?.click()} style={{width:36,height:36,borderRadius:8,border:"1px dashed rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.04)",color:"#6a7a90",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} title="Add photo">📷</button>
-                    }
-                    <span style={{color:"#c8d0dc",flex:1}}>{ing.name}</span>
-                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                      <span style={{color:"#5aad8e",fontWeight:600}}>{scaleAmt(ing.amount,r)} {ing.unit}</span>
-                      <button onClick={()=>subFor===ing.name?setSubFor(null):fetchSubs(ing)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"#8a9bb0",padding:"1px 6px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}} title="Find substitutes">
-                        {subLoading===ing.name?"...":"↔"}
-                      </button>
+              {(()=>{
+                const ings = recipe.ingredients||[];
+                // Resolve section for each ingredient (stored field → infer from name)
+                const resolved = ings.map((ing,i)=>({...ing, _sec: ing.section || inferIngSection(ing.name), _i: i}));
+                // Build ordered section groups
+                const sectionOrder = ING_SECTIONS.map(s=>s.key);
+                const groups = {};
+                resolved.forEach(ing=>{ (groups[ing._sec]||(groups[ing._sec]=[])).push(ing); });
+                const orderedGroups = sectionOrder.filter(k=>groups[k]).map(k=>({key:k,items:groups[k]}));
+                // Any sections not in ING_SECTIONS go last
+                Object.keys(groups).filter(k=>!sectionOrder.includes(k)).forEach(k=>orderedGroups.push({key:k,items:groups[k]}));
+                const multiSection = orderedGroups.length > 1;
+                return orderedGroups.map(({key, items})=>{
+                  const secMeta = ING_SECTIONS.find(s=>s.key===key);
+                  return (
+                    <div key={key}>
+                      {multiSection && (
+                        <div style={{color:secMeta?.color||"#8a9bb0",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",padding:"8px 0 4px",marginTop:key!==orderedGroups[0].key?8:0,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+                          {secMeta?.label || key}
+                        </div>
+                      )}
+                      {items.map((ing)=>(
+                        <div key={ing._i}>
+                          <input ref={el=>ingImgRefs.current[ing._i]=el} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadIngImg(ing._i,e)}/>
+                          <div style={{display:"flex",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13,alignItems:"center"}}>
+                            {ing.image
+                              ? <img src={ing.image} alt={ing.name} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,cursor:"pointer"}} onClick={()=>ingImgRefs.current[ing._i]?.click()} title="Change photo"/>
+                              : <button onClick={()=>ingImgRefs.current[ing._i]?.click()} style={{width:36,height:36,borderRadius:8,border:"1px dashed rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.04)",color:"#6a7a90",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} title="Add photo">📷</button>
+                            }
+                            <span style={{color:"#c8d0dc",flex:1}}>{ing.name}</span>
+                            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                              <span style={{color:secMeta?.color||"#5aad8e",fontWeight:600}}>{scaleAmt(ing.amount,r)} {ing.unit}</span>
+                              <button onClick={()=>subFor===ing.name?setSubFor(null):fetchSubs(ing)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"#8a9bb0",padding:"1px 6px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}} title="Find substitutes">
+                                {subLoading===ing.name?"...":"↔"}
+                              </button>
+                            </div>
+                          </div>
+                          {subFor===ing.name && subs[ing.name] && (
+                            <div style={{background:"rgba(90,143,212,0.08)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:8,padding:"8px 10px",marginBottom:4,fontSize:12}}>
+                              <div style={{color:"#5a8fd4",fontWeight:600,marginBottom:5}}>Substitutes for {ing.name}:</div>
+                              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                {(subs[ing.name]||[]).map((s,si)=>(
+                                  <span key={si} style={{background:"rgba(90,143,212,0.15)",color:"#a0c0f0",borderRadius:12,padding:"2px 8px"}}>{s}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {subFor===ing.name && !subs[ing.name] && subLoading===ing.name && (
+                            <div style={{color:"#5a8fd4",fontSize:11,padding:"4px 0"}}>Finding substitutes...</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  {subFor===ing.name && subs[ing.name] && (
-                    <div style={{background:"rgba(90,143,212,0.08)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:8,padding:"8px 10px",marginBottom:4,fontSize:12}}>
-                      <div style={{color:"#5a8fd4",fontWeight:600,marginBottom:5}}>Substitutes for {ing.name}:</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                        {(subs[ing.name]||[]).map((s,si)=>(
-                          <span key={si} style={{background:"rgba(90,143,212,0.15)",color:"#a0c0f0",borderRadius:12,padding:"2px 8px"}}>{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {subFor===ing.name && !subs[ing.name] && subLoading===ing.name && (
-                    <div style={{color:"#5a8fd4",fontSize:11,padding:"4px 0"}}>Finding substitutes...</div>
-                  )}
-                </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
             {/* Details */}
             <div>
@@ -1478,6 +1540,10 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                 <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder="Ingredient" style={{...IS,flex:2}}/>
                 <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder="Qty" style={{...IS,flex:1,minWidth:50}}/>
                 <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder="Unit" style={{...IS,flex:1,minWidth:50}}/>
+                <select value={ing.section||inferIngSection(ing.name)} onChange={e=>setIng(i,"section",e.target.value)}
+                  style={{...IS,flex:"0 0 auto",width:"auto",padding:"0 6px",fontSize:11,height:36,color:(ING_SECTIONS.find(s=>s.key===(ing.section||inferIngSection(ing.name)))?.color||"var(--text-sub)")}}>
+                  {ING_SECTIONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+                </select>
                 <button onClick={()=>removeIng(i)} style={{...GB,padding:"4px 8px",color:"#f08080",fontSize:14,flexShrink:0}}>×</button>
               </div>
             </div>
