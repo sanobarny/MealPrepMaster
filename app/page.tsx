@@ -968,7 +968,7 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
 }
 
 // ─── RECIPE DETAIL ────────────────────────────────────────────────────────────
-function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked}) {
+function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
   const [genIdx, setGenIdx] = useState(null);
@@ -1182,7 +1182,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                               ? <img src={ing.image} alt={ing.name} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,cursor:"pointer"}} onClick={()=>ingImgRefs.current[ing._i]?.click()} title="Change photo"/>
                               : <button onClick={()=>ingImgRefs.current[ing._i]?.click()} style={{width:36,height:36,borderRadius:8,border:"1px dashed rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.04)",color:"#6a7a90",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} title="Add photo">📷</button>
                             }
-                            <span style={{color:"#c8d0dc",flex:1}}>{ing.name}</span>
+                            <span style={{color:"#c8d0dc",flex:1,cursor:onIngredientTap?"pointer":"default",textDecoration:onIngredientTap?"underline dotted":"none"}} onClick={()=>onIngredientTap?.(ing.name)} title={onIngredientTap?"Tap for ingredient info":undefined}>{ing.name}</span>
                             <div style={{display:"flex",gap:6,alignItems:"center"}}>
                               <span style={{color:secMeta?.color||"#5aad8e",fontWeight:600}}>{scaleAmt(ing.amount,r)} {ing.unit}</span>
                               <button onClick={()=>subFor===ing.name?setSubFor(null):fetchSubs(ing)} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"#8a9bb0",padding:"1px 6px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}} title="Find substitutes">
@@ -2228,7 +2228,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 }
 
 // ─── SHOPPING LIST ───────────────────────────────────────────────────────────
-function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget}) {
+function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget, pantry=[]}) {
   const [people, setPeople] = useState(1);
   const [weeks, setWeeks] = useState(1);
   const [checked, setChecked] = useState({});
@@ -2314,6 +2314,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget}
         </div>
         <span style={{fontSize:16,flexShrink:0}}>{emoji}</span>
         <span style={{flex:1,color:"var(--text)",fontSize:13,textDecoration:done?"line-through":"none"}}>{item.name}</span>
+        {(() => { const pi=pantry.find(p=>p.name.toLowerCase()===item.name.toLowerCase()); return pi ? <span style={{color:"#5aad8e",fontSize:11,fontWeight:700,flexShrink:0}}>🥫 {pi.amount}{pi.unit}</span> : null; })()}
         {item.amount>0 && <span style={{color:"var(--accent)",fontWeight:600,fontSize:12}}>{Math.ceil(item.amount*10)/10} {item.unit}</span>}
         {item.manual && <button onClick={e=>{e.stopPropagation();removeManual(item.id);}} style={{background:"none",border:"none",color:"#f08080",fontSize:14,cursor:"pointer",padding:"0 2px"}}>×</button>}
       </div>
@@ -3974,6 +3975,178 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 }
 
 // ─── WHAT CAN I COOK ──────────────────────────────────────────────────────────
+// ─── SPIN THE WHEEL ───────────────────────────────────────────────────────────
+function SpinWheelModal({recipes, onClose, onView}) {
+  const [spinning, setSpinning] = useState(false);
+  const [pick, setPick] = useState(null);
+  const [angle, setAngle] = useState(0);
+
+  const spin = () => {
+    if (spinning || !recipes.length) return;
+    setSpinning(true); setPick(null);
+    const spins = 1440 + Math.random()*720;
+    setAngle(a => a + spins);
+    setTimeout(() => {
+      const chosen = recipes[Math.floor(Math.random()*recipes.length)];
+      setPick(chosen); setSpinning(false);
+    }, 2200);
+  };
+
+  return (
+    <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"var(--bg-card)",borderRadius:24,maxWidth:420,width:"100%",padding:32,border:"1px solid var(--border)",textAlign:"center"}}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
+        </div>
+        <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 8px"}}>🎡 Spin the Wheel</h2>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:28}}>Can't decide what to cook? Let fate choose.</p>
+
+        {/* Wheel visual */}
+        <div style={{position:"relative",width:200,height:200,margin:"0 auto 28px"}}>
+          <div style={{width:200,height:200,borderRadius:"50%",border:"4px solid var(--accent)",background:"conic-gradient(#5aad8e,#5a8fd4,#d4875a,#ffd580,#c06090,#5aad8e)",
+            transform:`rotate(${angle}deg)`,transition:spinning?"transform 2.2s cubic-bezier(.17,.67,.12,1)":"none",
+            display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{width:60,height:60,borderRadius:"50%",background:"var(--bg-card)",border:"3px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>🍽️</div>
+          </div>
+          <div style={{position:"absolute",top:-12,left:"50%",transform:"translateX(-50%)",fontSize:24}}>▼</div>
+        </div>
+
+        {pick && !spinning && (
+          <div style={{background:"var(--nm-input-bg)",borderRadius:16,padding:16,marginBottom:20}}>
+            {pick.image&&<img src={pick.image} alt={pick.title} style={{width:80,height:80,borderRadius:12,objectFit:"cover",marginBottom:10}} onError={e=>e.target.style.display="none"}/>}
+            <div style={{color:"var(--text)",fontWeight:700,fontSize:18,marginBottom:4}}>{pick.title}</div>
+            <div style={{color:"var(--text-muted)",fontSize:13}}>{pick.totalTime||0} min · {pick.category}</div>
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          <button onClick={spin} disabled={spinning||!recipes.length}
+            style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit",opacity:spinning?0.6:1}}>
+            {spinning?"Spinning…":"🎡 Spin!"}
+          </button>
+          {pick&&!spinning&&<button onClick={()=>{onView(pick);onClose();}} style={{...GB,padding:"12px 20px",fontSize:14,fontWeight:700,color:"#5aad8e"}}>Cook This →</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── RECIPE REMIX ─────────────────────────────────────────────────────────────
+function RecipeRemixModal({recipes, onClose, onAdd}) {
+  const [a, setA] = useState("");
+  const [b, setB] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  const remix = async () => {
+    const ra = recipes.find(r=>r.id===+a), rb = recipes.find(r=>r.id===+b);
+    if (!ra||!rb) return;
+    setLoading(true); setError(null); setResult(null);
+    try {
+      const raw = await anthropicCall({max_tokens:1500,
+        system:"You are a creative chef. Respond ONLY with valid JSON, no markdown.",
+        messages:[{role:"user",content:`Fuse these two recipes into one creative fusion dish:\n\nRecipe A: ${ra.title}\nIngredients: ${(ra.ingredients||[]).map(i=>i.name).join(", ")}\n\nRecipe B: ${rb.title}\nIngredients: ${(rb.ingredients||[]).map(i=>i.name).join(", ")}\n\nCreate a single fusion recipe JSON:\n{"title":"","description":"","ingredients":[{"name":"","amount":1,"unit":"","section":"main"}],"steps":[{"text":"","timeMin":5}],"prepTime":10,"cookTime":20,"servings":2,"category":"${ra.category||"lunch"}"}`}]
+      });
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error("No JSON");
+      const fused = JSON.parse(m[0]);
+      setResult({...fused, id:Date.now(), tags:[], allergens:[], equipment:[], goal:[], image:null});
+    } catch(e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  const SS = {color:"var(--text)",background:"var(--nm-input-bg)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 10px",fontSize:13,fontFamily:"inherit",width:"100%"};
+  return (
+    <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+      <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:540,width:"100%",maxHeight:"90vh",overflowY:"auto",padding:24,border:"1px solid var(--border)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>🔀 Recipe Remix</h2>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
+        </div>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:20}}>Pick two recipes and AI fuses them into a brand-new fusion dish.</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,alignItems:"center",marginBottom:16}}>
+          <select value={a} onChange={e=>setA(e.target.value)} style={SS}>
+            <option value="">Pick Recipe A…</option>
+            {recipes.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
+          </select>
+          <span style={{color:"var(--accent)",fontWeight:700,fontSize:18}}>+</span>
+          <select value={b} onChange={e=>setB(e.target.value)} style={SS}>
+            <option value="">Pick Recipe B…</option>
+            {recipes.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
+          </select>
+        </div>
+        <button onClick={remix} disabled={!a||!b||loading||a===b}
+          style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",marginBottom:20,opacity:(!a||!b||loading||a===b)?0.5:1}}>
+          {loading?"🤖 Fusing…":"✨ Fuse Recipes"}
+        </button>
+        {error&&<div style={{color:"#d45a5a",fontSize:13,marginBottom:12}}>{error}</div>}
+        {result&&(
+          <div style={{background:"var(--nm-input-bg)",borderRadius:14,padding:16}}>
+            <div style={{color:"var(--text)",fontWeight:700,fontSize:18,marginBottom:6}}>{result.title}</div>
+            <div style={{color:"var(--text-muted)",fontSize:13,marginBottom:12}}>{result.description}</div>
+            <div style={{marginBottom:8}}>
+              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Ingredients</div>
+              {(result.ingredients||[]).map((ing,i)=><div key={i} style={{color:"var(--text)",fontSize:13,marginBottom:2}}>• {ing.amount} {ing.unit} {ing.name}</div>)}
+            </div>
+            <button onClick={()=>{onAdd(result);onClose();}}
+              style={{...GB,width:"100%",padding:12,fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.4)",marginTop:8}}>
+              💾 Save as New Recipe
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── INGREDIENT WIKI ──────────────────────────────────────────────────────────
+function IngredientWikiModal({ingredient, onClose}) {
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(()=>{
+    const fetch = async ()=>{
+      try {
+        const raw = await anthropicCall({max_tokens:600,
+          system:"You are a culinary expert. Respond ONLY with valid JSON.",
+          messages:[{role:"user",content:`Give a quick reference for the ingredient: "${ingredient}"\nReturn JSON: {"emoji":"","select":"How to pick the best one at the store","store":"How to store it and shelf life","sub":"Best substitutes if unavailable","pairs":"What it pairs well with","tip":"One pro chef tip"}`}]
+        });
+        const m=raw.match(/\{[\s\S]*\}/);
+        if(m) setInfo(JSON.parse(m[0]));
+      } catch(e){}
+      setLoading(false);
+    };
+    fetch();
+  },[ingredient]);
+
+  const Row = ({icon,label,value})=>value?(
+    <div style={{borderBottom:"1px solid var(--border)",paddingBottom:10,marginBottom:10}}>
+      <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>{icon} {label}</div>
+      <div style={{color:"var(--text)",fontSize:13,lineHeight:1.5}}>{value}</div>
+    </div>
+  ):null;
+
+  return (
+    <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:420,width:"100%",maxHeight:"85vh",overflowY:"auto",padding:24,border:"1px solid var(--border)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{info?.emoji||"🌿"} {ingredient}</h2>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
+        </div>
+        {loading?<div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0"}}>Looking up ingredient info…</div>:(
+          info ? <>
+            <Row icon="🛒" label="How to pick" value={info.select}/>
+            <Row icon="📦" label="Storage & shelf life" value={info.store}/>
+            <Row icon="🔄" label="Substitutes" value={info.sub}/>
+            <Row icon="🍽️" label="Pairs well with" value={info.pairs}/>
+            <Row icon="👨‍🍳" label="Chef tip" value={info.tip}/>
+          </> : <div style={{color:"var(--text-muted)",textAlign:"center",padding:"24px 0"}}>Could not load info.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function WhatCanICookModal({recipes, onClose, onView}) {
   const [ingredients, setIngredients] = useState([]);
   const [input, setInput] = useState("");
@@ -4060,6 +4233,125 @@ function WhatCanICookModal({recipes, onClose, onView}) {
   );
 }
 
+// ─── PANTRY MANAGER ───────────────────────────────────────────────────────────
+function PantryManager({pantry, setPantry, recipes}) {
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [unit, setUnit] = useState("");
+  const [lowAt, setLowAt] = useState("");
+  const [price, setPrice] = useState("");
+  const [search, setSearch] = useState("");
+  const [editId, setEditId] = useState(null);
+
+  const add = () => {
+    if (!name.trim()) return;
+    if (editId) {
+      setPantry(p=>p.map(x=>x.id===editId?{...x,name:name.trim(),amount:parseFloat(amount)||0,unit:unit.trim(),lowAt:parseFloat(lowAt)||0,price:parseFloat(price)||0}:x));
+      setEditId(null);
+    } else {
+      setPantry(p=>[...p,{id:Date.now(),name:name.trim(),amount:parseFloat(amount)||0,unit:unit.trim(),lowAt:parseFloat(lowAt)||0,price:parseFloat(price)||0}]);
+    }
+    setName(""); setAmount(""); setUnit(""); setLowAt(""); setPrice("");
+  };
+
+  const startEdit = item => { setEditId(item.id); setName(item.name); setAmount(String(item.amount)); setUnit(item.unit); setLowAt(String(item.lowAt||"")); setPrice(String(item.price||"")); };
+  const remove = id => setPantry(p=>p.filter(x=>x.id!==id));
+  const adjust = (id, delta) => setPantry(p=>p.map(x=>x.id===id?{...x,amount:Math.max(0,+(x.amount+delta).toFixed(2))}:x));
+
+  const lowStock = pantry.filter(x=>x.lowAt>0&&x.amount<=x.lowAt);
+  const displayed = pantry.filter(x=>(x.name||"").toLowerCase().includes(search.toLowerCase()));
+  const totalValue = pantry.reduce((s,x)=>s+(x.amount*(x.price||0)),0);
+
+  // Suggest quick-adds from recipe ingredients not in pantry
+  const suggestions = useMemo(()=>{
+    const names = new Set(pantry.map(x=>x.name.toLowerCase()));
+    const seen = new Set();
+    const out = [];
+    recipes.forEach(r=>(r.ingredients||[]).forEach(ing=>{
+      const k=(ing.name||"").toLowerCase();
+      if (!names.has(k)&&!seen.has(k)){seen.add(k);out.push(ing.name);}
+    }));
+    return out.slice(0,8);
+  },[pantry,recipes]);
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>🥫 Pantry</h2>
+          <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{pantry.length} items · Est. value ${totalValue.toFixed(2)}</p>
+        </div>
+        {lowStock.length>0&&(
+          <div style={{background:"rgba(212,135,90,0.1)",border:"1px solid rgba(212,135,90,0.35)",borderRadius:10,padding:"8px 14px"}}>
+            <div style={{color:"#d4875a",fontWeight:700,fontSize:12,marginBottom:4}}>⚠️ Running Low</div>
+            {lowStock.map(x=><div key={x.id} style={{color:"var(--text-sub)",fontSize:12}}>• {x.name}: {x.amount} {x.unit} left</div>)}
+          </div>
+        )}
+      </div>
+
+      {/* Add / edit form */}
+      <div style={{background:"var(--bg-card)",borderRadius:14,padding:"14px",marginBottom:18,boxShadow:"var(--nm-raised-sm)"}}>
+        <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{editId?"✏️ Edit Item":"+ Add to Pantry"}</div>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ingredient name" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Qty" type="number" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={unit} onChange={e=>setUnit(e.target.value)} placeholder="Unit" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={lowAt} onChange={e=>setLowAt(e.target.value)} placeholder="Low at" type="number" title="Alert when quantity falls below this" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={price} onChange={e=>setPrice(e.target.value)} placeholder="$/unit" type="number" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={add} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:10,color:"#fff",padding:"8px 20px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+            {editId?"Save Changes":"Add Item"}
+          </button>
+          {editId&&<button onClick={()=>{setEditId(null);setName("");setAmount("");setUnit("");setLowAt("");setPrice("");}} style={{...GB,padding:"8px 14px",fontSize:13}}>Cancel</button>}
+        </div>
+      </div>
+
+      {/* Suggestions from recipes */}
+      {suggestions.length>0&&pantry.length<3&&(
+        <div style={{marginBottom:16}}>
+          <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>💡 Quick add from your recipes</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {suggestions.map(s=>(
+              <button key={s} onClick={()=>{setName(s);setAmount("1");}}
+                style={{...GB,padding:"5px 12px",fontSize:12,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.3)",borderRadius:20}}>
+                + {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search */}
+      {pantry.length>5&&<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search pantry…" style={{...IS,width:"100%",height:36,padding:"0 12px",fontSize:13,marginBottom:12}}/>}
+
+      {/* Items list */}
+      {displayed.length===0&&<div style={{textAlign:"center",color:"var(--text-muted)",padding:"40px 0",fontSize:14}}>Your pantry is empty — add ingredients you have at home.</div>}
+      <div style={{display:"grid",gap:6}}>
+        {displayed.map(item=>{
+          const isLow = item.lowAt>0&&item.amount<=item.lowAt;
+          return (
+            <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"var(--bg-card)",borderRadius:12,padding:"10px 14px",boxShadow:"var(--nm-raised-sm)",border:isLow?"1px solid rgba(212,135,90,0.4)":"1px solid transparent"}}>
+              <span style={{fontSize:20,flexShrink:0}}>{getItemEmoji(item.name)}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:"var(--text)",fontWeight:600,fontSize:13}}>{item.name} {isLow&&<span style={{color:"#d4875a",fontSize:11}}>⚠️ low</span>}</div>
+                <div style={{color:"var(--text-muted)",fontSize:12}}>{item.price>0?`$${item.price}/${item.unit||"unit"}`:""}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                <button onClick={()=>adjust(item.id,-1)} style={{...GB,width:26,height:26,padding:0,fontSize:16,lineHeight:"1"}}>−</button>
+                <span style={{color:isLow?"#d4875a":"var(--accent)",fontWeight:700,fontSize:14,minWidth:50,textAlign:"center"}}>{item.amount} {item.unit}</span>
+                <button onClick={()=>adjust(item.id,1)} style={{...GB,width:26,height:26,padding:0,fontSize:16,lineHeight:"1"}}>+</button>
+              </div>
+              <button onClick={()=>startEdit(item)} style={{...GB,padding:"4px 8px",fontSize:12,color:"var(--text-muted)"}}>✏️</button>
+              <button onClick={()=>remove(item.id)} style={{...GB,padding:"4px 8px",fontSize:12,color:"#f08080"}}>🗑</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
@@ -4084,6 +4376,9 @@ function App() {
   const [comfortModalOpen, setComfortModalOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
   const [whatCanICookOpen, setWhatCanICookOpen] = useState(false);
+  const [spinWheelOpen, setSpinWheelOpen] = useState(false);
+  const [remixOpen, setRemixOpen] = useState(false);
+  const [wikiIngredient, setWikiIngredient] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -4093,6 +4388,7 @@ function App() {
   const [ratings, setRatings] = useState({});
   const [ratingTarget, setRatingTarget] = useState(null);
   const [shoppingSpends, setShoppingSpends] = useState([]);
+  const [pantry, setPantry] = useState([]); // [{id,name,amount,unit,lowAt,price}]
   const [profiles, setProfiles] = useState([{id:'default',name:'Me',macroGoals:{calories:2000,protein:50,carbs:130,fat:65},cookLog:[],supplements:[]}]);
   const [activeProfileId, setActiveProfileId] = useState('default');
   const activeProfile = profiles.find(p=>p.id===activeProfileId) || profiles[0];
@@ -4275,6 +4571,8 @@ function App() {
       if (rats) setRatings(JSON.parse(rats));
       const spends = localStorage.getItem('mpm_spends');
       if (spends) setShoppingSpends(JSON.parse(spends));
+      const pan = localStorage.getItem('mpm_pantry');
+      if (pan) setPantry(JSON.parse(pan));
       const savedProfiles = localStorage.getItem('mpm_profiles');
       if (savedProfiles) {
         const parsed = JSON.parse(savedProfiles);
@@ -4325,6 +4623,7 @@ function App() {
   useEffect(() => { if (hydrated) lsSave('mpm_mealplan', mealPlanItems); }, [mealPlanItems, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_ratings', ratings); }, [ratings, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_spends', shoppingSpends); }, [shoppingSpends, hydrated]);
+  useEffect(() => { if (hydrated) lsSave('mpm_pantry', pantry); }, [pantry, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_profiles', profiles); }, [profiles, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
 
@@ -4436,6 +4735,7 @@ function App() {
     {id:"mix-match",label:"Mix & Match",icon:"🔀"},
     {id:"meal-plan",label:"Meal Plan",icon:"📅"},
     {id:"shopping",label:"Shopping List",icon:"🛒"},
+    {id:"pantry",label:"Pantry",icon:"🥫"},
     {id:"optimizer",label:"Optimizer",icon:"⚡"},
     {id:"ingredient-search",label:"Ingredients",icon:"🔍"},
     {id:"favorites",label:"Favorites",icon:"♥"},
@@ -4858,6 +5158,8 @@ function App() {
                   {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>📚 Export Book</button>}
                   {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>🔍 Audit Recipes</button>}
                   <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>🧑‍🍳 What Can I Cook?</button>
+                  <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>🎡 Spin</button>
+                  <button onClick={()=>setRemixOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c8a8ff"}}>🔀 Remix</button>
                   <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
                 </div>
               </div>
@@ -4981,7 +5283,8 @@ function App() {
 
           {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")}/>}
 
-          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null}/>}
+          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null} pantry={pantry}/>}
+          {sec==="pantry" && <PantryManager pantry={pantry} setPantry={setPantry} recipes={recipes} onDeduct={updates=>setPantry(p=>p.map(item=>{const u=updates.find(x=>x.id===item.id);return u?{...item,amount:Math.max(0,item.amount-u.used)}:item;}))}/>}
 
           {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing}/>}
 
@@ -5023,8 +5326,12 @@ function App() {
           onFavorite={toggleFav} isFavorite={isFav(viewing)}
           onRate={r=>setRatingTarget(r)} ratings={ratings}
           onEdit={()=>setEditTarget(viewing)}
+          onIngredientTap={name=>setWikiIngredient(name)}
           onMarkCooked={r=>setCookLog(p=>[...p,{id:Date.now(),recipeId:r.id,recipeName:r.title,date:new Date().toISOString()}])}/>
       )}
+      {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)}/>}
+      {spinWheelOpen && <SpinWheelModal recipes={recipes} onClose={()=>setSpinWheelOpen(false)} onView={r=>{setViewing(r);setSpinWheelOpen(false);}}/>}
+      {remixOpen && <RecipeRemixModal recipes={recipes} onClose={()=>setRemixOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
       {addOpen && <SmartAddModal onClose={()=>setAddOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
 
       {/* Comfort meal log modal */}
