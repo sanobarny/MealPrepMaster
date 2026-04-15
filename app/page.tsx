@@ -3973,6 +3973,93 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
   );
 }
 
+// ─── WHAT CAN I COOK ──────────────────────────────────────────────────────────
+function WhatCanICookModal({recipes, onClose, onView}) {
+  const [ingredients, setIngredients] = useState([]);
+  const [input, setInput] = useState("");
+
+  const addIng = () => {
+    const v = input.trim().toLowerCase();
+    if (v && !ingredients.includes(v)) setIngredients(i=>[...i,v]);
+    setInput("");
+  };
+
+  const scored = useMemo(()=>{
+    if (!ingredients.length) return [];
+    return recipes.map(r=>{
+      const recipeIngs = (r.ingredients||[]).map(i=>(i.name||"").toLowerCase());
+      const matched = ingredients.filter(p=>recipeIngs.some(ri=>ri.includes(p)||p.includes(ri.split(" ")[0])));
+      const pct = Math.round(matched.length/Math.max(ingredients.length,1)*100);
+      const missing = (r.ingredients||[]).filter(ri=>!ingredients.some(p=>(ri.name||"").toLowerCase().includes(p)||p.includes((ri.name||"").toLowerCase().split(" ")[0]))).length;
+      return {...r,_matched:matched.length,_pct:pct,_missing:missing};
+    }).filter(r=>r._matched>0).sort((a,b)=>b._pct-a._pct);
+  },[ingredients,recipes]);
+
+  return (
+    <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
+      <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:640,width:"100%",maxHeight:"90vh",overflowY:"auto",padding:24,border:"1px solid var(--border)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>🧑‍🍳 What Can I Cook?</h2>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
+        </div>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:16}}>Enter ingredients you have — see which recipes you can make right now.</p>
+
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
+          <input value={input} onChange={e=>setInput(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();addIng();}}}
+            placeholder="Type an ingredient and press Enter…"
+            style={{...IS,flex:1,height:40,padding:"0 12px",fontSize:14}}
+            autoFocus/>
+          <button onClick={addIng} style={{...GB,padding:"0 16px",fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.4)"}}>+ Add</button>
+        </div>
+
+        {ingredients.length>0&&(
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+            {ingredients.map(ing=>(
+              <span key={ing} onClick={()=>setIngredients(i=>i.filter(x=>x!==ing))}
+                style={{background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.4)",borderRadius:20,padding:"4px 12px",fontSize:13,color:"#5aad8e",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                {ing} <span style={{fontSize:11,opacity:.7}}>×</span>
+              </span>
+            ))}
+            <button onClick={()=>setIngredients([])} style={{...GB,padding:"4px 10px",fontSize:12,color:"var(--text-muted)"}}>Clear all</button>
+          </div>
+        )}
+
+        {ingredients.length>0&&scored.length===0&&(
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"40px 0",fontSize:14}}>No matches yet — try adding more ingredients.</div>
+        )}
+        {ingredients.length===0&&(
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"40px 0",fontSize:14}}>Start typing ingredients you have at home.</div>
+        )}
+
+        {scored.map(r=>(
+          <div key={r.id} onClick={()=>{onView(r);onClose();}}
+            style={{display:"flex",gap:12,alignItems:"center",background:"var(--nm-input-bg)",borderRadius:14,padding:"12px",marginBottom:8,cursor:"pointer",border:"1px solid var(--border)",transition:"border-color .15s"}}
+            onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(90,173,142,0.4)"}
+            onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border)"}>
+            {r.image
+              ? <img src={r.image} alt={r.title} style={{width:56,height:56,borderRadius:10,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display="none"}/>
+              : <div style={{width:56,height:56,borderRadius:10,background:"var(--bg-card)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{getItemEmoji(r.title)}</div>}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{color:"var(--text)",fontWeight:700,fontSize:14,marginBottom:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.title}</div>
+              <div style={{color:"var(--text-muted)",fontSize:12}}>
+                {r._missing===0
+                  ? <span style={{color:"#5aad8e"}}>✅ You have everything!</span>
+                  : <span>⚠️ Missing {r._missing} ingredient{r._missing!==1?"s":""}</span>}
+                {" · "}{r.totalTime||0} min
+              </div>
+            </div>
+            <div style={{flexShrink:0,textAlign:"center",minWidth:48}}>
+              <div style={{fontSize:22,fontWeight:800,color:r._pct>=80?"#5aad8e":r._pct>=50?"#ffd580":"#d4875a",lineHeight:1}}>{r._pct}%</div>
+              <div style={{fontSize:10,color:"var(--text-muted)"}}>match</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
@@ -3996,6 +4083,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [comfortModalOpen, setComfortModalOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [whatCanICookOpen, setWhatCanICookOpen] = useState(false);
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -4769,6 +4857,7 @@ function App() {
                   </button>
                   {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>📚 Export Book</button>}
                   {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>🔍 Audit Recipes</button>}
+                  <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>🧑‍🍳 What Can I Cook?</button>
                   <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
                 </div>
               </div>
@@ -4943,6 +5032,7 @@ function App() {
 
       {/* Recipe audit modal */}
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
+      {whatCanICookOpen && <WhatCanICookModal recipes={recipes} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
         onDelete={id=>{trackDeleted(id,recipes);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
