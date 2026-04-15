@@ -3085,16 +3085,35 @@ function CookMode({recipe, onClose}) {
   const [prepGuide, setPrepGuide] = useState(()=>buildStaticPrepGuide(recipe));
   const [loadingAI, setLoadingAI] = useState(false);
   const [checked, setChecked] = useState({});
-  const [timer, setTimer] = useState(null);
-  const [running, setRunning] = useState(false);
+  const [stepTimers, setStepTimers] = useState({}); // { stepIdx: {remaining:secs, running:bool} }
+  const prevTimersRef = useRef({});
   const [afMode, setAfMode] = useState(false); // air fryer conversion mode
   const [alarmSound, setAlarmSound] = useState(()=>{ try{return localStorage.getItem("cookAlarm")||"bell";}catch(e){return "bell";} });
   const alarmSoundRef = useRef(alarmSound);
-  const timerRef = useRef(null);
+  const [eatAt, setEatAt] = useState("");
+  const [showEatAt, setShowEatAt] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(false);
   const steps = recipe.steps||[];
   const current = steps[step]||{};
   const afStep = afMode ? convertStepForAirFryer(current.text||"", current.timeMin) : null;
   const toggleCheck = key => setChecked(c=>({...c,[key]:!c[key]}));
+
+  const eatAtSchedule = useMemo(()=>{
+    if (!eatAt) return {};
+    const [h,m] = eatAt.split(":").map(Number);
+    let endMins = h*60+m;
+    const sched = {};
+    for (let i=steps.length-1; i>=0; i--) {
+      const dur = (afMode&&i===step&&afStep?.timeMin ? afStep.timeMin : steps[i].timeMin)||0;
+      const startMins = endMins - dur;
+      const sh = Math.floor(((startMins%1440)+1440)%1440/60);
+      const sm = ((startMins%1440)+1440)%1440%60;
+      const ampm = sh>=12?"PM":"AM"; const sh12 = sh%12||12;
+      sched[i] = {startLabel:`${sh12}:${String(sm).padStart(2,"0")} ${ampm}`};
+      endMins = startMins;
+    }
+    return sched;
+  },[eatAt, steps, afMode, afStep, step]);
 
   // Persist alarm sound choice
   useEffect(()=>{ alarmSoundRef.current=alarmSound; lsSave("cookAlarm",alarmSound); },[alarmSound]);
@@ -3127,18 +3146,57 @@ function CookMode({recipe, onClose}) {
     enhance();
   }, [recipe.id]);
 
-  // Timer per step (uses converted time when AF mode is on)
+  // Initialize timer when navigating to a step
   useEffect(()=>{
     const mins = afMode && afStep?.timeMin ? afStep.timeMin : current.timeMin;
-    if(mins) setTimer(mins*60); setRunning(false); clearInterval(timerRef.current);
-  },[step, afMode]);
+    if (mins && !(step in stepTimers)) {
+      setStepTimers(t=>({...t,[step]:{remaining:mins*60,running:false}}));
+    }
+  },[step,afMode]);
+
+  // Single global tick
   useEffect(()=>{
-    if(running&&timer>0){ timerRef.current=setInterval(()=>setTimer(t=>{if(t<=1){clearInterval(timerRef.current);setRunning(false);playAlarmSound(alarmSoundRef.current);try{new Notification("⏰ Step done!",{body:current.text?.slice(0,60)});}catch(e){}return 0;}return t-1;}),1000); }
-    return ()=>clearInterval(timerRef.current);
-  },[running]);
+    const id = setInterval(()=>{
+      setStepTimers(prev=>{
+        const anyRunning = Object.values(prev).some(t=>t.running&&t.remaining>0);
+        if (!anyRunning) return prev;
+        const next={};
+        Object.entries(prev).forEach(([k,t])=>{
+          next[k] = (t.running && t.remaining>0) ? {...t,remaining:t.remaining-1,running:t.remaining>1} : t;
+        });
+        return next;
+      });
+    },1000);
+    return ()=>clearInterval(id);
+  },[]);
+
+  // Detect completion
+  useEffect(()=>{
+    Object.entries(stepTimers).forEach(([k,t])=>{
+      const prev=prevTimersRef.current[k];
+      if (prev?.running && !t.running && t.remaining===0) {
+        playAlarmSound(alarmSoundRef.current);
+        try{new Notification("⏰ Step "+(parseInt(k)+1)+" done!",{body:steps[parseInt(k)]?.text?.slice(0,60)});}catch(e){}
+      }
+    });
+    prevTimersRef.current=stepTimers;
+  },[stepTimers]);
 
   // Wake lock — keep screen on
   useEffect(()=>{ let wl; try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(w=>wl=w);}catch(e){} return()=>{try{wl?.release();}catch(e){}};  },[]);
+
+  // Voice narration
+  useEffect(()=>{
+    if (voiceOn && phase==="cook" && typeof window!=="undefined" && window.speechSynthesis) {
+      const utt = new SpeechSynthesisUtterance((afMode&&afStep ? afStep.text : current.text)||"");
+      utt.rate = 0.9; utt.pitch = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utt);
+    }
+  },[step, voiceOn, phase]);
+
+  // Cancel speech on unmount
+  useEffect(()=>()=>{ try{window.speechSynthesis?.cancel();}catch(e){} },[]);
 
   const fmtTime = s => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
@@ -3270,10 +3328,30 @@ function CookMode({recipe, onClose}) {
           style={{...GB,padding:"5px 10px",fontSize:12,background:afMode?"rgba(255,160,50,0.18)":"var(--bg-card)",color:afMode?"#f5a623":"var(--text-sub)",border:afMode?"1px solid rgba(255,160,50,0.5)":"none",borderRadius:10,fontWeight:afMode?700:400,flexShrink:0}}>
           🌬️ {afMode?"AF ON":"AF"}
         </button>
+        <button onClick={()=>setShowEatAt(v=>!v)}
+          style={{...GB,padding:"5px 10px",fontSize:12,background:eatAt?"rgba(90,143,212,0.18)":"var(--bg-card)",color:eatAt?"#5a8fd4":"var(--text-sub)",border:eatAt?"1px solid rgba(90,143,212,0.5)":"none",borderRadius:10,flexShrink:0}}>
+          🍽 {eatAt||"Eat at"}
+        </button>
+        <button onClick={()=>setVoiceOn(v=>!v)}
+          style={{...GB,padding:"5px 10px",fontSize:12,background:voiceOn?"rgba(90,173,142,0.18)":"var(--bg-card)",color:voiceOn?"#5aad8e":"var(--text-sub)",border:voiceOn?"1px solid rgba(90,173,142,0.5)":"none",borderRadius:10,flexShrink:0}}
+          title="Read steps aloud">
+          {voiceOn?"🔊":"🔇"}
+        </button>
         <button onClick={onClose} style={{...GB,padding:"5px 10px",fontSize:13}}>✕</button>
       </div>
       {/* Progress bar */}
       <div style={{height:4,background:"var(--border)"}}><div style={{height:"100%",width:progress+"%",background:"var(--accent)",transition:"width .4s"}}/></div>
+
+      {/* Eat-at scheduler */}
+      {showEatAt && (
+        <div style={{background:"rgba(90,143,212,0.08)",borderBottom:"1px solid rgba(90,143,212,0.2)",padding:"10px 18px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <span style={{color:"#5a8fd4",fontSize:13,fontWeight:700}}>🍽 I want to eat at:</span>
+          <input type="time" value={eatAt} onChange={e=>setEatAt(e.target.value)}
+            style={{...IS,width:120,height:32,padding:"0 8px",fontSize:14,fontWeight:700,color:"#5a8fd4"}}/>
+          {eatAt&&<button onClick={()=>{setEatAt("");setShowEatAt(false);}} style={{...GB,padding:"4px 10px",fontSize:12,color:"var(--text-muted)"}}>Clear</button>}
+          {eatAt&&<span style={{color:"var(--text-muted)",fontSize:12}}>Step 1 starts at {eatAtSchedule[0]?.startLabel}</span>}
+        </div>
+      )}
 
       {/* Step content */}
       <div style={{flex:1,overflowY:"auto",padding:"20px 16px 100px",maxWidth:640,margin:"0 auto",width:"100%"}}>
@@ -3317,31 +3395,45 @@ function CookMode({recipe, onClose}) {
           )}
         </div>
 
+        {/* Background timers strip */}
+        {Object.entries(stepTimers).filter(([k,t])=>parseInt(k)!==step&&t.running&&t.remaining>0).length>0&&(
+          <div style={{background:"rgba(255,213,128,0.08)",border:"1px solid rgba(255,213,128,0.25)",borderRadius:10,padding:"8px 12px",marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{color:"#ffd580",fontSize:11,fontWeight:700,flexShrink:0}}>⏱ Running:</span>
+            {Object.entries(stepTimers).filter(([k,t])=>parseInt(k)!==step&&t.running&&t.remaining>0).map(([k,t])=>(
+              <span key={k} style={{background:"rgba(255,213,128,0.15)",borderRadius:20,padding:"2px 10px",fontSize:12,color:"#ffd580",fontWeight:700,cursor:"pointer"}} onClick={()=>setStep(parseInt(k))}>
+                Step {parseInt(k)+1} · {fmtTime(t.remaining)}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Timer */}
-        {(afMode ? afStep?.timeMin : current.timeMin) ? (() => {
+        {(afMode ? afStep?.timeMin : current.timeMin) ? (()=>{
           const timeMin = afMode && afStep?.timeMin ? afStep.timeMin : current.timeMin;
+          const st = stepTimers[step] || {remaining: timeMin*60, running: false};
+          const isRunning = st.running;
+          const isDone = st.remaining === 0;
           return (
             <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 24px",textAlign:"center",marginBottom:18}}>
-              <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:4,textTransform:"uppercase",letterSpacing:.8}}>⏱ Timer{afMode&&afStep?.timeMin&&afStep.timeMin!==current.timeMin?<span style={{color:"#f5a623",marginLeft:6,fontWeight:700}}>🌬️ {timeMin}m (was {current.timeMin}m)</span>:""}</div>
-              <div style={{color:timer===0?"#5aad8e":running?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(timer??timeMin*60)}</div>
+              <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:4,textTransform:"uppercase",letterSpacing:.8}}>
+                ⏱ Timer{afMode&&afStep?.timeMin&&afStep.timeMin!==current.timeMin?<span style={{color:"#f5a623",marginLeft:6,fontWeight:700}}>🌬️ {timeMin}m (was {current.timeMin}m)</span>:""}
+                {eatAtSchedule[step] && <span style={{color:"#5a8fd4",marginLeft:8,fontWeight:700,fontSize:10}}>▶ Start {eatAtSchedule[step].startLabel}</span>}
+              </div>
+              <div style={{color:isDone?"#5aad8e":isRunning?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(st.remaining)}</div>
               <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-                <button onClick={()=>setRunning(r=>!r)} style={{background:running?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:running?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
-                  {timer===0?"✅ Done":running?"⏸ Pause":"▶ Start"}
+                <button onClick={()=>setStepTimers(t=>({...t,[step]:{...t[step],running:!isRunning}}))}
+                  style={{background:isRunning?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:isRunning?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
+                  {isDone?"✅ Done":isRunning?"⏸ Pause":"▶ Start"}
                 </button>
-                <button onClick={()=>{setTimer(timeMin*60);setRunning(false);clearInterval(timerRef.current);}} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
+                <button onClick={()=>setStepTimers(t=>({...t,[step]:{remaining:timeMin*60,running:false}}))} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
               </div>
               {/* Alarm sound picker */}
               <div style={{marginTop:14,borderTop:"1px solid var(--border)",paddingTop:12}}>
                 <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>🔊 Alarm Sound</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
                   {ALARM_SOUNDS.map(s=>(
-                    <button key={s.key}
-                      onClick={()=>{ setAlarmSound(s.key); if(s.key!=="none") playAlarmSound(s.key); }}
-                      style={{...GB,padding:"6px 11px",fontSize:12,
-                        background:alarmSound===s.key?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",
-                        border:alarmSound===s.key?"1px solid rgba(90,173,142,0.5)":"1px solid transparent",
-                        color:alarmSound===s.key?"#5aad8e":"var(--text-muted)",
-                        fontWeight:alarmSound===s.key?700:400,borderRadius:20}}>
+                    <button key={s.key} onClick={()=>{ setAlarmSound(s.key); if(s.key!=="none") playAlarmSound(s.key); }}
+                      style={{...GB,padding:"6px 11px",fontSize:12,background:alarmSound===s.key?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",border:alarmSound===s.key?"1px solid rgba(90,173,142,0.5)":"1px solid transparent",color:alarmSound===s.key?"#5aad8e":"var(--text-muted)",fontWeight:alarmSound===s.key?700:400,borderRadius:20}}>
                       {s.emoji} {s.label}
                     </button>
                   ))}
