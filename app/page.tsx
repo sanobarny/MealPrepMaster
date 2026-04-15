@@ -4147,9 +4147,15 @@ function IngredientWikiModal({ingredient, onClose}) {
   );
 }
 
-function WhatCanICookModal({recipes, onClose, onView}) {
-  const [ingredients, setIngredients] = useState([]);
+function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
+  // Pre-populate with all pantry items on first open
+  const [ingredients, setIngredients] = useState(()=>pantry.map(p=>p.name.toLowerCase()));
   const [input, setInput] = useState("");
+
+  const toggle = name => {
+    const v = name.toLowerCase();
+    setIngredients(i=>i.includes(v) ? i.filter(x=>x!==v) : [...i,v]);
+  };
 
   const addIng = () => {
     const v = input.trim().toLowerCase();
@@ -4168,6 +4174,10 @@ function WhatCanICookModal({recipes, onClose, onView}) {
     }).filter(r=>r._matched>0).sort((a,b)=>b._pct-a._pct);
   },[ingredients,recipes]);
 
+  // Separate pantry items from manually typed ones
+  const pantryNames = new Set(pantry.map(p=>p.name.toLowerCase()));
+  const manualIngs = ingredients.filter(i=>!pantryNames.has(i));
+
   return (
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
       <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:640,width:"100%",maxHeight:"90vh",overflowY:"auto",padding:24,border:"1px solid var(--border)"}}>
@@ -4175,34 +4185,74 @@ function WhatCanICookModal({recipes, onClose, onView}) {
           <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>🧑‍🍳 What Can I Cook?</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
         </div>
-        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:16}}>Enter ingredients you have — see which recipes you can make right now.</p>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:16}}>Toggle pantry items on/off and add extras to see which recipes you can make right now.</p>
 
-        <div style={{display:"flex",gap:8,marginBottom:12}}>
-          <input value={input} onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();addIng();}}}
-            placeholder="Type an ingredient and press Enter…"
-            style={{...IS,flex:1,height:40,padding:"0 12px",fontSize:14}}
-            autoFocus/>
-          <button onClick={addIng} style={{...GB,padding:"0 16px",fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.4)"}}>+ Add</button>
+        {/* Pantry items grid */}
+        {pantry.length>0&&(
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>🥫 Your Pantry ({pantry.length} items)</div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>setIngredients(pantry.map(p=>p.name.toLowerCase()))} style={{...GB,padding:"3px 10px",fontSize:11,color:"#5aad8e"}}>Select all</button>
+                <button onClick={()=>setIngredients(i=>i.filter(x=>!pantryNames.has(x)))} style={{...GB,padding:"3px 10px",fontSize:11,color:"var(--text-muted)"}}>None</button>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {pantry.map(p=>{
+                const on = ingredients.includes(p.name.toLowerCase());
+                return (
+                  <button key={p.id} onClick={()=>toggle(p.name)}
+                    style={{...GB,padding:"6px 12px",fontSize:13,borderRadius:20,
+                      background:on?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",
+                      border:on?"1px solid rgba(90,173,142,0.5)":"1px solid var(--border)",
+                      color:on?"#5aad8e":"var(--text-muted)",fontWeight:on?700:400,
+                      display:"flex",alignItems:"center",gap:6}}>
+                    <span>{getItemEmoji(p.name)}</span>
+                    <span>{p.name}</span>
+                    {p.amount>0&&<span style={{fontSize:10,opacity:.6}}>{p.amount}{p.unit}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Manual add */}
+        <div style={{marginBottom:12}}>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>+ Add More Ingredients</div>
+          <div style={{display:"flex",gap:8}}>
+            <input value={input} onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();addIng();}}}
+              placeholder="e.g. eggs, olive oil…"
+              style={{...IS,flex:1,height:38,padding:"0 12px",fontSize:14}}/>
+            <button onClick={addIng} style={{...GB,padding:"0 16px",fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.4)"}}>+ Add</button>
+          </div>
         </div>
 
-        {ingredients.length>0&&(
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-            {ingredients.map(ing=>(
+        {/* Manual ingredient chips */}
+        {manualIngs.length>0&&(
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+            {manualIngs.map(ing=>(
               <span key={ing} onClick={()=>setIngredients(i=>i.filter(x=>x!==ing))}
-                style={{background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.4)",borderRadius:20,padding:"4px 12px",fontSize:13,color:"#5aad8e",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
+                style={{background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.4)",borderRadius:20,padding:"4px 12px",fontSize:13,color:"#5a8fd4",cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>
                 {ing} <span style={{fontSize:11,opacity:.7}}>×</span>
               </span>
             ))}
-            <button onClick={()=>setIngredients([])} style={{...GB,padding:"4px 10px",fontSize:12,color:"var(--text-muted)"}}>Clear all</button>
+          </div>
+        )}
+
+        {/* Summary line */}
+        {ingredients.length>0&&(
+          <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>
+            Using <b style={{color:"var(--text)"}}>{ingredients.length}</b> ingredient{ingredients.length!==1?"s":""} — {scored.length} recipe{scored.length!==1?"s":""} found
           </div>
         )}
 
         {ingredients.length>0&&scored.length===0&&(
-          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"40px 0",fontSize:14}}>No matches yet — try adding more ingredients.</div>
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>No matches — try selecting more pantry items or adding extra ingredients.</div>
         )}
-        {ingredients.length===0&&(
-          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"40px 0",fontSize:14}}>Start typing ingredients you have at home.</div>
+        {ingredients.length===0&&pantry.length===0&&(
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>Add items to your Pantry first, or type ingredients above.</div>
         )}
 
         {scored.map(r=>(
@@ -5339,7 +5389,7 @@ function App() {
 
       {/* Recipe audit modal */}
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
-      {whatCanICookOpen && <WhatCanICookModal recipes={recipes} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}}/>}
+      {whatCanICookOpen && <WhatCanICookModal recipes={recipes} pantry={pantry} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
         onDelete={id=>{trackDeleted(id,recipes);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
