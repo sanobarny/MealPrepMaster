@@ -347,32 +347,43 @@ async function aiGenerateHeroSVG(title, category, ingredients) {
 async function fetchPageContent(url) {
   let text = null, ogImg = null;
 
-  // 1. Try Jina Reader (r.jina.ai) — returns clean article text, best for recipes
+  // 0. Server-side route — no CORS, real browser headers, best success rate
   try {
-    const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
-      signal: AbortSignal.timeout(12000),
-      headers: { Accept: 'text/plain' }
-    });
-    if (jinaRes.ok) {
-      const t = await jinaRes.text();
-      if (t && t.length > 300) text = t.slice(0, 18000);
+    const res = await fetch(`/api/fetch-page?url=${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(16000)});
+    if (res.ok) {
+      const d = await res.json();
+      if (d.text && d.text.length > 300) { text = d.text; ogImg = d.ogImg || null; }
     }
   } catch(e) {}
 
-  // 2. Fallback: allorigins proxy (gets raw HTML, we strip tags)
+  // 1. Fallback: Jina Reader (client-side)
+  if (!text) {
+    try {
+      const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
+        signal: AbortSignal.timeout(12000),
+        headers: { Accept: 'text/plain' }
+      });
+      if (jinaRes.ok) {
+        const t = await jinaRes.text();
+        if (t && t.length > 300) text = t.slice(0, 18000);
+      }
+    } catch(e) {}
+  }
+
+  // 2. Fallback: allorigins proxy
   if (!text) {
     try {
       const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(10000)});
       if (res.ok) {
         const d = await res.json();
         const html = d.contents || '';
-        ogImg = (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) || [])[1] || null;
+        ogImg = ogImg || (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) || [])[1] || null;
         text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,18000);
       }
     } catch(e) {}
   }
 
-  // 3. Second fallback: corsproxy.io
+  // 3. Fallback: corsproxy.io
   if (!text) {
     try {
       const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(10000)});
