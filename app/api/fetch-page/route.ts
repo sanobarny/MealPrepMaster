@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-// Rotate through several User-Agent strings to avoid basic bot-detection
 const USER_AGENTS = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
@@ -31,6 +30,44 @@ function extractOgImage(html: string): string | null {
   return m ? m[1] : null;
 }
 
+/** Extract the first schema.org Recipe block from page HTML */
+function extractSchemaRecipe(html: string): object | null {
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(m[1]);
+      const items: any[] = Array.isArray(data)
+        ? data
+        : data["@graph"]
+        ? data["@graph"]
+        : [data];
+      const recipe = items.find(
+        (item) =>
+          item["@type"] === "Recipe" ||
+          (Array.isArray(item["@type"]) && item["@type"].includes("Recipe"))
+      );
+      if (recipe) return recipe;
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function tryFetch(url: string, ua: string) {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": ua,
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Cache-Control": "no-cache",
+    },
+    signal: AbortSignal.timeout(14000),
+  });
+  if (!res.ok) return null;
+  const html = await res.text();
+  return html.length > 500 ? html : null;
+}
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
   if (!url || !url.startsWith("http")) {
@@ -39,49 +76,34 @@ export async function GET(req: NextRequest) {
 
   const ua = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
-  // --- Try 1: direct fetch ---
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": ua,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      },
-      signal: AbortSignal.timeout(12000),
-      // @ts-ignore – undici/Node fetch option
-      redirect: "follow",
-    });
+  // --- Try 1: direct server-side fetch ---
+  let html: string | null = null;
+  try { html = await tryFetch(url, ua); } catch (_) {}
 
-    if (res.ok) {
-      const html = await res.text();
-      if (html.length > 500) {
-        return NextResponse.json({
-          text: stripHtml(html).slice(0, 20000),
-          ogImg: extractOgImage(html),
-        });
+  // --- Try 2: Jina Reader (no Cloudflare issues, works for most recipe sites) ---
+  if (!html) {
+    try {
+      const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
+        headers: { "User-Agent": ua, Accept: "text/plain" },
+        signal: AbortSignal.timeout(16000),
+      });
+      if (jinaRes.ok) {
+        const t = await jinaRes.text();
+        if (t && t.length > 300) {
+          // Jina returns markdown — no HTML to parse, return as plain text
+          return NextResponse.json({ text: t.slice(0, 22000), ogImg: null, schemaRecipe: null });
+        }
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+  }
 
-  // --- Try 2: Jina Reader (server-side, no CORS issue) ---
-  try {
-    const jinaRes = await fetch(`https://r.jina.ai/${url}`, {
-      headers: {
-        "User-Agent": ua,
-        Accept: "text/plain",
-      },
-      signal: AbortSignal.timeout(14000),
-    });
-    if (jinaRes.ok) {
-      const text = await jinaRes.text();
-      if (text && text.length > 300) {
-        return NextResponse.json({ text: text.slice(0, 20000), ogImg: null });
-      }
-    }
-  } catch (_) {}
+  if (!html) {
+    return NextResponse.json({ error: "Could not fetch page" }, { status: 502 });
+  }
 
-  return NextResponse.json({ error: "Could not fetch page" }, { status: 502 });
+  const ogImg = extractOgImage(html);
+  const schemaRecipe = extractSchemaRecipe(html);
+  const text = stripHtml(html).slice(0, 22000);
+
+  return NextResponse.json({ text, ogImg, schemaRecipe });
 }

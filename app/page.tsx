@@ -345,14 +345,16 @@ async function aiGenerateHeroSVG(title, category, ingredients) {
 }
 
 async function fetchPageContent(url) {
-  let text = null, ogImg = null;
+  let text = null, ogImg = null, schemaRecipe = null;
 
-  // 0. Server-side route — no CORS, real browser headers, best success rate
+  // 0. Server-side route — no CORS, real browser headers, extracts schema.org Recipe
   try {
-    const res = await fetch(`/api/fetch-page?url=${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(16000)});
+    const res = await fetch(`/api/fetch-page?url=${encodeURIComponent(url)}`, {signal:AbortSignal.timeout(18000)});
     if (res.ok) {
       const d = await res.json();
-      if (d.text && d.text.length > 300) { text = d.text; ogImg = d.ogImg || null; }
+      if (d.text && d.text.length > 300) {
+        text = d.text; ogImg = d.ogImg || null; schemaRecipe = d.schemaRecipe || null;
+      }
     }
   } catch(e) {}
 
@@ -365,7 +367,7 @@ async function fetchPageContent(url) {
       });
       if (jinaRes.ok) {
         const t = await jinaRes.text();
-        if (t && t.length > 300) text = t.slice(0, 18000);
+        if (t && t.length > 300) text = t.slice(0, 20000);
       }
     } catch(e) {}
   }
@@ -378,7 +380,19 @@ async function fetchPageContent(url) {
         const d = await res.json();
         const html = d.contents || '';
         ogImg = ogImg || (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) || html.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) || [])[1] || null;
-        text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,18000);
+        // Try to extract schema.org Recipe from fallback HTML too
+        if (!schemaRecipe) {
+          const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+          let m; while ((m = re.exec(html)) !== null) {
+            try {
+              const data = JSON.parse(m[1]);
+              const items = Array.isArray(data) ? data : data['@graph'] ? data['@graph'] : [data];
+              const r = items.find(i => i['@type']==='Recipe' || (Array.isArray(i['@type'])&&i['@type'].includes('Recipe')));
+              if (r) { schemaRecipe = r; break; }
+            } catch(e2) {}
+          }
+        }
+        text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,20000);
       }
     } catch(e) {}
   }
@@ -390,12 +404,23 @@ async function fetchPageContent(url) {
       if (res.ok) {
         const html = await res.text();
         if (!ogImg) ogImg = (html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i)||[])[1]||null;
-        text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,18000);
+        if (!schemaRecipe) {
+          const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+          let m; while ((m = re.exec(html)) !== null) {
+            try {
+              const data = JSON.parse(m[1]);
+              const items = Array.isArray(data) ? data : data['@graph'] ? data['@graph'] : [data];
+              const r = items.find(i => i['@type']==='Recipe' || (Array.isArray(i['@type'])&&i['@type'].includes('Recipe')));
+              if (r) { schemaRecipe = r; break; }
+            } catch(e2) {}
+          }
+        }
+        text = html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,20000);
       }
     } catch(e) {}
   }
 
-  return text ? {text, ogImg} : null;
+  return text ? {text, ogImg, schemaRecipe} : null;
 }
 
 async function fetchPexelsImage(title) {
@@ -473,45 +498,59 @@ RULES:
   return {...recipe, id:Date.now()};
 }
 
+/** Try to repair a truncated JSON string by closing open structures */
+function repairJson(s) {
+  // Remove trailing comma before attempting close
+  let t = s.replace(/,\s*$/, '');
+  const opens = [];
+  let inStr = false, esc = false;
+  for (const ch of t) {
+    if (esc) { esc = false; continue; }
+    if (ch === '\\') { esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (!inStr) {
+      if (ch === '{' || ch === '[') opens.push(ch);
+      else if (ch === '}' || ch === ']') opens.pop();
+    }
+  }
+  // Close any unclosed string first
+  if (inStr) t += '"';
+  // Close open structures in reverse
+  for (let i = opens.length - 1; i >= 0; i--) {
+    t += opens[i] === '{' ? '}' : ']';
+  }
+  return t;
+}
+
 async function aiExtractRecipe(input) {
   const isUrl = input.trim().startsWith("http");
   const src = isUrl ? (input.includes("tiktok")?"TikTok video":input.includes("instagram")?"Instagram reel":input.includes("youtu")?"YouTube video":"recipe webpage") : "text description";
   const tagList = ALL_TAGS.join(", ");
 
-  let pageText = null, pageImage = null;
+  let pageText = null, pageImage = null, schemaRecipe = null;
   if (isUrl) {
     const page = await fetchPageContent(input.trim());
-    if (page) { pageText = page.text; pageImage = page.ogImg; }
+    if (page) { pageText = page.text; pageImage = page.ogImg; schemaRecipe = page.schemaRecipe || null; }
   }
 
-  const prompt = `Extract a COMPLETE recipe from this ${src}. You MUST include every single ingredient and step — do not skip, summarize, or cut off.
+  // Build the source block — schema.org data is compact and authoritative, prefer it
+  let sourceBlock = "";
+  if (schemaRecipe) {
+    const compact = JSON.stringify(schemaRecipe).slice(0, 14000);
+    sourceBlock = `\n━━━ SCHEMA.ORG RECIPE DATA (USE AS GROUND TRUTH) ━━━\n${compact}\n━━━ END DATA ━━━\n\n🚨 STRICT EXTRACTION RULES:\n1. Use the ingredient list EXACTLY as it appears in the schema data.\n2. Use the instruction steps EXACTLY — do not paraphrase.\n3. Parse ISO durations (e.g. PT30M = 30 minutes).\n4. Include every ingredient group / section.`;
+  } else if (pageText) {
+    sourceBlock = `\n━━━ PAGE CONTENT (GROUND TRUTH) ━━━\n${pageText}\n━━━ END PAGE CONTENT ━━━\n\n🚨 STRICT VERBATIM EXTRACTION RULES:\n1. Copy ingredient names EXACTLY as they appear on the page.\n2. Copy amounts and units EXACTLY as written.\n3. Do NOT substitute, paraphrase, or replace any ingredient.\n4. Include EVERY ingredient section (SAUCE, MARINADE, TOPPINGS, etc.).\n5. Do not stop early — include all optional/garnish ingredients too.`;
+  } else if (isUrl) {
+    sourceBlock = "\nPage could not be fetched — use your culinary knowledge to infer a realistic full recipe from the URL.";
+  }
+
+  const prompt = `Extract a COMPLETE recipe from this ${src}. Include every ingredient and step — do not skip or truncate.
 ${isUrl ? "SOURCE URL: " + input : "DESCRIPTION: " + input}
-${pageText
-  ? `\n━━━ PAGE CONTENT (GROUND TRUTH) ━━━\n${pageText}\n━━━ END PAGE CONTENT ━━━\n\n🚨 STRICT VERBATIM EXTRACTION RULES (when page content is provided):\n1. Copy ingredient names EXACTLY as they appear on the page — do NOT substitute, paraphrase, or replace any ingredient with a similar one.\n2. Copy amounts and units EXACTLY as written (e.g. "3/4 cup" stays "3/4 cup", not "180ml").\n3. The page content above IS the recipe. Do NOT use your culinary knowledge to add, remove, or swap any ingredient.\n4. If the page says "medjool dates", write "medjool dates". If it says "cocoa butter", write "cocoa butter". Never substitute.\n5. Include EVERY ingredient section on the page (e.g. MOUSSE, TOPPINGS, SAUCE, GARNISH). Include optional ingredients too. Do not stop early.`
-  : (isUrl ? "\nPage could not be fetched — infer a full recipe from the URL using culinary knowledge." : "")}
+${sourceBlock}
 
 Respond with ONLY a valid JSON object (no markdown, no extra text):
 
-{
-  "title": "Recipe Name",
-  "category": "breakfast",
-  "tags": ["High Protein"],
-  "allergens": [],
-  "equipment": ["stove"],
-  "type": {"protein": true, "grain": false, "side": false},
-  "nutrition": {"calories": 420, "protein": 35, "carbs": 40, "fat": 12},
-  "goal": ["gain muscle"],
-  "prepTime": 10, "cookTime": 25, "totalTime": 35, "servings": 2,
-  "description": "Two-sentence description.",
-  "ingredients": [{"name": "Chicken Breast", "amount": 2, "unit": "pcs", "section": "main"}],
-  "steps": [{"text": "Detailed step.", "timeMin": 5, "image": null, "imagePrompt": "overhead studio shot on white marble"}],
-  "sourceUrl": "${isUrl ? input : ""}",
-  "sourceType": "${src}",
-  "difficulty": "beginner",
-  "healthBenefits": "",
-  "antiInflammatory": false,
-  "bloodSugarFriendly": false
-}
+{"title":"","category":"lunch","tags":[],"allergens":[],"equipment":[],"type":{"protein":false,"grain":false,"side":false},"nutrition":{"calories":0,"protein":0,"carbs":0,"fat":0},"goal":[],"prepTime":0,"cookTime":0,"totalTime":0,"servings":2,"description":"","ingredients":[{"name":"","amount":0,"unit":"","section":"main"}],"steps":[{"text":"","timeMin":0,"image":null,"imagePrompt":""}],"sourceUrl":"${isUrl?input:""}","sourceType":"${src}","difficulty":"beginner","healthBenefits":"","antiInflammatory":false,"bloodSugarFriendly":false}
 
 RULES:
 - category: breakfast, lunch, dessert, or drink
@@ -519,27 +558,38 @@ RULES:
 - allergens from: ${ALLERGENS_LIST.join(", ")}
 - equipment from: ${EQUIPMENT_LIST.join(", ")}
 - goal from: ${GOALS.join(", ")}
-- INCLUDE ALL ingredients — no limit. If the recipe has 15 ingredients, list all 15. Include toppings, garnishes, optional items, every section.
-- INCLUDE ALL steps — no limit. Cover every instruction in full detail.
-- Each step: realistic timeMin and a short imagePrompt
-- difficulty: beginner, intermediate, or advanced
-- NEVER truncate or omit ingredients/steps
-- Each ingredient MUST have a "section" field — use the section heading it appears under on the source page. Allowed values: main, sauce, marinade, dressing, batter, filling, topping, garnish. Default to "main" if no section applies.`;
+- INCLUDE ALL ingredients — no truncation. All sections, all toppings, all garnishes.
+- INCLUDE ALL steps — full detail, no summarising.
+- Each ingredient must have a "section": main, sauce, marinade, dressing, batter, filling, topping, or garnish.
+- difficulty: beginner, intermediate, or advanced`;
 
   const raw = await anthropicCall({
-    max_tokens: 4000,
-    system: "You are a culinary AI. Respond ONLY with a valid JSON object starting with { and ending with }. No markdown.",
+    max_tokens: 8000,
+    system: "You are a culinary AI. Output ONLY a single valid JSON object starting with { and ending with }. No markdown fences, no extra text.",
     messages: [{role:"user",content:prompt}]
   });
+
   const stripped = raw.replace(/^```(?:json)?\s*/im,"").replace(/\s*```\s*$/im,"").trim();
   const jStart = stripped.indexOf("{"), jEnd = stripped.lastIndexOf("}");
-  if (jStart===-1||jEnd===-1) throw new Error("No JSON found");
-  const recipe = JSON.parse(stripped.slice(jStart, jEnd+1));
+  if (jStart===-1) throw new Error("No JSON found in AI response");
+  let jsonStr = jEnd !== -1 ? stripped.slice(jStart, jEnd+1) : stripped.slice(jStart);
+
+  let recipe;
+  try {
+    recipe = JSON.parse(jsonStr);
+  } catch(e1) {
+    // JSON was likely truncated — attempt repair
+    try {
+      recipe = JSON.parse(repairJson(jsonStr));
+    } catch(e2) {
+      throw new Error("Could not parse recipe JSON: " + e1.message);
+    }
+  }
+
   recipe.totalTime = recipe.totalTime || (recipe.prepTime||0) + (recipe.cookTime||0);
   if (recipe.antiInflammatory && !(recipe.tags||[]).includes("Anti-Inflammatory")) recipe.tags = [...(recipe.tags||[]), "Anti-Inflammatory"];
   if (recipe.bloodSugarFriendly && !(recipe.tags||[]).includes("Blood Sugar Stable")) recipe.tags = [...(recipe.tags||[]), "Blood Sugar Stable"];
   if (pageImage && !recipe.image) recipe.image = pageImage;
-  // Return _pageText so the caller can verify completeness without re-fetching
   return {...recipe, id:Date.now(), _pageText: pageText || null};
 }
 
@@ -1838,6 +1888,7 @@ Return empty arrays if nothing is missing or wrong.`}]
     if (e.message === "RATE_LIMIT") return "Rate limit hit — wait 60 seconds and try again.";
     if (e.message === "INVALID_KEY") return "Invalid API key — click ⚙️ and re-enter your Anthropic key.";
     if (e.message === "LOW_CREDITS") return "Your Anthropic API credits are too low. Go to console.anthropic.com → Billing to top up.";
+    if (e.message) return "Extraction failed: " + e.message;
     return null;
   };
 
