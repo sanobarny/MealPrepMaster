@@ -307,9 +307,20 @@ async function anthropicCall(body, retries = 3) {
       throw new Error("RATE_LIMIT");
     }
     if (res.status === 401) throw new Error("INVALID_KEY");
-    if (res.status === 400 && errText.includes("credit_balance_too_low")) throw new Error("LOW_CREDITS");
+    if (res.status === 400 && (errText.includes("credit_balance_too_low") || errText.toLowerCase().includes("credit balance") || errText.toLowerCase().includes("too low"))) throw new Error("LOW_CREDITS");
     throw new Error("HTTP " + res.status + ": " + errText.slice(0, 200));
   }
+}
+
+/** Convert any Anthropic API error into a short, user-friendly string */
+function friendlyApiError(e) {
+  if (!e) return "Unknown error";
+  if (e.message === "NO_KEY") return "No API key — click ⚙️ and add your Anthropic key first.";
+  if (e.message === "RATE_LIMIT") return "Rate limit hit — wait 60 seconds and try again.";
+  if (e.message === "INVALID_KEY") return "Invalid API key — re-enter it in ⚙️ Settings.";
+  if (e.message === "LOW_CREDITS") return "Anthropic API credits exhausted — top up at console.anthropic.com → Billing.";
+  if (e.message?.startsWith("HTTP ")) return "API error — check your key and billing at console.anthropic.com.";
+  return e.message || "Unexpected error";
 }
 
 // ─── SVG IMAGE GENERATION ────────────────────────────────────────────────────
@@ -1416,7 +1427,7 @@ function EditRecipeModal({recipe:init, onClose, onSave, onDelete}) {
       setData(d => ({...fresh, id: d.id, ...keepImages}));
       setReimportUrl("");
     } catch(e) {
-      setReimportError("Re-import failed: " + (e.message || "unknown error"));
+      setReimportError(friendlyApiError(e));
     }
     setReimporting(false);
   };
@@ -1444,7 +1455,7 @@ function EditRecipeModal({recipe:init, onClose, onSave, onDelete}) {
       };
       setData(d => ({...fresh, id: d.id, ...keepImages}));
     } catch(e) {
-      setReimportError("Re-import failed: " + (e.message || "unknown error"));
+      setReimportError(friendlyApiError(e));
     }
     setReimporting(false);
   };
@@ -1883,14 +1894,7 @@ Return empty arrays if nothing is missing or wrong.`}]
     }
   };
 
-  const handleError = (e) => {
-    if (e.message === "NO_KEY") return "No API key — click ⚙️ in the topbar and add your Anthropic key first.";
-    if (e.message === "RATE_LIMIT") return "Rate limit hit — wait 60 seconds and try again.";
-    if (e.message === "INVALID_KEY") return "Invalid API key — click ⚙️ and re-enter your Anthropic key.";
-    if (e.message === "LOW_CREDITS") return "Your Anthropic API credits are too low. Go to console.anthropic.com → Billing to top up.";
-    if (e.message) return "Extraction failed: " + e.message;
-    return null;
-  };
+  const handleError = (e) => friendlyApiError(e);
 
   const run = async () => {
     if (!inputVal.trim()) return;
