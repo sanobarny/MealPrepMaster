@@ -5222,7 +5222,7 @@ function App() {
                         <div style={{padding:"10px 12px"}}>
                           {r.source && <div style={{fontSize:10,color:"var(--text-muted)",marginBottom:3,fontWeight:600,textTransform:"uppercase",letterSpacing:.4}}>{r.source}</div>}
                           <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:4,lineHeight:1.3,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.title}</div>
-                          {r.time && <div style={{fontSize:11,color:"var(--text-muted)"}}>⏱ {r.time}</div>}
+                          {r.description && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",lineHeight:1.4}}>{r.description}</div>}
                           <button
                             onClick={e=>{e.stopPropagation();setAddInitialUrl(r.url);setAddOpen(true);}}
                             style={{marginTop:8,width:"100%",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)",borderRadius:8,color:"#5aad8e",fontSize:12,fontWeight:700,padding:"5px 0",cursor:"pointer",fontFamily:"inherit"}}>

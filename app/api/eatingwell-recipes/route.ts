@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+const UA = "Mozilla/5.0 (compatible; MealPrepMaster/1.0)";
 
 let cache: { ts: number; data: Recipe[] } | null = null;
 const CACHE_TTL = 30 * 60 * 1000;
@@ -11,67 +11,65 @@ export interface Recipe {
   title: string;
   url: string;
   image: string | null;
-  time: string;
+  description: string;
   source: string;
 }
 
-const SOURCES: { name: string; url: string; domain: string }[] = [
-  { name: "EatingWell",       url: "https://www.eatingwell.com/recipes/",       domain: "eatingwell.com" },
-  { name: "Skinnytaste",      url: "https://www.skinnytaste.com/recipes/",       domain: "skinnytaste.com" },
-  { name: "Love & Lemons",    url: "https://www.loveandlemons.com/recipes/",     domain: "loveandlemons.com" },
-  { name: "Cookie & Kate",    url: "https://cookieandkate.com/",                 domain: "cookieandkate.com" },
-  { name: "Budget Bytes",     url: "https://www.budgetbytes.com/",               domain: "budgetbytes.com" },
-  { name: "Feel Good Foodie", url: "https://feelgoodfoodie.net/recipe/",         domain: "feelgoodfoodie.net" },
-  { name: "Forks Over Knives",url: "https://www.forksoverknives.com/recipes/",   domain: "forksoverknives.com" },
+const SOURCES: { name: string; rss: string }[] = [
+  { name: "EatingWell",        rss: "https://www.eatingwell.com/feed/" },
+  { name: "Skinnytaste",       rss: "https://www.skinnytaste.com/feed/" },
+  { name: "Love & Lemons",     rss: "https://www.loveandlemons.com/feed/" },
+  { name: "Cookie & Kate",     rss: "https://cookieandkate.com/feed/" },
+  { name: "Budget Bytes",      rss: "https://www.budgetbytes.com/feed/" },
+  { name: "Feel Good Foodie",  rss: "https://feelgoodfoodie.net/feed/" },
+  { name: "Forks Over Knives", rss: "https://www.forksoverknives.com/feed/" },
 ];
 
-const SKIP_TITLE = /^(recipes?|more|next|prev|see all|view|sign|log|subscribe|newsletter|home|about|contact|search|category|tag|jump to|skip)/i;
-const SKIP_PATH  = /^\/(recipes?|articles?|nutrition|healthy-eating|videos?|slideshows?|galleries?|news|tips?|blog|about|contact|search|category|tag)?\/?$/;
-
-function isRecipeUrl(url: string, domain: string): boolean {
-  try {
-    const u = new URL(url);
-    if (!u.hostname.includes(domain)) return false;
-    const parts = u.pathname.split("/").filter(Boolean);
-    if (parts.length < 1) return false;
-    if (SKIP_PATH.test(u.pathname)) return false;
-    return true;
-  } catch { return false; }
+function text(xml: string, tag: string): string {
+  const m = new RegExp(`<${tag}[^>]*>(?:<\\!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, "i").exec(xml);
+  return m ? m[1].trim() : "";
 }
 
-function parseJina(md: string, domain: string, sourceName: string, limit = 6): Recipe[] {
-  const recipes: Recipe[] = [];
-  const seen = new Set<string>();
-  const re = /\[([^\]]{5,120})\]\((https?:\/\/[^\)]+)\)/g;
+function parseRss(xml: string, sourceName: string, limit = 5): Recipe[] {
+  const items: Recipe[] = [];
+  const itemRe = /<item>([\s\S]*?)<\/item>/gi;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(md)) !== null) {
-    const title = m[1].trim();
-    const url   = m[2].trim().split("?")[0];
-    if (seen.has(url) || !isRecipeUrl(url, domain)) continue;
-    if (title.length < 5 || SKIP_TITLE.test(title)) continue;
-    seen.add(url);
-    recipes.push({ title, url, image: null, time: "", source: sourceName });
-    if (recipes.length >= limit) break;
+
+  while ((m = itemRe.exec(xml)) !== null && items.length < limit) {
+    const block = m[1];
+    const title = text(block, "title").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#\d+;/g, "");
+    const url   = text(block, "link") || (/<link>([\s\S]*?)<\/link>/i.exec(block)?.[1] ?? "");
+    if (!title || !url) continue;
+
+    // Image: try media:content, enclosure, or og:image in content
+    const imgM =
+      /media:content[^>]+url="([^"]+)"/i.exec(block) ||
+      /enclosure[^>]+url="([^"]+)"/i.exec(block) ||
+      /<img[^>]+src="([^"]+)"/i.exec(block);
+    const image = imgM ? imgM[1].split("?")[0] : null;
+
+    // Description: strip HTML tags
+    const rawDesc = text(block, "description") || text(block, "content:encoded");
+    const description = rawDesc.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+
+    items.push({ title, url, image, description, source: sourceName });
   }
-  return recipes;
+
+  return items;
 }
 
-async function fetchSource(source: typeof SOURCES[0]): Promise<Recipe[]> {
-  // Try Jina Reader — handles JS-rendered pages, returns clean markdown
+async function fetchSource(src: typeof SOURCES[0]): Promise<Recipe[]> {
   try {
-    const res = await fetch(`https://r.jina.ai/${source.url}`, {
-      headers: { "User-Agent": UA, Accept: "text/plain" },
-      signal: AbortSignal.timeout(18000),
+    const res = await fetch(src.rss, {
+      headers: { "User-Agent": UA, Accept: "application/rss+xml, application/xml, text/xml, */*" },
+      signal: AbortSignal.timeout(12000),
     });
-    if (res.ok) {
-      const md = await res.text();
-      if (md.length > 300) {
-        const recipes = parseJina(md, source.domain, source.name, 6);
-        if (recipes.length >= 2) return recipes;
-      }
-    }
-  } catch (_) {}
-  return [];
+    if (!res.ok) return [];
+    const xml = await res.text();
+    return parseRss(xml, src.name, 5);
+  } catch {
+    return [];
+  }
 }
 
 export async function GET() {
@@ -79,7 +77,6 @@ export async function GET() {
     return NextResponse.json(cache.data);
   }
 
-  // Fetch all sources in parallel
   const results = await Promise.allSettled(SOURCES.map(fetchSource));
   const all: Recipe[] = [];
   for (const r of results) {
@@ -90,16 +87,14 @@ export async function GET() {
     return NextResponse.json({ error: "Could not load recipes" }, { status: 502 });
   }
 
-  // Interleave sources so no single site dominates
+  // Interleave so sources alternate
   const bySource: Record<string, Recipe[]> = {};
-  for (const r of all) {
-    (bySource[r.source] = bySource[r.source] || []).push(r);
-  }
+  for (const r of all) (bySource[r.source] = bySource[r.source] || []).push(r);
   const interleaved: Recipe[] = [];
-  const maxPerSource = Math.max(...Object.values(bySource).map(a => a.length));
-  for (let i = 0; i < maxPerSource; i++) {
-    for (const src of Object.values(bySource)) {
-      if (src[i]) interleaved.push(src[i]);
+  const max = Math.max(...Object.values(bySource).map(a => a.length));
+  for (let i = 0; i < max; i++) {
+    for (const arr of Object.values(bySource)) {
+      if (arr[i]) interleaved.push(arr[i]);
     }
   }
 
