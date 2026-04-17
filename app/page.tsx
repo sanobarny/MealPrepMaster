@@ -5246,8 +5246,7 @@ function App() {
               <div style={{marginBottom:28}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
                   <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,margin:0}}>🌿 Discover Recipes</h3>
-                  <a href="https://www.eatingwell.com/recipes/" target="_blank" rel="noopener noreferrer"
-                    style={{fontSize:11,color:"var(--text-muted)",textDecoration:"none"}}>EatingWell.com ↗</a>
+                  <span style={{fontSize:11,color:"var(--text-muted)"}}>EatingWell · Skinnytaste · Love&Lemons · more</span>
                 </div>
                 <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Click any recipe to import it instantly</p>
                 {discoverLoading && (
@@ -5258,7 +5257,7 @@ function App() {
                 )}
                 {!discoverLoading && discoverRecipes.length>0 && (
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:14}}>
-                    {discoverRecipes.slice(0,12).map((r,i)=>(
+                    {discoverRecipes.slice(0,21).map((r,i)=>(
                       <div key={i}
                         style={{background:"var(--bg-card)",borderRadius:14,overflow:"hidden",border:"1px solid var(--border)",cursor:"pointer",transition:"border-color .15s,transform .15s"}}
                         onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(90,173,142,0.5)";e.currentTarget.style.transform="translateY(-2px)";}}
@@ -5268,6 +5267,7 @@ function App() {
                           ? <img src={r.image} alt={r.title} style={{width:"100%",height:130,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}}/>
                           : <div style={{width:"100%",height:130,background:"var(--nm-input-bg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>🍽️</div>}
                         <div style={{padding:"10px 12px"}}>
+                          {r.source && <div style={{fontSize:10,color:"var(--text-muted)",marginBottom:3,fontWeight:600,textTransform:"uppercase",letterSpacing:.4}}>{r.source}</div>}
                           <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:4,lineHeight:1.3,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.title}</div>
                           {r.time && <div style={{fontSize:11,color:"var(--text-muted)"}}>⏱ {r.time}</div>}
                           <button
