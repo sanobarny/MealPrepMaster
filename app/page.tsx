@@ -1832,10 +1832,10 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 }
 
 // ─── ADD RECIPE MODAL ─────────────────────────────────────────────────────────
-function SmartAddModal({onClose, onAdd}) {
+function SmartAddModal({onClose, onAdd, initialUrl=""}) {
   const [phase, setPhase] = useState("input");
   const [loadingMsg, setLoadingMsg] = useState("Extracting your recipe...");
-  const [inputVal, setInputVal] = useState("");
+  const [inputVal, setInputVal] = useState(initialUrl);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -4471,6 +4471,8 @@ function PantryManager({pantry, setPantry, recipes}) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
+  const [discoverRecipes, setDiscoverRecipes] = useState([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
   // Tombstone set — IDs the user deliberately deleted. Persisted to localStorage
   // so cloud sync never re-adds them from Supabase.
   const deletedIdsRef = useRef(new Set((() => { try { return JSON.parse(localStorage.getItem('mpm_deleted_ids')||'[]'); } catch(e) { return []; } })()));
@@ -4497,6 +4499,7 @@ function App() {
   const [wikiIngredient, setWikiIngredient] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [addInitialUrl, setAddInitialUrl] = useState("");
   const [editTarget, setEditTarget] = useState(null);
   const [sidebar, setSidebar] = useState(true);
   const [favorites, setFavorites] = useState([]);
@@ -4742,6 +4745,16 @@ function App() {
   useEffect(() => { if (hydrated) lsSave('mpm_pantry', pantry); }, [pantry, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_profiles', profiles); }, [profiles, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
+
+  // Fetch EatingWell recipes once on mount
+  useEffect(() => {
+    setDiscoverLoading(true);
+    fetch('/api/eatingwell-recipes')
+      .then(r => r.ok ? r.json() : [])
+      .then(data => { if (Array.isArray(data)) setDiscoverRecipes(data); })
+      .catch(() => {})
+      .finally(() => setDiscoverLoading(false));
+  }, []);
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
@@ -5229,21 +5242,45 @@ function App() {
                   <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
                 ))}
               </div>
-              {(() => {
-                const suggested = recipes.filter(r=>(r.tags||[]).some(t=>["Anti-Inflammatory","Blood Sugar Stable"].includes(t)));
-                if (!suggested.length) return null;
-                return (
-                  <div style={{marginBottom:28}}>
-                    <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>💚 Suggested for You</h3>
-                    <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Anti-inflammatory &amp; blood sugar-stabilizing meals</p>
-                    <div className="r-grid">
-                      {suggested.slice(0,4).map(r=>(
-                        <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
-                      ))}
-                    </div>
+              {/* Discover from EatingWell */}
+              <div style={{marginBottom:28}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,margin:0}}>🌿 Discover Recipes</h3>
+                  <a href="https://www.eatingwell.com/recipes/" target="_blank" rel="noopener noreferrer"
+                    style={{fontSize:11,color:"var(--text-muted)",textDecoration:"none"}}>EatingWell.com ↗</a>
+                </div>
+                <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Click any recipe to import it instantly</p>
+                {discoverLoading && (
+                  <div style={{color:"var(--text-muted)",fontSize:13,padding:"20px 0",textAlign:"center"}}>Loading recipes…</div>
+                )}
+                {!discoverLoading && discoverRecipes.length===0 && (
+                  <div style={{color:"var(--text-muted)",fontSize:13,padding:"20px 0",textAlign:"center"}}>Could not load recipes right now. <button onClick={()=>{setDiscoverLoading(true);fetch('/api/eatingwell-recipes').then(r=>r.ok?r.json():[]).then(d=>{if(Array.isArray(d))setDiscoverRecipes(d);}).catch(()=>{}).finally(()=>setDiscoverLoading(false));}} style={{background:"none",border:"none",color:"var(--accent)",cursor:"pointer",fontFamily:"inherit",textDecoration:"underline"}}>Retry</button></div>
+                )}
+                {!discoverLoading && discoverRecipes.length>0 && (
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:14}}>
+                    {discoverRecipes.slice(0,12).map((r,i)=>(
+                      <div key={i}
+                        style={{background:"var(--bg-card)",borderRadius:14,overflow:"hidden",border:"1px solid var(--border)",cursor:"pointer",transition:"border-color .15s,transform .15s"}}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(90,173,142,0.5)";e.currentTarget.style.transform="translateY(-2px)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.transform="none";}}
+                        onClick={()=>{setAddInitialUrl(r.url);setAddOpen(true);}}>
+                        {r.image
+                          ? <img src={r.image} alt={r.title} style={{width:"100%",height:130,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}}/>
+                          : <div style={{width:"100%",height:130,background:"var(--nm-input-bg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>🍽️</div>}
+                        <div style={{padding:"10px 12px"}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:4,lineHeight:1.3,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.title}</div>
+                          {r.time && <div style={{fontSize:11,color:"var(--text-muted)"}}>⏱ {r.time}</div>}
+                          <button
+                            onClick={e=>{e.stopPropagation();setAddInitialUrl(r.url);setAddOpen(true);}}
+                            style={{marginTop:8,width:"100%",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)",borderRadius:8,color:"#5aad8e",fontSize:12,fontWeight:700,padding:"5px 0",cursor:"pointer",fontFamily:"inherit"}}>
+                            + Import
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              })()}
+                )}
+              </div>
               {recipes.length===0 && (
                 <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                   <div style={{fontSize:40,marginBottom:12}}>🥗</div>
@@ -5448,7 +5485,7 @@ function App() {
       {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)}/>}
       {spinWheelOpen && <SpinWheelModal recipes={recipes} onClose={()=>setSpinWheelOpen(false)} onView={r=>{setViewing(r);setSpinWheelOpen(false);}}/>}
       {remixOpen && <RecipeRemixModal recipes={recipes} onClose={()=>setRemixOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
-      {addOpen && <SmartAddModal onClose={()=>setAddOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
+      {addOpen && <SmartAddModal initialUrl={addInitialUrl} onClose={()=>{setAddOpen(false);setAddInitialUrl("");}} onAdd={r=>setRecipes(p=>[...p,r])}/>}
 
       {/* Comfort meal log modal */}
       {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])}/>}
