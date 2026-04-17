@@ -4,7 +4,6 @@ export const runtime = "nodejs";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-// Simple in-process cache — revalidate every 30 minutes
 let cache: { ts: number; data: Recipe[] } | null = null;
 const CACHE_TTL = 30 * 60 * 1000;
 
@@ -12,92 +11,127 @@ interface Recipe {
   title: string;
   url: string;
   image: string | null;
-  description: string;
   time: string;
 }
 
-function parseRecipes(html: string): Recipe[] {
+/** Parse Jina Reader markdown output — returns lines like [Title](url) */
+function parseJinaMarkdown(md: string): Recipe[] {
   const recipes: Recipe[] = [];
   const seen = new Set<string>();
 
-  // Match recipe card links — eatingwell uses /recipe-name_XXXXXXX/ slugs
-  const cardRe = /<a[^>]+href="(https?:\/\/www\.eatingwell\.com\/[^"]+)"[^>]*>[\s\S]{0,2000}?<\/a>/gi;
-  const titleRe = /class="[^"]*card[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/(?:span|div|h[1-6])/i;
-  const imgRe = /<img[^>]+src="([^"]+(?:eatingwell|dotdash|meredith)[^"]*)"[^>]*(?:alt="([^"]*)")?/i;
-  const timeRe = /(\d+)\s*(?:min|minutes?|hrs?|hours?)/i;
-  const descRe = /class="[^"]*(?:card__summary|card__description|card__byline)[^"]*"[^>]*>([\s\S]*?)<\/(?:p|div|span)/i;
-
+  // Match markdown links whose URL contains eatingwell.com and looks like a recipe
+  const re = /\[([^\]]{5,120})\]\((https:\/\/www\.eatingwell\.com\/[^\)]+)\)/g;
   let m: RegExpExecArray | null;
-  while ((m = cardRe.exec(html)) !== null) {
-    const url = m[0].includes("/recipes/") ? m[1] : null;
-    if (!url || seen.has(url)) continue;
 
-    const block = m[0];
-    const titleMatch = titleRe.exec(block);
-    const imgMatch = imgRe.exec(block);
-    const timeMatch = timeRe.exec(block);
-    const descMatch = descRe.exec(block);
+  while ((m = re.exec(md)) !== null) {
+    const title = m[1].trim();
+    const url = m[2].trim();
 
-    const title = titleMatch
-      ? titleMatch[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-      : imgMatch?.[2]?.trim() || "";
+    // Skip navigation, category, and non-recipe links
+    if (seen.has(url)) continue;
+    if (/\/(recipes|articles|nutrition|healthy-eating|videos|slideshows|galleries|news|tips|)\/?$/.test(url)) continue;
+    if (url.split("/").filter(Boolean).length < 4) continue;
+    if (title.length < 5 || /^(recipes?|more|next|prev|see all|view|sign|log|subscribe|newsletter)/i.test(title)) continue;
 
-    if (!title || title.length < 4) continue;
     seen.add(url);
-
-    const image = imgMatch ? imgMatch[1].split("?")[0] : null;
-    const description = descMatch
-      ? descMatch[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
-      : "";
-    const time = timeMatch ? timeMatch[0].trim() : "";
-
-    recipes.push({ title, url, image, description, time });
+    recipes.push({ title, url, image: null, time: "" });
     if (recipes.length >= 24) break;
   }
 
   return recipes;
 }
 
+/** Parse raw HTML for recipe cards (fallback) */
+function parseHtml(html: string): Recipe[] {
+  const recipes: Recipe[] = [];
+  const seen = new Set<string>();
+
+  // Look for anchor tags pointing to recipe URLs
+  const aRe = /<a[^>]+href="(https?:\/\/www\.eatingwell\.com\/[^"]+)"[^>]*>([\s\S]{0,600}?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+
+  while ((m = aRe.exec(html)) !== null) {
+    const url = m[1];
+    const block = m[2];
+
+    if (seen.has(url)) continue;
+    if (url.split("/").filter(Boolean).length < 4) continue;
+
+    // Try to get title from alt or text
+    const altMatch = /alt="([^"]{5,120})"/i.exec(block);
+    const textMatch = block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const title = altMatch?.[1] || (textMatch.length >= 5 ? textMatch.slice(0, 120) : "");
+    if (!title) continue;
+
+    const imgMatch = /src="([^"]+(?:\.jpg|\.jpeg|\.png|\.webp)[^"]*)"/i.exec(block);
+    const timeMatch = /(\d+)\s*(?:min|hr)/i.exec(block);
+
+    seen.add(url);
+    recipes.push({
+      title,
+      url,
+      image: imgMatch?.[1]?.split("?")[0] || null,
+      time: timeMatch?.[0] || "",
+    });
+    if (recipes.length >= 24) break;
+  }
+
+  return recipes;
+}
+
+const FETCH_URLS = [
+  "https://www.eatingwell.com/recipes/",
+  "https://www.eatingwell.com/recipes/17929/",
+];
+
 export async function GET() {
-  // Return cache if fresh
   if (cache && Date.now() - cache.ts < CACHE_TTL) {
     return NextResponse.json(cache.data);
   }
 
-  let html = "";
-  const urls = [
-    "https://www.eatingwell.com/recipes/",
-    "https://www.eatingwell.com/recipes/17929/",
-  ];
-
-  for (const url of urls) {
+  // --- Try Jina Reader first (handles JS-rendered sites, returns clean markdown) ---
+  for (const pageUrl of FETCH_URLS) {
     try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": UA,
-          Accept: "text/html,application/xhtml+xml,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Cache-Control": "no-cache",
-        },
-        signal: AbortSignal.timeout(14000),
+      const res = await fetch(`https://r.jina.ai/${pageUrl}`, {
+        headers: { "User-Agent": UA, Accept: "text/plain" },
+        signal: AbortSignal.timeout(20000),
       });
       if (res.ok) {
-        html = await res.text();
-        if (html.length > 1000) break;
+        const md = await res.text();
+        if (md.length > 500) {
+          const recipes = parseJinaMarkdown(md);
+          if (recipes.length >= 4) {
+            cache = { ts: Date.now(), data: recipes };
+            return NextResponse.json(recipes);
+          }
+        }
       }
     } catch (_) {}
   }
 
-  if (!html) {
-    return NextResponse.json({ error: "Could not fetch recipes" }, { status: 502 });
+  // --- Fallback: direct HTML fetch ---
+  for (const pageUrl of FETCH_URLS) {
+    try {
+      const res = await fetch(pageUrl, {
+        headers: {
+          "User-Agent": UA,
+          Accept: "text/html,application/xhtml+xml,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        signal: AbortSignal.timeout(14000),
+      });
+      if (res.ok) {
+        const html = await res.text();
+        if (html.length > 1000) {
+          const recipes = parseHtml(html);
+          if (recipes.length >= 4) {
+            cache = { ts: Date.now(), data: recipes };
+            return NextResponse.json(recipes);
+          }
+        }
+      }
+    } catch (_) {}
   }
 
-  const recipes = parseRecipes(html);
-
-  if (recipes.length === 0) {
-    return NextResponse.json({ error: "No recipes parsed" }, { status: 502 });
-  }
-
-  cache = { ts: Date.now(), data: recipes };
-  return NextResponse.json(recipes);
+  return NextResponse.json({ error: "Could not load recipes from EatingWell" }, { status: 502 });
 }
