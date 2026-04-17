@@ -4412,8 +4412,6 @@ function PantryManager({pantry, setPantry, recipes}) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function App() {
   const [recipes, setRecipes] = useState(SAMPLE_RECIPES);
-  const [discoverRecipes, setDiscoverRecipes] = useState([]);
-  const [discoverLoading, setDiscoverLoading] = useState(false);
   // Tombstone set — IDs the user deliberately deleted. Persisted to localStorage
   // so cloud sync never re-adds them from Supabase.
   const deletedIdsRef = useRef(new Set((() => { try { return JSON.parse(localStorage.getItem('mpm_deleted_ids')||'[]'); } catch(e) { return []; } })()));
@@ -4699,15 +4697,6 @@ function App() {
   useEffect(() => { if (hydrated) lsSave('mpm_profiles', profiles); }, [profiles, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
 
-  // Fetch EatingWell recipes once on mount
-  useEffect(() => {
-    setDiscoverLoading(true);
-    fetch('/api/eatingwell-recipes')
-      .then(r => r.ok ? r.json() : [])
-      .then(data => { if (Array.isArray(data)) setDiscoverRecipes(data); })
-      .catch(() => {})
-      .finally(() => setDiscoverLoading(false));
-  }, []);
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
@@ -5195,45 +5184,39 @@ function App() {
                   <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
                 ))}
               </div>
-              {/* Discover from EatingWell */}
-              <div style={{marginBottom:28}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                  <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,margin:0}}>🌿 Discover Recipes</h3>
-                  <span style={{fontSize:11,color:"var(--text-muted)"}}>EatingWell · Skinnytaste · Love&Lemons · more</span>
-                </div>
-                <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Click any recipe to import it instantly</p>
-                {discoverLoading && (
-                  <div style={{color:"var(--text-muted)",fontSize:13,padding:"20px 0",textAlign:"center"}}>Loading recipes…</div>
-                )}
-                {!discoverLoading && discoverRecipes.length===0 && (
-                  <div style={{color:"var(--text-muted)",fontSize:13,padding:"20px 0",textAlign:"center"}}>Could not load recipes right now. <button onClick={()=>{setDiscoverLoading(true);fetch('/api/eatingwell-recipes').then(r=>r.ok?r.json():[]).then(d=>{if(Array.isArray(d))setDiscoverRecipes(d);}).catch(()=>{}).finally(()=>setDiscoverLoading(false));}} style={{background:"none",border:"none",color:"var(--accent)",cursor:"pointer",fontFamily:"inherit",textDecoration:"underline"}}>Retry</button></div>
-                )}
-                {!discoverLoading && discoverRecipes.length>0 && (
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:14}}>
-                    {discoverRecipes.slice(0,21).map((r,i)=>(
-                      <div key={i}
-                        style={{background:"var(--bg-card)",borderRadius:14,overflow:"hidden",border:"1px solid var(--border)",cursor:"pointer",transition:"border-color .15s,transform .15s"}}
-                        onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(90,173,142,0.5)";e.currentTarget.style.transform="translateY(-2px)";}}
-                        onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.transform="none";}}
-                        onClick={()=>{setAddInitialUrl(r.url);setAddOpen(true);}}>
-                        {r.image
-                          ? <img src={r.image} alt={r.title} style={{width:"100%",height:130,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}}/>
-                          : <div style={{width:"100%",height:130,background:"var(--nm-input-bg)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>🍽️</div>}
-                        <div style={{padding:"10px 12px"}}>
-                          {r.source && <div style={{fontSize:10,color:"var(--text-muted)",marginBottom:3,fontWeight:600,textTransform:"uppercase",letterSpacing:.4}}>{r.source}</div>}
-                          <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:4,lineHeight:1.3,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.title}</div>
-                          {r.description && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",lineHeight:1.4}}>{r.description}</div>}
-                          <button
-                            onClick={e=>{e.stopPropagation();setAddInitialUrl(r.url);setAddOpen(true);}}
-                            style={{marginTop:8,width:"100%",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)",borderRadius:8,color:"#5aad8e",fontSize:12,fontWeight:700,padding:"5px 0",cursor:"pointer",fontFamily:"inherit"}}>
-                            + Import
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+              {/* Recipe Resources */}
+              {(()=>{
+                const RESOURCES = [
+                  {name:"EatingWell",        url:"https://www.eatingwell.com/recipes/",         emoji:"🥗", desc:"Healthy recipes for every diet"},
+                  {name:"Skinnytaste",       url:"https://www.skinnytaste.com/recipes/",         emoji:"⚖️", desc:"Lightened-up comfort food"},
+                  {name:"Love & Lemons",     url:"https://www.loveandlemons.com/recipes/",       emoji:"🍋", desc:"Fresh vegetarian & vegan recipes"},
+                  {name:"Cookie and Kate",   url:"https://cookieandkate.com/",                   emoji:"🌾", desc:"Whole foods, vegetarian cooking"},
+                  {name:"Budget Bytes",      url:"https://www.budgetbytes.com/",                 emoji:"💰", desc:"Delicious meals on a budget"},
+                  {name:"Feel Good Foodie",  url:"https://feelgoodfoodie.net/recipe/",           emoji:"✨", desc:"Clean & wholesome family recipes"},
+                  {name:"Forks Over Knives", url:"https://www.forksoverknives.com/recipes/",     emoji:"🌱", desc:"Plant-based whole-food recipes"},
+                ];
+                return (
+                  <div style={{marginBottom:28}}>
+                    <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>📚 Recipe Resources</h3>
+                    <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Browse these sites for inspiration, then paste the recipe URL into + Add Recipe</p>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+                      {RESOURCES.map(r=>(
+                        <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
+                          style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"var(--bg-card)",borderRadius:12,border:"1px solid var(--border)",textDecoration:"none",transition:"border-color .15s,transform .15s"}}
+                          onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(90,173,142,0.5)";e.currentTarget.style.transform="translateY(-2px)";}}
+                          onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.transform="none";}}>
+                          <span style={{fontSize:24,flexShrink:0}}>{r.emoji}</span>
+                          <div style={{minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>{r.name}</div>
+                            <div style={{fontSize:11,color:"var(--text-muted)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.desc}</div>
+                          </div>
+                          <span style={{marginLeft:"auto",fontSize:14,color:"var(--text-muted)",flexShrink:0}}>↗</span>
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                )}
-              </div>
+                );
+              })()}
               {recipes.length===0 && (
                 <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                   <div style={{fontSize:40,marginBottom:12}}>🥗</div>
