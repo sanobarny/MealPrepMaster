@@ -48,66 +48,7 @@ const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bnhlcmRlcGlzamZzYWF0enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njc5NjUsImV4cCI6MjA5MTE0Mzk2NX0.Bx9Rtywb9OOk3b6U_skK5IQz5EHZwK1vIsw4geW5sEs';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const SAMPLE_RECIPES = [
-  {
-    id:1, title:"Veggie Omelette", category:"breakfast", image:null,
-    tags:["PCOS-Friendly","Gluten-Free","Low Carb","Blood Sugar Stable"], allergens:["eggs","dairy"],
-    equipment:["stove"], type:{protein:true,grain:false,side:false},
-    nutrition:{calories:280,protein:18,carbs:6,fat:20}, goal:["lose weight"],
-    ingredients:[{name:"Eggs",amount:3,unit:"pcs"},{name:"Spinach",amount:1,unit:"cup"},{name:"Cherry Tomatoes",amount:0.5,unit:"cup"},{name:"Olive Oil",amount:1,unit:"tbsp"},{name:"Feta Cheese",amount:2,unit:"tbsp"}],
-    steps:[{text:"Halve tomatoes and wash spinach.",timeMin:3,imagePrompt:"overhead studio shot of halved cherry tomatoes and fresh spinach on wood cutting board, white marble, soft studio lighting"},{text:"Crack 3 eggs into bowl, whisk until uniform.",timeMin:2,imagePrompt:"overhead studio shot of three cracked eggs being whisked in white ceramic bowl, white marble, soft studio lighting"},{text:"Heat oil in pan until shimmering.",timeMin:2,imagePrompt:"overhead studio shot of olive oil shimmering in dark non-stick skillet, white marble, soft studio lighting"},{text:"Pour eggs, add veg, cook 3 min then fold.",timeMin:4,imagePrompt:"overhead studio shot of golden omelette folding in non-stick pan with spinach and tomatoes, white marble, soft studio lighting"}],
-    sourceUrl:"", prepTime:5, cookTime:6, totalTime:11, servings:1, difficulty:"beginner",
-    healthBenefits:"Protein-rich and blood-sugar friendly.", bloodSugarFriendly:true
-  },
-  {
-    id:2, title:"Grilled Chicken Quinoa Bowl", category:"lunch", image:null,
-    tags:["High Protein","Dairy-Free","PCOS-Friendly","Anti-Inflammatory"], allergens:[],
-    equipment:["oven","stove"], type:{protein:true,grain:true,side:false},
-    nutrition:{calories:420,protein:35,carbs:40,fat:15}, goal:["gain muscle","lose weight"],
-    ingredients:[{name:"Chicken Breast",amount:1.5,unit:"lbs"},{name:"Quinoa",amount:2,unit:"cups"},{name:"Broccoli",amount:4,unit:"cups"},{name:"Olive Oil",amount:0.25,unit:"cup"},{name:"Garlic",amount:4,unit:"cloves"}],
-    steps:[{text:"Season chicken with garlic, olive oil and herbs.",timeMin:5,imagePrompt:"overhead studio shot of raw chicken breasts being seasoned with garlic and herbs, white marble, soft studio lighting"},{text:"Rinse quinoa, simmer in 4 cups water 15 min.",timeMin:18,imagePrompt:"overhead studio shot of quinoa simmering in white ceramic pot, white marble, soft studio lighting"},{text:"Grill chicken 6-7 min per side until 165F.",timeMin:14,imagePrompt:"overhead studio shot of chicken with grill marks in cast iron pan, white marble, soft studio lighting"},{text:"Steam broccoli 4-5 min until bright green.",timeMin:5,imagePrompt:"overhead studio shot of bright green broccoli florets in steamer basket, white marble, soft studio lighting"}],
-    sourceUrl:"", prepTime:10, cookTime:37, totalTime:47, servings:4, difficulty:"intermediate",
-    healthBenefits:"High protein and anti-inflammatory omega-3s.", antiInflammatory:true
-  },
-  {
-    id:3, title:"Matcha Oat Latte", category:"drink", image:null,
-    tags:["Dairy-Free","PCOS-Friendly","Low Calorie"], allergens:[],
-    equipment:["none"], type:{protein:false,grain:false,side:false},
-    nutrition:{calories:90,protein:2,carbs:14,fat:3}, goal:["lose weight","maintenance"],
-    ingredients:[{name:"Matcha Powder",amount:1,unit:"tsp"},{name:"Oat Milk",amount:1,unit:"cup"},{name:"Honey",amount:1,unit:"tsp"},{name:"Hot Water",amount:0.25,unit:"cup"}],
-    steps:[{text:"Sift matcha into ceramic bowl.",timeMin:1,imagePrompt:"overhead studio shot of bright green matcha being sifted into white ceramic bowl, white marble, soft studio lighting"},{text:"Add 175F water, whisk in W motion until frothy.",timeMin:2,imagePrompt:"overhead studio shot of matcha being whisked with bamboo whisk in white bowl, white marble, soft studio lighting"},{text:"Warm oat milk, froth, pour over matcha.",timeMin:3,imagePrompt:"overhead studio shot of frothed oat milk being poured over matcha in clear glass, white marble, soft studio lighting"}],
-    sourceUrl:"", prepTime:2, cookTime:4, totalTime:6, servings:1, difficulty:"beginner", healthBenefits:""
-  },
-  {
-    id:4, title:"Dark Chocolate Coconut Mousse", category:"dessert", image:null,
-    tags:["Dairy-Free","Gluten-Free","Vegan"], allergens:[],
-    equipment:["none"], type:{protein:false,grain:false,side:true},
-    nutrition:{calories:210,protein:4,carbs:28,fat:12}, goal:["maintenance"],
-    ingredients:[{name:"Dark Chocolate 70%",amount:200,unit:"g"},{name:"Coconut Cream",amount:1,unit:"cup"},{name:"Maple Syrup",amount:3,unit:"tbsp"},{name:"Vanilla Extract",amount:1,unit:"tsp"}],
-    steps:[{text:"Melt chocolate over double boiler.",timeMin:6,imagePrompt:"overhead studio shot of dark chocolate melting in glass bowl over saucepan, white marble, soft studio lighting"},{text:"Whip chilled coconut cream to stiff peaks.",timeMin:4,imagePrompt:"overhead studio shot of white coconut cream being whipped in white bowl, white marble, soft studio lighting"},{text:"Fold chocolate into cream, chill 2 hrs.",timeMin:5,imagePrompt:"overhead studio shot of chocolate being folded into coconut cream with spatula, white marble, soft studio lighting"}],
-    sourceUrl:"", prepTime:15, cookTime:11, totalTime:26, servings:4, difficulty:"intermediate", healthBenefits:""
-  },
-  {
-    id:5, title:"Turmeric Ginger Salmon Bowl", category:"lunch", image:null,
-    tags:["Anti-Inflammatory","Omega-3 Rich","Gluten-Free","Dairy-Free","High Protein","Blood Sugar Stable"], allergens:["shellfish"],
-    equipment:["stove","oven"], type:{protein:true,grain:true,side:false},
-    nutrition:{calories:480,protein:42,carbs:38,fat:18}, goal:["lose weight","maintenance"],
-    ingredients:[{name:"Salmon Fillet",amount:2,unit:"pcs"},{name:"Brown Rice",amount:1,unit:"cup"},{name:"Turmeric",amount:1,unit:"tsp"},{name:"Fresh Ginger",amount:1,unit:"tbsp"},{name:"Spinach",amount:2,unit:"cups"},{name:"Olive Oil",amount:2,unit:"tbsp"}],
-    steps:[{text:"Cook brown rice with pinch of turmeric 35 min.",timeMin:35,imagePrompt:"overhead studio shot of brown rice simmering with golden turmeric in white pot, white marble, soft studio lighting"},{text:"Rub salmon with turmeric, ginger and olive oil.",timeMin:5,imagePrompt:"overhead studio shot of salmon being rubbed with golden turmeric on white marble, soft studio lighting"},{text:"Sear salmon 4 min per side until golden.",timeMin:8,imagePrompt:"overhead studio shot of golden seared salmon in cast iron pan, white marble, soft studio lighting"},{text:"Wilt spinach in same pan with garlic 2 min.",timeMin:3,imagePrompt:"overhead studio shot of bright green spinach wilting in cast iron pan, white marble, soft studio lighting"}],
-    sourceUrl:"", prepTime:10, cookTime:46, totalTime:56, servings:2, difficulty:"intermediate",
-    healthBenefits:"Rich in omega-3s and curcumin — potent anti-inflammatory compounds.", antiInflammatory:true, bloodSugarFriendly:true
-  },
-  {
-    id:6, title:"Blood Sugar Balance Bowl", category:"breakfast", image:null,
-    tags:["Blood Sugar Stable","Anti-Inflammatory","Vegan","Gluten-Free","High Fiber","PCOS-Friendly"], allergens:["nuts"],
-    equipment:["none"], type:{protein:false,grain:true,side:false},
-    nutrition:{calories:340,protein:12,carbs:48,fat:14}, goal:["lose weight","maintenance"],
-    ingredients:[{name:"Steel-Cut Oats",amount:0.5,unit:"cup"},{name:"Chia Seeds",amount:2,unit:"tbsp"},{name:"Blueberries",amount:0.5,unit:"cup"},{name:"Cinnamon",amount:0.5,unit:"tsp"},{name:"Almond Butter",amount:1,unit:"tbsp"},{name:"Almond Milk",amount:1,unit:"cup"}],
-    steps:[{text:"Mix oats, chia, almond milk and cinnamon.",timeMin:3,imagePrompt:"overhead studio shot of oats, chia seeds and cinnamon in white bowl with almond milk, white marble, soft studio lighting"},{text:"Refrigerate overnight or simmer 20 min.",timeMin:1,imagePrompt:"overhead studio shot of covered white bowl with overnight oats, white marble, soft studio lighting"},{text:"Top with blueberries and almond butter drizzle.",timeMin:2,imagePrompt:"overhead studio shot of oat bowl topped with blueberries and almond butter, white marble, soft studio lighting"}],
-    sourceUrl:"", prepTime:5, cookTime:1, totalTime:6, servings:1, difficulty:"beginner",
-    healthBenefits:"Steel-cut oats and chia create a slow-digesting blood-sugar-stabilising breakfast.", antiInflammatory:true, bloodSugarFriendly:true
-  }
-];
+const SAMPLE_RECIPES = [];
 
 const CATEGORIES = [
   {id:"all",label:"All Recipes",icon:"\u{1F37D}\uFE0F"},
@@ -4664,6 +4605,18 @@ function App() {
 
   // Load all persisted data on mount
   useEffect(() => {
+    // One-time migration: remove built-in sample recipes (IDs 1–6)
+    const SAMPLE_IDS = new Set([1,2,3,4,5,6].map(String));
+    try {
+      const saved = localStorage.getItem('mpm_recipes');
+      if (saved) {
+        const filtered = JSON.parse(saved).filter(r => !SAMPLE_IDS.has(String(r.id)));
+        if (filtered.length !== JSON.parse(saved).length) {
+          localStorage.setItem('mpm_recipes', JSON.stringify(filtered));
+        }
+      }
+    } catch(_) {}
+
     // Handle shared recipe URL
     try {
       const params = new URLSearchParams(window.location.search);
