@@ -511,9 +511,11 @@ RULES:
 - equipment from: ${EQUIPMENT_LIST.join(", ")}
 - goal from: ${GOALS.join(", ")}
 - INCLUDE ALL ingredients — no truncation. All sections, all toppings, all garnishes.
-- INCLUDE ALL steps — full detail, no summarising.
+- INCLUDE ALL steps — copy every sentence, temperature, time, and technique. Do NOT summarise or omit any detail. Each step must be the full original instruction.
 - Each ingredient must have a "section": main, sauce, marinade, dressing, batter, filling, topping, or garnish.
-- difficulty: beginner, intermediate, or advanced`;
+- difficulty: beginner, intermediate, or advanced
+- healthBenefits: ALWAYS fill this in — describe the key nutritional or health benefits of this dish in 1-2 sentences (e.g. protein content, anti-inflammatory ingredients, fibre, vitamins).
+- servings: set to the ACTUAL number of servings the original recipe makes. Ingredient amounts must match that serving count exactly.`;
 
   const raw = await anthropicCall({
     max_tokens: 8000,
@@ -542,6 +544,26 @@ RULES:
   if (recipe.antiInflammatory && !(recipe.tags||[]).includes("Anti-Inflammatory")) recipe.tags = [...(recipe.tags||[]), "Anti-Inflammatory"];
   if (recipe.bloodSugarFriendly && !(recipe.tags||[]).includes("Blood Sugar Stable")) recipe.tags = [...(recipe.tags||[]), "Blood Sugar Stable"];
   if (pageImage && !recipe.image) recipe.image = pageImage;
+
+  // Normalize to 1 serving so planner can scale correctly
+  const origServings = Math.max(1, recipe.servings || 1);
+  if (origServings > 1) {
+    const round2 = n => Math.round((n / origServings) * 100) / 100;
+    recipe.ingredients = (recipe.ingredients || []).map(ing => ({
+      ...ing,
+      amount: ing.amount ? round2(ing.amount) : ing.amount,
+    }));
+    if (recipe.nutrition) {
+      recipe.nutrition = {
+        calories: Math.round((recipe.nutrition.calories || 0) / origServings),
+        protein:  Math.round((recipe.nutrition.protein  || 0) / origServings),
+        carbs:    Math.round((recipe.nutrition.carbs    || 0) / origServings),
+        fat:      Math.round((recipe.nutrition.fat      || 0) / origServings),
+      };
+    }
+    recipe.servings = 1;
+  }
+
   return {...recipe, id:Date.now(), _pageText: pageText || null};
 }
 
@@ -965,9 +987,10 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
           <div style={{marginTop:7,display:"flex",gap:10,fontSize:11,color:"var(--text-muted)",flexWrap:"wrap",alignItems:"center"}}>
             <span>{recipe.prepTime||0}m prep</span>
             <span>{recipe.cookTime||0}m cook</span>
-            <span>{recipe.servings} servings</span>
+            <span>{recipe.servings} serving{recipe.servings!==1?"s":""}</span>
             {(recipe.spiceLevel||0) > 0 && <span style={{color:"#e05050"}}>{"🌶".repeat(recipe.spiceLevel)}</span>}
           </div>
+          {recipe.healthBenefits && <div style={{marginTop:7,fontSize:11,color:"#5aad8e",lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>💚 {recipe.healthBenefits}</div>}
         </div>
       </div>
       {onFavorite && (
@@ -3049,41 +3072,60 @@ const ALARM_SOUNDS = [
   {key:"none",  label:"Silent",       emoji:"🔕"},
 ];
 
+// Persistent AudioContext — created once and unlocked on first user gesture
+let _sharedAudioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (!_sharedAudioCtx || _sharedAudioCtx.state === "closed") {
+      _sharedAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (_sharedAudioCtx.state === "suspended") _sharedAudioCtx.resume();
+    return _sharedAudioCtx;
+  } catch(e) { return null; }
+}
+// Call this on any user click to pre-unlock audio before a timer fires
+function unlockAudio() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const buf = ctx.createBuffer(1, 1, 22050);
+  const src = ctx.createBufferSource();
+  src.buffer = buf; src.connect(ctx.destination); src.start(0);
+}
+
 function playAlarmSound(type) {
   if (type === "none") return;
+  const ctx = getAudioCtx();
+  if (!ctx) return;
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const tone = (freq, startTime, duration, vol=0.45, wave="sine") => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = wave;
-      osc.frequency.setValueAtTime(freq, startTime);
-      gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(vol, startTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-      osc.start(startTime); osc.stop(startTime + duration + 0.05);
-    };
-    const t = ctx.currentTime;
-    if (type === "bell") {
-      // Three kitchen dings with harmonics
-      [0, 0.65, 1.3].forEach(d => { tone(880, t+d, 1.1, 0.4); tone(1320, t+d+0.01, 0.8, 0.15); });
-    } else if (type === "beep") {
-      // Classic oven beeps
-      [0, 0.38, 0.76, 1.14].forEach(d => tone(1100, t+d, 0.28, 0.5, "square"));
-    } else if (type === "chime") {
-      // Ascending chime melody
-      [[523,0],[659,0.22],[784,0.44],[1047,0.66],[784,1.0],[1047,1.22]].forEach(([f,d]) => tone(f, t+d, 0.65, 0.32));
-    } else if (type === "horn") {
-      // Rising alarm horn
-      tone(330, t,    0.5, 0.6, "sawtooth");
-      tone(440, t+0.5, 0.5, 0.6, "sawtooth");
-      tone(550, t+1.0, 0.9, 0.6, "sawtooth");
-    } else if (type === "zen") {
-      // Single long resonant bell
-      tone(528, t, 4.0, 0.5); tone(792, t+0.06, 3.0, 0.2); tone(1056, t+0.12, 2.0, 0.08);
-    }
-    setTimeout(() => { try { ctx.close(); } catch(e) {} }, 5000);
+    const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
+    resume.then(() => {
+      const tone = (freq, startTime, duration, vol=0.45, wave="sine") => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = wave;
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(vol, startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+        osc.start(startTime); osc.stop(startTime + duration + 0.05);
+      };
+      const t = ctx.currentTime;
+      if (type === "bell") {
+        [0, 0.65, 1.3].forEach(d => { tone(880, t+d, 1.1, 0.4); tone(1320, t+d+0.01, 0.8, 0.15); });
+      } else if (type === "beep") {
+        [0, 0.38, 0.76, 1.14].forEach(d => tone(1100, t+d, 0.28, 0.5, "square"));
+      } else if (type === "chime") {
+        [[523,0],[659,0.22],[784,0.44],[1047,0.66],[784,1.0],[1047,1.22]].forEach(([f,d]) => tone(f, t+d, 0.65, 0.32));
+      } else if (type === "horn") {
+        tone(330, t, 0.5, 0.6, "sawtooth");
+        tone(440, t+0.5, 0.5, 0.6, "sawtooth");
+        tone(550, t+1.0, 0.9, 0.6, "sawtooth");
+      } else if (type === "zen") {
+        tone(528, t, 4.0, 0.5); tone(792, t+0.06, 3.0, 0.2); tone(1056, t+0.12, 2.0, 0.08);
+      }
+    });
   } catch(e) { console.warn("Audio playback failed", e); }
 }
 
@@ -3313,7 +3355,7 @@ function CookMode({recipe, onClose}) {
 
         {/* Start cooking button */}
         <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 20px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)"}}>
-          <button onClick={()=>setPhase("cook")} style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:14,color:"#fff",padding:"16px",fontWeight:800,fontSize:17,cursor:"pointer",fontFamily:"inherit"}}>
+          <button onClick={()=>{unlockAudio();setPhase("cook");}} style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:14,color:"#fff",padding:"16px",fontWeight:800,fontSize:17,cursor:"pointer",fontFamily:"inherit"}}>
             🍳 Start Cooking →
           </button>
         </div>
@@ -3429,7 +3471,7 @@ function CookMode({recipe, onClose}) {
               </div>
               <div style={{color:isDone?"#5aad8e":isRunning?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(st.remaining)}</div>
               <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-                <button onClick={()=>setStepTimers(t=>({...t,[step]:{...t[step],running:!isRunning}}))}
+                <button onClick={()=>{unlockAudio();setStepTimers(t=>({...t,[step]:{...t[step],running:!isRunning}}));}}
                   style={{background:isRunning?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:isRunning?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
                   {isDone?"✅ Done":isRunning?"⏸ Pause":"▶ Start"}
                 </button>
