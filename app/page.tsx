@@ -511,7 +511,7 @@ RULES:
 - equipment from: ${EQUIPMENT_LIST.join(", ")}
 - goal from: ${GOALS.join(", ")}
 - INCLUDE ALL ingredients — no truncation. All sections, all toppings, all garnishes.
-- INCLUDE ALL steps — preserve every temperature, time, and technique. Break multi-action sentences into separate steps (one action per step). For example "Season chicken, heat oil, then sear 6 min per side" becomes 3 steps: (1) Season chicken, (2) Heat oil until shimmering, (3) Sear 6 min per side. Never merge actions; never omit any detail.
+- INCLUDE ALL steps — zero omissions. Every instruction from the source must appear. Then break any step that contains multiple actions into separate steps (one action per step). Example: "Season chicken, heat oil, then sear 6 min per side" → 3 steps: (1) Season chicken with salt and pepper, (2) Heat oil in pan over medium-high until shimmering, (3) Sear chicken 6 minutes per side. Result: more steps than the original, never fewer. Never merge, never skip, never summarise.
 - Each ingredient must have a "section": main, sauce, marinade, dressing, batter, filling, topping, or garnish.
 - difficulty: beginner, intermediate, or advanced
 - healthBenefits: ALWAYS fill this in — describe the key nutritional or health benefits of this dish in 1-2 sentences (e.g. protein content, anti-inflammatory ingredients, fibre, vitamins).
