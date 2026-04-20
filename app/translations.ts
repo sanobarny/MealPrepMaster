@@ -32,9 +32,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'label.fat': 'Fat',
     'label.healthBenefits': 'Health Benefits',
     'label.container': 'Meal Prep Container Layout',
-    'label.protein': 'Protein',
-    'label.grain': 'Grain',
-    'label.veggies': 'Veggies',
+    'label.containerProtein': 'Protein',
+    'label.containerGrain': 'Grain',
+    'label.containerVeggies': 'Veggies',
 
     // Section Headers
     'section.sauces': 'For the Sauce',
@@ -145,7 +145,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'edit.delete': 'Delete Recipe',
     'edit.deleteConfirm': 'Are you sure? This cannot be undone.',
     'edit.deleteCancel': 'Cancel',
-    'edit.deleteConfirm': 'Delete',
+    'edit.deleteConfirmBtn': 'Delete',
 
     // Settings
     'settings.title': 'Settings',
@@ -231,9 +231,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'label.fat': 'Grasas',
     'label.healthBenefits': 'Beneficios para la Salud',
     'label.container': 'Distribución de Recipiente de Preparación',
-    'label.protein': 'Proteína',
-    'label.grain': 'Cereales',
-    'label.veggies': 'Verduras',
+    'label.containerProtein': 'Proteína',
+    'label.containerGrain': 'Cereales',
+    'label.containerVeggies': 'Verduras',
 
     // Section Headers
     'section.sauces': 'Para la Salsa',
@@ -430,9 +430,9 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'label.fat': 'Жиры',
     'label.healthBenefits': 'Преимущества для здоровья',
     'label.container': 'Макет контейнера для приготовления',
-    'label.protein': 'Белки',
-    'label.grain': 'Крупы',
-    'label.veggies': 'Овощи',
+    'label.containerProtein': 'Белки',
+    'label.containerGrain': 'Крупы',
+    'label.containerVeggies': 'Овощи',
 
     // Section Headers
     'section.sauces': 'Для соуса',

@@ -4812,6 +4812,21 @@ function App() {
   useEffect(() => { localStorage.setItem('mpm_language', language); }, [language]);
   useEffect(() => { if (hydrated) lsSave('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
 
+  // Auto-translate viewing recipe when language changes
+  useEffect(() => {
+    if (viewing && language !== 'en' && anthropicKey?.trim()) {
+      const timer = setTimeout(async () => {
+        try {
+          const translated = await translateRecipe(viewing, language, anthropicKey);
+          if (translated && translated.id === viewing.id) {
+            setViewing(translated);
+          }
+        } catch(e) { console.warn('Translation failed:', e); }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [language, viewing?.id, anthropicKey]);
+
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
