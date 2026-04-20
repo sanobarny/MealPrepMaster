@@ -1376,16 +1376,31 @@ function EditRecipeModal({recipe:init, onClose, onSave, onDelete}) {
     try {
       const fresh = await aiExtractRecipe(inputVal.trim());
       delete fresh._pageText;
-      // Preserve all images from current recipe
+
+      // Build lookup maps from existing recipe for name-based image matching
+      const oldIngMap = {};
+      (data.ingredients||[]).forEach(ing => { if (ing.image) oldIngMap[(ing.name||"").toLowerCase()] = ing.image; });
+      // For steps: find best-matching old step by shared keywords
+      const findStepImg = (newText) => {
+        const words = (newText||"").toLowerCase().split(/\W+/).filter(w=>w.length>3);
+        let best = null, bestScore = 0;
+        (data.steps||[]).forEach(st => {
+          if (!st.image) return;
+          const score = words.filter(w=>(st.text||"").toLowerCase().includes(w)).length;
+          if (score > bestScore) { bestScore = score; best = st.image; }
+        });
+        return bestScore >= 2 ? best : null;
+      };
+
       const keepImages = {
         image: data.image || fresh.image,
-        ingredients: (fresh.ingredients||[]).map((ing, i) => ({
+        ingredients: (fresh.ingredients||[]).map(ing => ({
           ...ing,
-          image: data.ingredients?.[i]?.image || ing.image || null,
+          image: oldIngMap[(ing.name||"").toLowerCase()] || ing.image || null,
         })),
-        steps: (fresh.steps||[]).map((st, i) => ({
+        steps: (fresh.steps||[]).map(st => ({
           ...st,
-          image: data.steps?.[i]?.image || st.image || null,
+          image: findStepImg(st.text) || st.image || null,
         })),
       };
       setData(d => ({...fresh, id: d.id, ...keepImages}));
@@ -1406,15 +1421,27 @@ function EditRecipeModal({recipe:init, onClose, onSave, onDelete}) {
         reader.readAsDataURL(file);
       });
       const fresh = await aiExtractRecipeFromImage(base64DataUrl);
+      const oldIngMap2 = {};
+      (data.ingredients||[]).forEach(ing => { if (ing.image) oldIngMap2[(ing.name||"").toLowerCase()] = ing.image; });
+      const findStepImg2 = (newText) => {
+        const words = (newText||"").toLowerCase().split(/\W+/).filter(w=>w.length>3);
+        let best = null, bestScore = 0;
+        (data.steps||[]).forEach(st => {
+          if (!st.image) return;
+          const score = words.filter(w=>(st.text||"").toLowerCase().includes(w)).length;
+          if (score > bestScore) { bestScore = score; best = st.image; }
+        });
+        return bestScore >= 2 ? best : null;
+      };
       const keepImages = {
         image: data.image || fresh.image,
-        ingredients: (fresh.ingredients||[]).map((ing, i) => ({
+        ingredients: (fresh.ingredients||[]).map(ing => ({
           ...ing,
-          image: data.ingredients?.[i]?.image || ing.image || null,
+          image: oldIngMap2[(ing.name||"").toLowerCase()] || ing.image || null,
         })),
-        steps: (fresh.steps||[]).map((st, i) => ({
+        steps: (fresh.steps||[]).map(st => ({
           ...st,
-          image: data.steps?.[i]?.image || st.image || null,
+          image: findStepImg2(st.text) || st.image || null,
         })),
       };
       setData(d => ({...fresh, id: d.id, ...keepImages}));
