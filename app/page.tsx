@@ -51,6 +51,21 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // ─── TRANSLATION HELPERS ──────────────────────────────────────────────────────
 const t = (key, lang = 'en') => getTranslation(key, lang);
 
+const getCategoryLabel = (id, lang = 'en') => {
+  const keys = {all: 'cat.all', breakfast: 'cat.breakfast', lunch: 'cat.lunch', dessert: 'cat.dessert', drink: 'cat.drink'};
+  return t(keys[id], lang);
+};
+
+const getSectionLabel = (key, lang = 'en') => {
+  const keys = {main: 'section.main', sauce: 'section.sauces', marinade: 'section.marinades', dressing: 'section.dressing', batter: 'section.batter', filling: 'section.filling', topping: 'section.toppings', garnish: 'section.garnish'};
+  return t(keys[key], lang);
+};
+
+const getDifficultyLabel = (key, lang = 'en') => {
+  const keys = {beginner: 'diff.beginner', intermediate: 'diff.intermediate', advanced: 'diff.advanced'};
+  return t(keys[key], lang);
+};
+
 const translateRecipe = async (recipe, targetLang, anthropicKey) => {
   if (targetLang === 'en' || !recipe) return recipe;
   const cacheKey = `mpm_recipe_translation_${recipe.id}_${targetLang}`;
@@ -1031,7 +1046,7 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
 }
 
 // ─── RECIPE DETAIL ────────────────────────────────────────────────────────────
-function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap}) {
+function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap, language='en'}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
   const [genIdx, setGenIdx] = useState(null);
@@ -1234,7 +1249,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                     <div key={key}>
                       {multiSection && (
                         <div style={{color:secMeta?.color||"#8a9bb0",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",padding:"8px 0 4px",marginTop:key!==orderedGroups[0].key?8:0,borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-                          {secMeta?.label || key}
+                          {getSectionLabel(key, language)}
                         </div>
                       )}
                       {items.map((ing)=>(
@@ -1381,7 +1396,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
     </div>
   );
 }
-function EditRecipeModal({recipe:init, onClose, onSave, onDelete}) {
+function EditRecipeModal({recipe:init, onClose, onSave, onDelete, language='en'}) {
   const [data, setData] = useState({...init});
   const mainImgRef = useRef(null);
   const stepImgRefs = useRef({});
@@ -1716,7 +1731,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                 <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder="Unit" style={{...IS,flex:1,minWidth:50}}/>
                 <select value={ing.section||inferIngSection(ing.name)} onChange={e=>setIng(i,"section",e.target.value)}
                   style={{...IS,flex:"0 0 auto",width:"auto",padding:"0 6px",fontSize:11,height:36,color:(ING_SECTIONS.find(s=>s.key===(ing.section||inferIngSection(ing.name)))?.color||"var(--text-sub)")}}>
-                  {ING_SECTIONS.map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+                  {ING_SECTIONS.map(s=><option key={s.key} value={s.key}>{getSectionLabel(s.key, language)}</option>)}
                 </select>
                 <button onClick={()=>removeIng(i)} style={{...GB,padding:"4px 8px",color:"#f08080",fontSize:14,flexShrink:0}}>×</button>
               </div>
@@ -5386,7 +5401,7 @@ function App() {
                 {CATEGORIES.map(c=>(
                   <button key={c.id} onClick={()=>setCatF(c.id)}
                     style={{...CB,boxShadow:catF===c.id?"var(--nm-inset)":"var(--nm-raised-sm)",color:catF===c.id?"var(--accent)":"var(--text-sub)",padding:"6px 14px"}}>
-                    {c.icon} {c.label}
+                    {c.icon} {getCategoryLabel(c.id, language)}
                   </button>
                 ))}
               </div>
@@ -5526,6 +5541,7 @@ function App() {
           onRate={r=>setRatingTarget(r)} ratings={ratings}
           onEdit={()=>setEditTarget(viewing)}
           onIngredientTap={name=>setWikiIngredient(name)}
+          language={language}
           onMarkCooked={r=>setCookLog(p=>[...p,{id:Date.now(),recipeId:r.id,recipeName:r.title,date:new Date().toISOString()}])}/>
       )}
       {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)}/>}
@@ -5539,7 +5555,7 @@ function App() {
       {/* Recipe audit modal */}
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
       {whatCanICookOpen && <WhatCanICookModal recipes={recipes} pantry={pantry} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}}/>}
-      {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)}
+      {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)} language={language}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
         onDelete={id=>{trackDeleted(id,recipes);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
       {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
