@@ -1218,8 +1218,8 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             {/* Ingredients */}
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",margin:0}}>Ingredients</h3>
-                <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",borderRadius:7,color:"#7ab0f0",padding:"3px 9px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>📷 All Ingredients</button>
+                <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",margin:0}}>{t('label.ingredients', language)}</h3>
+                <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",borderRadius:7,color:"#7ab0f0",padding:"3px 9px",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>📷 {t('btn.allIngredients', language)}</button>
               </div>
               <input ref={ingOverallRef} type="file" accept="image/*" style={{display:"none"}} onChange={uploadIngOverall}/>
               {recipe.ingredientsImage && (
@@ -1290,7 +1290,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             </div>
             {/* Details */}
             <div>
-              <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>Details</h3>
+              <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>{t('label.details', language)}</h3>
               {[["Prep",recipe.prepTime+"min"],["Cook",recipe.cookTime+"min"],["Total",total+"min"],["Servings",scale],["Calories",Math.round(recipe.nutrition.calories*r)+"kcal"],["Equipment",(recipe.equipment||[]).join(", ")],["Spice",(recipe.spiceLevel||0)===0?"None":"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]],recipe.cuisine&&["Cuisine","🌍 "+recipe.cuisine]].filter(Boolean).map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
                   <span style={{color:"#6a7a90"}}>{k}</span>
@@ -1301,7 +1301,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           </div>
 
           {/* Steps */}
-          <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:12}}>Preparation Steps</h3>
+          <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:12}}>{t('label.steps', language)}</h3>
           {(recipe.steps||[]).map((step,i)=>{
             const timer = timers[i];
             return (
@@ -1371,9 +1371,9 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
 
           {/* Actions */}
           <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-            {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ Rate</button>}
-            {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>✏️ Edit</button>}
-            {onMarkCooked && <button onClick={()=>{onMarkCooked(recipe);alert("✅ Marked as cooked! Streak updated.");}} style={{...GB,flex:1,background:"rgba(90,173,142,0.2)",color:"#5aad8e"}}>🍳 Mark Cooked</button>}
+            {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ {t('btn.rate', language)}</button>}
+            {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>✏️ {t('btn.edit', language)}</button>}
+            {onMarkCooked && <button onClick={()=>{onMarkCooked(recipe);alert(t('msg.markedCooked', language));}} style={{...GB,flex:1,background:"rgba(90,173,142,0.2)",color:"#5aad8e"}}>🍳 {t('btn.markCooked', language)}</button>}
             <button onClick={()=>{
               const mins = parseInt(prompt("Remind me in how many minutes?","30"));
               if (!mins||isNaN(mins)) return;
