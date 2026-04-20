@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef, useMemo, Component } from "react";
 import { createClient } from '@supabase/supabase-js';
+import { TRANSLATIONS, t as getTranslation, type Language } from './translations';
 
 // ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
 class ErrorBoundary extends Component {
@@ -46,6 +47,32 @@ const sanitizeProfile = p => ({
 
 const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bnhlcmRlcGlzamZzYWF0enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njc5NjUsImV4cCI6MjA5MTE0Mzk2NX0.Bx9Rtywb9OOk3b6U_skK5IQz5EHZwK1vIsw4geW5sEs';
+
+// ─── TRANSLATION HELPERS ──────────────────────────────────────────────────────
+const t = (key, lang = 'en') => getTranslation(key, lang);
+
+const translateRecipe = async (recipe, targetLang, anthropicKey) => {
+  if (targetLang === 'en' || !recipe) return recipe;
+  const cacheKey = `mpm_recipe_translation_${recipe.id}_${targetLang}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) return JSON.parse(cached);
+  if (!anthropicKey?.trim()) return recipe;
+  try {
+    const systemPrompt = `Translate the following recipe to ${targetLang === 'es' ? 'Spanish' : 'Russian'}.
+Return ONLY valid JSON with the same structure. Translate: title, description, healthBenefits, and all ingredient names and step text.
+Keep ingredient amounts and units unchanged. Preserve all other fields exactly.`;
+    const messages = [{role: 'user', content: `Translate this recipe:\n${JSON.stringify(recipe)}`}];
+    const result = await anthropicCall({max_tokens: 6000, system: systemPrompt, messages});
+    const m = result.match(/\{[\s\S]*\}/);
+    if (m) {
+      const translated = JSON.parse(m[0]);
+      const final = {...recipe, ...translated, id: recipe.id};
+      lsSave(cacheKey, JSON.stringify(final));
+      return final;
+    }
+  } catch(e) { console.warn('Recipe translation failed:', e); }
+  return recipe;
+};
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const SAMPLE_RECIPES = [];
@@ -4534,6 +4561,7 @@ function App() {
   const [tipIdx, setTipIdx] = useState(0);
   const [darkMode, setDarkMode] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [language, setLanguage] = useState('en');
   const [searchOpen, setSearchOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
@@ -4732,6 +4760,8 @@ function App() {
     setAnthropicKey(pwaGet('anthropic_key') || '');
     setPexelsKey(pwaGet('pexels_key') || '');
     setDarkMode(localStorage.getItem('dark_mode') !== 'false');
+    const savedLang = localStorage.getItem('mpm_language') || 'en';
+    setLanguage(savedLang);
     setHydrated(true);
     const check = () => { const m = window.innerWidth < 768; setIsMobile(m); if(m) setSidebar(false); };
     check();
@@ -4764,6 +4794,7 @@ function App() {
   useEffect(() => { if (hydrated) lsSave('mpm_spends', shoppingSpends); }, [shoppingSpends, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_pantry', pantry); }, [pantry, hydrated]);
   useEffect(() => { if (hydrated) lsSave('mpm_profiles', profiles); }, [profiles, hydrated]);
+  useEffect(() => { localStorage.setItem('mpm_language', language); }, [language]);
   useEffect(() => { if (hydrated) lsSave('mpm_active_profile', activeProfileId); }, [activeProfileId, hydrated]);
 
 
@@ -5051,10 +5082,20 @@ function App() {
 
         {/* Settings dropdown */}
         {settingsOpen && (
-          <div style={{position:"absolute",top:64,right:16,zIndex:200,background:"var(--bg-card)",boxShadow:"var(--nm-raised),0 16px 48px var(--shadow-dark)",borderRadius:18,padding:22,width:310}}>
+          <div style={{position:"absolute",top:64,right:16,zIndex:200,background:"var(--bg-card)",boxShadow:"var(--nm-raised),0 16px 48px var(--shadow-dark)",borderRadius:18,padding:22,width:310,maxHeight:"80vh",overflowY:"auto"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <span style={{color:"var(--text)",fontWeight:700,fontSize:14}}>⚙️ API Keys</span>
+              <span style={{color:"var(--text)",fontWeight:700,fontSize:14}}>⚙️ Settings</span>
               <button onClick={()=>setSettingsOpen(false)} style={{...GB,padding:"3px 9px",fontSize:18,lineHeight:1}}>×</button>
+            </div>
+            {/* Language Selector */}
+            <div style={{marginBottom:16}}>
+              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🌐 Language</div>
+              <select value={language} onChange={e=>setLanguage(e.target.value)} style={{...IS,fontSize:13,width:"100%"}}>
+                <option value="en">English</option>
+                <option value="es">Español (Spanish)</option>
+                <option value="ru">Русский (Russian)</option>
+              </select>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginTop:6}}>UI and recipe content will be translated</div>
             </div>
             <div style={{marginBottom:16}}>
               <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🤖 Anthropic Key <span style={{color:"#f08080"}}>(required for AI)</span></div>
