@@ -49,7 +49,7 @@ const SUPABASE_URL = 'https://aznxerdepisjfsaatzyg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bnhlcmRlcGlzamZzYWF0enlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1Njc5NjUsImV4cCI6MjA5MTE0Mzk2NX0.Bx9Rtywb9OOk3b6U_skK5IQz5EHZwK1vIsw4geW5sEs';
 
 // ─── TRANSLATION HELPERS ──────────────────────────────────────────────────────
-const t = (key, lang = 'en') => getTranslation(key, lang);
+const t = (key, lang = 'en', replacements?) => getTranslation(key, lang, replacements);
 
 const getCategoryLabel = (id, lang = 'en') => {
   const keys = {all: 'cat.all', breakfast: 'cat.breakfast', lunch: 'cat.lunch', dessert: 'cat.dessert', drink: 'cat.drink'};
@@ -1702,10 +1702,10 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         {/* Ingredients */}
         <div style={{marginBottom:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Ingredients</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{t('edit.ingredients',language)}</div>
             <div style={{display:"flex",gap:6}}>
               <button onClick={()=>ingOverallRef.current?.click()} style={{...GB,padding:"3px 10px",fontSize:12}}>📷 Overall Photo</button>
-              <button onClick={addIng} style={{...GB,padding:"3px 10px",fontSize:12}}>+ Add</button>
+              <button onClick={addIng} style={{...GB,padding:"3px 10px",fontSize:12}}>{t('edit.addIngredient',language)}</button>
             </div>
           </div>
           <input ref={ingOverallRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>set("ingredientsImage",url))}/>
@@ -1742,8 +1742,8 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         {/* Steps */}
         <div style={{marginBottom:18}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>Steps</div>
-            <button onClick={addStep} style={{...GB,padding:"3px 10px",fontSize:12}}>+ Add Step</button>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{t('edit.steps',language)}</div>
+            <button onClick={addStep} style={{...GB,padding:"3px 10px",fontSize:12}}>{t('edit.addStep',language)}</button>
           </div>
           {(data.steps||[]).map((step,i)=>(
             <div key={i} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:12,marginBottom:10}}>
@@ -1837,10 +1837,10 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           <div style={{marginBottom:12,background:"rgba(212,90,90,0.1)",border:"1px solid rgba(212,90,90,0.35)",borderRadius:12,padding:"12px 14px"}}>
             <div style={{color:"#d45a5a",fontWeight:700,fontSize:13,marginBottom:10}}>Delete "{data.title}"? This cannot be undone.</div>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>setConfirmDelete(false)} style={{...GB,flex:1}}>Keep It</button>
+              <button onClick={()=>setConfirmDelete(false)} style={{...GB,flex:1}}>{t('edit.keepIt',language)}</button>
               <button onClick={()=>onDelete(data.id)}
                 style={{flex:1,background:"linear-gradient(135deg,#a03030,#d45a5a)",border:"none",borderRadius:12,color:"#fff",padding:"10px 0",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-                Delete Forever
+                {t('edit.deleteForever',language)}
               </button>
             </div>
           </div>
@@ -1853,10 +1853,10 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
               🗑 Delete
             </button>
           )}
-          <button onClick={onClose} style={{...GB,flex:1}}>Cancel</button>
+          <button onClick={onClose} style={{...GB,flex:1}}>{t('edit.cancel',language)}</button>
           <button onClick={()=>onSave({...data,totalTime:(data.prepTime||0)+(data.cookTime||0)})}
             style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
-            💾 Save Changes
+            {t('edit.saveChanges',language)}
           </button>
         </div>
       </div>
@@ -3048,7 +3048,7 @@ function IngredientSearch({recipes, onView}) {
 }
 
 // ─── RATING MODAL ─────────────────────────────────────────────────────────────
-function RatingModal({recipe, existing, onSave, onClose}) {
+function RatingModal({recipe, existing, onSave, onClose, language='en'}) {
   const [taste, setTaste] = useState((existing&&existing.taste)||0);
   const [difficulty, setDifficulty] = useState((existing&&existing.difficulty)||0);
   const [timeAccuracy, setTimeAccuracy] = useState((existing&&existing.timeAccuracy)||0);
@@ -3060,21 +3060,27 @@ function RatingModal({recipe, existing, onSave, onClose}) {
       ))}
     </div>
   );
+  const ratingLabels = [
+    [t('rating.taste',language),taste,setTaste],
+    [t('rating.difficulty',language),difficulty,setDifficulty],
+    [t('rating.timeAccuracy',language),timeAccuracy,setTimeAccuracy],
+    [t('rating.spice',language),spice,setSpice],
+  ];
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#0d0f17",border:"1px solid rgba(255,255,255,0.08)",borderRadius:20,padding:28,maxWidth:400,width:"100%"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <h3 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>Rate: {recipe.title}</h3>
+          <h3 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>{t('rating.title',language)} {recipe.title}</h3>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#6a7a90",cursor:"pointer",fontSize:22}}>×</button>
         </div>
-        {[["⭐ Taste",taste,setTaste],["💪 Difficulty",difficulty,setDifficulty],["🕐 Time Accuracy",timeAccuracy,setTimeAccuracy],["🌶 Spice",spice,setSpice]].map(([label,val,set])=>(
+        {ratingLabels.map(([label,val,set])=>(
           <div key={label} style={{marginBottom:16}}>
             <div style={{color:"#8a9bb0",fontSize:13,marginBottom:8}}>{label}</div>
             <Stars val={val} set={set}/>
           </div>
         ))}
         <button onClick={()=>{onSave(recipe.id,{taste,difficulty,timeAccuracy,spice});onClose();}} style={{width:"100%",background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
-          Save Rating
+          {t('rating.save',language)}
         </button>
       </div>
     </div>
@@ -3662,7 +3668,7 @@ function PhotoGallery({recipes, onView}) {
 }
 
 // ─── SUPPLEMENT TRACKER ───────────────────────────────────────────────────────
-function SupplementTracker({supplements, setSupplements}) {
+function SupplementTracker({supplements, setSupplements, language='en'}) {
   const [newName, setNewName] = useState("");
   const [newDose, setNewDose] = useState("");
   const [newTime, setNewTime] = useState("morning");
@@ -3685,22 +3691,23 @@ function SupplementTracker({supplements, setSupplements}) {
   const removeSup = id => setSupplements(p=>p.filter(s=>s.id!==id));
 
   const TIMES = ["morning","afternoon","evening","with meals"];
+  const TIME_LABELS = {morning:t('supp.morning',language),afternoon:t('supp.afternoon',language),evening:t('supp.evening',language),"with meals":t('supp.withMeals',language)};
   const TIME_COLORS = {morning:"#ffd580",afternoon:"#d4875a",evening:"#9b5aad","with meals":"#5aad8e"};
   const TIME_ICONS = {morning:"🌅",afternoon:"☀️",evening:"🌙","with meals":"🍽️"};
 
-  const byTime = TIMES.map(t=>({time:t,items:supplements.filter(s=>s.time===t)})).filter(g=>g.items.length>0);
+  const byTime = TIMES.map(tm=>({time:tm,items:supplements.filter(s=>s.time===tm)})).filter(g=>g.items.length>0);
   const doneToday = supplements.filter(s=>(s.log||[]).includes(today)).length;
 
   return (
     <div>
-      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>💊 Supplement Tracker</h2>
-      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:18}}>{doneToday}/{supplements.length} taken today</p>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('supp.title',language)}</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:18}}>{t('supp.takenToday',language,{done:String(doneToday),total:String(supplements.length)})}</p>
 
       {/* Progress bar */}
       {supplements.length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:12,padding:"12px 16px",marginBottom:18}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
-            <span style={{color:"var(--text-sub)"}}>Today's progress</span>
+            <span style={{color:"var(--text-sub)"}}>{t('supp.progress',language)}</span>
             <span style={{color:"var(--accent)",fontWeight:700}}>{doneToday}/{supplements.length}</span>
           </div>
           <div style={{height:8,background:"var(--nm-input-bg)",borderRadius:4,boxShadow:"var(--nm-inset)"}}>
@@ -3711,32 +3718,32 @@ function SupplementTracker({supplements, setSupplements}) {
 
       {/* Add supplement */}
       <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 16px",marginBottom:20}}>
-        <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase"}}>➕ Add Supplement</div>
+        <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase"}}>{t('supp.addSection',language)}</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSup()}
-            placeholder="e.g. Vitamin D3" style={{flex:"1 1 140px",background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-          <input value={newDose} onChange={e=>setNewDose(e.target.value)} placeholder="Dose (e.g. 2000 IU)"
+            placeholder={t('supp.namePlaceholder',language)} style={{flex:"1 1 140px",background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
+          <input value={newDose} onChange={e=>setNewDose(e.target.value)} placeholder={t('supp.dosePlaceholder',language)}
             style={{flex:"1 1 120px",background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"8px 12px",fontSize:13,outline:"none",fontFamily:"inherit"}}/>
           <select value={newTime} onChange={e=>setNewTime(e.target.value)}
             style={{flex:"0 0 130px",background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:8,color:"var(--text)",padding:"8px 10px",fontSize:13,outline:"none",fontFamily:"inherit"}}>
-            {TIMES.map(t=><option key={t} value={t}>{TIME_ICONS[t]} {t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+            {TIMES.map(tm=><option key={tm} value={tm}>{TIME_ICONS[tm]} {TIME_LABELS[tm]}</option>)}
           </select>
-          <button onClick={addSup} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:8,color:"#fff",padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>+ Add</button>
+          <button onClick={addSup} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:8,color:"#fff",padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{t('supp.add',language)}</button>
         </div>
       </div>
 
       {supplements.length===0 && (
         <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
           <div style={{fontSize:40,marginBottom:10}}>💊</div>
-          <div style={{fontSize:14}}>No supplements added yet</div>
-          <div style={{fontSize:12,marginTop:4}}>Track your vitamins and supplements daily</div>
+          <div style={{fontSize:14}}>{t('supp.empty',language)}</div>
+          <div style={{fontSize:12,marginTop:4}}>{t('supp.emptyHint',language)}</div>
         </div>
       )}
 
       {byTime.map(({time,items})=>(
         <div key={time} style={{marginBottom:20}}>
           <div style={{color:TIME_COLORS[time],fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>
-            {TIME_ICONS[time]} {time.charAt(0).toUpperCase()+time.slice(1)}
+            {TIME_ICONS[time]} {TIME_LABELS[time]}
           </div>
           {items.map(s=>{
             const done = (s.log||[]).includes(today);
@@ -3750,7 +3757,7 @@ function SupplementTracker({supplements, setSupplements}) {
                   <div style={{color:"var(--text)",fontSize:13,fontWeight:done?400:600,textDecoration:done?"line-through":"none"}}>{s.name}</div>
                   {s.dose && <div style={{color:"var(--text-muted)",fontSize:11}}>{s.dose}</div>}
                 </div>
-                <div style={{color:done?TIME_COLORS[time]:"var(--text-muted)",fontSize:11,fontWeight:700}}>{done?"✓ Taken":"Tap to log"}</div>
+                <div style={{color:done?TIME_COLORS[time]:"var(--text-muted)",fontSize:11,fontWeight:700}}>{done?t('supp.taken',language):t('supp.tapToLog',language)}</div>
                 <button onClick={e=>{e.stopPropagation();removeSup(s.id);}} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:14,cursor:"pointer",padding:"0 4px",opacity:.5}} title="Remove">×</button>
               </div>
             );
@@ -5523,7 +5530,7 @@ function App() {
           {sec==="supplements" && (
             <div>
               <ProfileSelector profiles={profiles} activeProfileId={activeProfileId} setActiveProfileId={setActiveProfileId} addProfile={addProfile} deleteProfile={deleteProfile} renameProfile={renameProfile}/>
-              <SupplementTracker supplements={supplements} setSupplements={setSupplements}/>
+              <SupplementTracker supplements={supplements} setSupplements={setSupplements} language={language}/>
             </div>
           )}
 
@@ -5659,7 +5666,7 @@ function App() {
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)} language={language}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
         onDelete={id=>{trackDeleted(id,recipes);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
-      {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)}/>}
+      {ratingTarget && <RatingModal recipe={ratingTarget} existing={ratings[ratingTarget.id]} onSave={(id,r)=>setRatings(p=>({...p,[id]:r}))} onClose={()=>setRatingTarget(null)} language={language}/>}
 
       {/* AI Meal Coach */}
       <div style={{position:"fixed",bottom:isMobile?72:24,right:20,zIndex:300}}>

@@ -315,6 +315,41 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'planner.portionsPlural': '{n} portions',
     'planner.shoppingList': '🛒 Shopping List →',
 
+    // Edit Modal buttons
+    'edit.keepIt': 'Keep It',
+    'edit.deleteForever': 'Delete Forever',
+    'edit.cancel': 'Cancel',
+    'edit.saveChanges': '💾 Save Changes',
+    'edit.addIngredient': '+ Add',
+    'edit.addStep': '+ Add Step',
+    'edit.ingredients': 'Ingredients',
+    'edit.steps': 'Steps',
+
+    // Rating Modal
+    'rating.title': 'Rate:',
+    'rating.taste': '⭐ Taste',
+    'rating.difficulty': '💪 Difficulty',
+    'rating.timeAccuracy': '🕐 Time Accuracy',
+    'rating.spice': '🌶 Spice',
+    'rating.save': 'Save Rating',
+
+    // Supplement Tracker
+    'supp.title': '💊 Supplement Tracker',
+    'supp.takenToday': '{done}/{total} taken today',
+    'supp.progress': "Today's progress",
+    'supp.addSection': '➕ Add Supplement',
+    'supp.namePlaceholder': 'e.g. Vitamin D3',
+    'supp.dosePlaceholder': 'Dose (e.g. 2000 IU)',
+    'supp.add': '+ Add',
+    'supp.empty': 'No supplements added yet',
+    'supp.emptyHint': 'Track your vitamins and supplements daily',
+    'supp.tapToLog': 'Tap to log',
+    'supp.taken': '✓ Taken',
+    'supp.morning': 'Morning',
+    'supp.afternoon': 'Afternoon',
+    'supp.evening': 'Evening',
+    'supp.withMeals': 'With Meals',
+
     // PDF
     'pdf.ingredients': 'Ingredients',
     'pdf.steps': 'Preparation Steps',
@@ -641,6 +676,41 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'planner.portionsPlural': '{n} porciones',
     'planner.shoppingList': '🛒 Lista de Compras →',
 
+    // Edit Modal buttons
+    'edit.keepIt': 'Mantenerla',
+    'edit.deleteForever': 'Eliminar para siempre',
+    'edit.cancel': 'Cancelar',
+    'edit.saveChanges': '💾 Guardar Cambios',
+    'edit.addIngredient': '+ Añadir',
+    'edit.addStep': '+ Añadir Paso',
+    'edit.ingredients': 'Ingredientes',
+    'edit.steps': 'Pasos',
+
+    // Rating Modal
+    'rating.title': 'Calificar:',
+    'rating.taste': '⭐ Sabor',
+    'rating.difficulty': '💪 Dificultad',
+    'rating.timeAccuracy': '🕐 Precisión de Tiempo',
+    'rating.spice': '🌶 Picante',
+    'rating.save': 'Guardar Calificación',
+
+    // Supplement Tracker
+    'supp.title': '💊 Rastreador de Suplementos',
+    'supp.takenToday': '{done}/{total} tomados hoy',
+    'supp.progress': 'Progreso de hoy',
+    'supp.addSection': '➕ Añadir Suplemento',
+    'supp.namePlaceholder': 'ej. Vitamina D3',
+    'supp.dosePlaceholder': 'Dosis (ej. 2000 UI)',
+    'supp.add': '+ Añadir',
+    'supp.empty': 'No hay suplementos añadidos',
+    'supp.emptyHint': 'Rastrea tus vitaminas y suplementos diariamente',
+    'supp.tapToLog': 'Toca para registrar',
+    'supp.taken': '✓ Tomado',
+    'supp.morning': 'Mañana',
+    'supp.afternoon': 'Tarde',
+    'supp.evening': 'Noche',
+    'supp.withMeals': 'Con Comidas',
+
     // PDF
     'pdf.ingredients': 'Ingredientes',
     'pdf.steps': 'Pasos de Preparación',
@@ -966,6 +1036,41 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'planner.portions2': '{n} порция',
     'planner.portionsPlural': '{n} порций',
     'planner.shoppingList': '🛒 Список покупок →',
+
+    // Edit Modal buttons
+    'edit.keepIt': 'Оставить',
+    'edit.deleteForever': 'Удалить навсегда',
+    'edit.cancel': 'Отмена',
+    'edit.saveChanges': '💾 Сохранить изменения',
+    'edit.addIngredient': '+ Добавить',
+    'edit.addStep': '+ Добавить шаг',
+    'edit.ingredients': 'Ингредиенты',
+    'edit.steps': 'Шаги',
+
+    // Rating Modal
+    'rating.title': 'Оценить:',
+    'rating.taste': '⭐ Вкус',
+    'rating.difficulty': '💪 Сложность',
+    'rating.timeAccuracy': '🕐 Точность времени',
+    'rating.spice': '🌶 Острота',
+    'rating.save': 'Сохранить оценку',
+
+    // Supplement Tracker
+    'supp.title': '💊 Трекер добавок',
+    'supp.takenToday': '{done}/{total} принято сегодня',
+    'supp.progress': 'Прогресс сегодня',
+    'supp.addSection': '➕ Добавить добавку',
+    'supp.namePlaceholder': 'напр. Витамин D3',
+    'supp.dosePlaceholder': 'Доза (напр. 2000 МЕ)',
+    'supp.add': '+ Добавить',
+    'supp.empty': 'Добавок пока нет',
+    'supp.emptyHint': 'Отслеживайте витамины и добавки ежедневно',
+    'supp.tapToLog': 'Нажмите для записи',
+    'supp.taken': '✓ Принято',
+    'supp.morning': 'Утро',
+    'supp.afternoon': 'День',
+    'supp.evening': 'Вечер',
+    'supp.withMeals': 'С едой',
 
     // PDF
     'pdf.ingredients': 'Ингредиенты',
