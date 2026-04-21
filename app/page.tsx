@@ -4943,6 +4943,7 @@ function App() {
     {id:"gallery",label:"Gallery",icon:"📸"},
     {id:"supplements",label:"Supplements",icon:"💊"},
     {id:"statistics",label:"Statistics",icon:"📊"},
+    {id:"settings",label:"Settings",icon:"⚙️"},
   ];
 
   const toggleFav = r => setFavorites(p=>p.some(f=>f.id===r.id)?p.filter(f=>f.id!==r.id):[...p,{id:r.id}]);
@@ -5094,9 +5095,11 @@ function App() {
             style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1,flexShrink:0}}>
             {darkMode?"☀️":"🌙"}
           </button>
-          <button onClick={()=>setSettingsOpen(s=>!s)} title="API Keys"
-            style={{...GB,background:anthropicKey?"rgba(58,125,94,0.25)":"rgba(192,80,80,0.18)",color:anthropicKey?"var(--accent)":"#f08080",padding:"7px 10px",fontSize:isMobile?13:13,flexShrink:0}}>
-            {isMobile?(anthropicKey?"⚙️✓":"⚙️!"):(anthropicKey?"⚙️ Keys ✓":"⚙️ Add API Key")}
+          <button onClick={()=>setSettingsOpen(s=>!s)} title="Settings"
+            style={{...GB,background:settingsOpen?"var(--nm-inset)":"var(--bg-card)",color:"var(--text-sub)",padding:"7px 10px",fontSize:isMobile?13:13,flexShrink:0}}>
+            {isMobile
+              ? ({en:"🌐",es:"🇪🇸",ru:"🇷🇺"}[language]||"⚙️")
+              : ({en:"⚙️ Settings",es:"⚙️ Configuración",ru:"⚙️ Настройки"}[language]||"⚙️ Settings")}
           </button>
           <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:10,color:"#fff",padding:isMobile?"8px 12px":"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
             {isMobile?"＋":"+ Add Recipe"}
@@ -5531,6 +5534,89 @@ function App() {
           {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing}/>}
 
           {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing}/>}
+
+          {sec==="settings" && (
+            <div style={{maxWidth:560,margin:"0 auto"}}>
+              <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚙️ Settings</h2>
+              <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:24}}>App preferences and configuration</p>
+
+              {/* Language */}
+              <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🌐 Language</h3>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Select your preferred display language. Recipe content is translated automatically using AI.</p>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                  {[["en","English","🇺🇸"],["es","Español","🇪🇸"],["ru","Русский","🇷🇺"]].map(([code,label,flag])=>(
+                    <button key={code} onClick={()=>setLanguage(code)}
+                      style={{...GB,padding:"14px 12px",flexDirection:"column",display:"flex",alignItems:"center",gap:6,
+                        background:language===code?"rgba(58,125,94,0.22)":"var(--bg-card)",
+                        boxShadow:language===code?"var(--nm-inset)":"var(--nm-raised-sm)",
+                        color:language===code?"var(--accent)":"var(--text-sub)",
+                        border:language===code?"1px solid var(--accent)":"1px solid transparent",borderRadius:14,fontWeight:language===code?700:400}}>
+                      <span style={{fontSize:28}}>{flag}</span>
+                      <span style={{fontSize:13}}>{label}</span>
+                      {language===code && <span style={{fontSize:10,color:"var(--accent)"}}>✓ Active</span>}
+                    </button>
+                  ))}
+                </div>
+                {language!=="en" && <div style={{marginTop:14,background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.2)",borderRadius:10,padding:"10px 14px",color:"var(--accent)",fontSize:12}}>
+                  ✓ UI is in {({es:"Spanish",ru:"Russian"}[language])}. Open a recipe to auto-translate its content (requires API key).
+                </div>}
+              </div>
+
+              {/* Appearance */}
+              <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🎨 Appearance</h3>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Toggle between dark and light mode.</p>
+                <div style={{display:"flex",gap:10}}>
+                  {[[true,"🌙 Dark"],[false,"☀️ Light"]].map(([val,label])=>(
+                    <button key={String(val)} onClick={()=>toggleDark()} style={{...GB,flex:1,padding:"12px 0",
+                      background:darkMode===val?"rgba(58,125,94,0.22)":"var(--bg-card)",
+                      boxShadow:darkMode===val?"var(--nm-inset)":"var(--nm-raised-sm)",
+                      color:darkMode===val?"var(--accent)":"var(--text-sub)",
+                      border:darkMode===val?"1px solid var(--accent)":"1px solid transparent",borderRadius:12,fontWeight:darkMode===val?700:400,fontSize:14}}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* API Keys */}
+              <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🤖 AI & API Keys</h3>
+                <div style={{marginBottom:16}}>
+                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>Anthropic Key <span style={{color:"#f08080"}}>(required for AI features)</span></div>
+                  <input type="password" placeholder="sk-ant-api03-…" value={anthropicKey}
+                    onChange={e=>{setAnthropicKey(e.target.value);pwaSet('anthropic_key',e.target.value);}}
+                    style={{...IS,fontSize:14,marginBottom:8}}/>
+                  {anthropicKey
+                    ? <div style={{color:"var(--accent)",fontSize:12}}>✓ AI extraction, image generation & translation enabled</div>
+                    : <div style={{color:"var(--text-sub)",fontSize:12}}>Get a free key at <span style={{color:"#5a8fd4"}}>console.anthropic.com</span> → API Keys</div>}
+                </div>
+                <div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>Pexels Key <span style={{color:"var(--text-muted)"}}>(optional, for real food photos)</span></div>
+                  <input type="password" placeholder="Pexels API key…" value={pexelsKey}
+                    onChange={e=>{setPexelsKey(e.target.value);pwaSet('pexels_key',e.target.value);}}
+                    style={{...IS,fontSize:14,marginBottom:8}}/>
+                  {pexelsKey
+                    ? <div style={{color:"var(--accent)",fontSize:12}}>✓ Real food photos enabled</div>
+                    : <div style={{color:"var(--text-sub)",fontSize:12}}>Free at <span style={{color:"#5a8fd4"}}>pexels.com/api</span></div>}
+                </div>
+              </div>
+
+              {/* Data */}
+              <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24}}>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>💾 Data & Backup</h3>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Export your recipes as a backup or import from a previous export.</p>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={exportData} style={{...GB,flex:1,fontSize:13,padding:"11px 0"}}>📤 Export Backup</button>
+                  <label style={{...GB,flex:1,fontSize:13,padding:"11px 0",textAlign:"center",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    📥 Import Backup
+                    <input type="file" accept=".json" style={{display:"none"}} onChange={importData}/>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
