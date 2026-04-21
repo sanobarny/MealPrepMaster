@@ -642,7 +642,7 @@ async function toBase64(url) {
   } catch(e) { return null; }
 }
 
-async function exportRecipeToPDF(recipe, scale) {
+async function exportRecipeToPDF(recipe, scale, lang='en') {
   const s = scale || recipe.servings || 1;
   const r = s / (recipe.servings||1);
 
@@ -711,9 +711,9 @@ async function exportRecipeToPDF(recipe, scale) {
   ${recipe.healthBenefits ? `<div class="hbnote">${recipe.healthBenefits}</div>` : ""}
   <div class="tags">${(recipe.tags||[]).map(t=>`<span class="tag ${HEALTH_TAGS.includes(t)?"health":""}">${t}</span>`).join("")}${(recipe.allergens||[]).map(a=>`<span class="tag" style="background:#fff3e0;color:#e65100">⚠ ${a}</span>`).join("")}</div>
   <div class="nutrition">
-    ${[["Calories",Math.round(recipe.nutrition.calories*r),""],["Protein",Math.round(recipe.nutrition.protein*r),"g"],["Carbs",Math.round(recipe.nutrition.carbs*r),"g"],["Fat",Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
+    ${[[t('label.calories',lang),Math.round(recipe.nutrition.calories*r),""],[ t('label.protein',lang),Math.round(recipe.nutrition.protein*r),"g"],[t('label.carbs',lang),Math.round(recipe.nutrition.carbs*r),"g"],[t('label.fat',lang),Math.round(recipe.nutrition.fat*r),"g"]].map(([l,v,u])=>`<div class="nbox"><div class="nval">${v}${u}</div><div class="nlbl">${l}</div></div>`).join("")}
   </div>
-  <div class="stitle">Ingredients <small style="font-weight:400;color:#888">(${s} servings)</small></div>
+  <div class="stitle">${t('pdf.ingredients',lang)} <small style="font-weight:400;color:#888">(${s} ${t('label.servings',lang).toLowerCase()})</small></div>
   ${ingOverallB64 ? `<div class="ing-overall-wrap"><img src="${ingOverallB64}" class="ing-overall" alt="All ingredients"/></div>` : ""}
   ${(()=>{
     const ings = (recipe.ingredients||[]).map((ing,i)=>({...ing,_i:i,_sec:ing.section||inferIngSection(ing.name)}));
@@ -723,7 +723,7 @@ async function exportRecipeToPDF(recipe, scale) {
     const multi = Object.keys(groups).length > 1;
     return [...order,...Object.keys(groups).filter(k=>!order.includes(k))].filter(k=>groups[k]).map(k=>{
       const meta = ING_SECTIONS.find(s=>s.key===k);
-      return `${multi?`<div style="font-size:11px;font-weight:700;color:${meta?.color||"#888"};letter-spacing:1px;text-transform:uppercase;padding:10px 0 4px;margin-top:4px;border-bottom:1px solid #eee">${meta?.label||k}</div>`:""}`+
+      return `${multi?`<div style="font-size:11px;font-weight:700;color:${meta?.color||"#888"};letter-spacing:1px;text-transform:uppercase;padding:10px 0 4px;margin-top:4px;border-bottom:1px solid #eee">${getSectionLabel(k, lang)}</div>`:""}`+
         groups[k].map((ing)=>`<div class="ing">
           ${ingB64s[ing._i] ? `<img src="${ingB64s[ing._i]}" class="ing-thumb" alt="${ing.name}"/>` : `<div class="ing-emoji">${getItemEmoji(ing.name)}</div>`}
           <span class="ing-name">${ing.name}</span>
@@ -731,7 +731,7 @@ async function exportRecipeToPDF(recipe, scale) {
         </div>`).join("");
     }).join("");
   })()}
-  <div class="stitle">Steps</div>
+  <div class="stitle">${t('pdf.steps',lang)}</div>
   ${(recipe.steps||[]).map((step,i)=>{
     const imgs = stepImgB64s[i].filter(Boolean);
     return `<div class="step-card">
@@ -1178,7 +1178,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             {onFavorite && <button onClick={()=>onFavorite(recipe)} style={{background:isFavorite?"rgba(192,80,80,0.85)":"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",padding:"6px 12px",fontSize:13,fontFamily:"inherit"}}>{isFavorite?"♥ Saved":"♡ Save"}</button>}
             <button onClick={()=>mainImgRef.current?.click()} title="Upload photo" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>📷</button>
             <button onClick={()=>setImgVer(v=>v+1)} title="Regenerate image" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🔄</button>
-            <button onClick={()=>exportRecipeToPDF(recipe,scale)} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 12px",fontSize:12,fontFamily:"inherit"}}>PDF</button>
+            <button onClick={()=>exportRecipeToPDF(recipe,scale,language)} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 12px",fontSize:12,fontFamily:"inherit"}}>PDF</button>
             <button onClick={()=>setCookMode(true)} title="Cook Mode" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🍳</button>
             <button onClick={shareRecipe} title="Share recipe" style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#c8d0dc",cursor:"pointer",padding:"6px 10px",fontSize:14,fontFamily:"inherit"}}>🔗</button>
             <button onClick={onClose} style={{background:"rgba(0,0,0,0.7)",border:"none",borderRadius:10,color:"#fff",cursor:"pointer",width:34,height:34,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
@@ -1392,7 +1392,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           </div>
         </div>
       </div>
-      {cookMode && <CookMode recipe={recipe} onClose={()=>setCookMode(false)}/>}
+      {cookMode && <CookMode recipe={recipe} onClose={()=>setCookMode(false)} language={language}/>}
     </div>
   );
 }
@@ -2327,7 +2327,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 }
 
 // ─── SHOPPING LIST ───────────────────────────────────────────────────────────
-function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget, pantry=[]}) {
+function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget, pantry=[], language='en'}) {
   const [people, setPeople] = useState(1);
   const [weeks, setWeeks] = useState(1);
   const [checked, setChecked] = useState({});
@@ -2424,8 +2424,8 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div>
-          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>🛒 Shopping List</h2>
-          <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{unchecked.length} items remaining · {checkedItems.length} checked off</p>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>🛒 {t('shopping.title',language)}</h2>
+          <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{unchecked.length} {t('shopping.subtitle',language).replace('{count}',unchecked.length).split(' ').slice(1).join(' ')}</p>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button onClick={()=>setBySection(s=>!s)} style={{...GB,fontSize:12}}>{bySection?"📋 All":"🏪 By Section"}</button>
@@ -2480,8 +2480,8 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
       {mealPlanItems.length===0 && manualItems.length===0 && (
         <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
           <div style={{fontSize:40,marginBottom:12}}>🛒</div>
-          <div style={{fontSize:14,marginBottom:6}}>Your shopping list is empty</div>
-          <div style={{fontSize:12}}>Add recipes to your Meal Plan and they'll appear here automatically</div>
+          <div style={{fontSize:14,marginBottom:6}}>{t('shopping.noItems',language)}</div>
+          <div style={{fontSize:12}}>{t('planner.noMealsHint',language)}</div>
         </div>
       )}
 
@@ -2554,7 +2554,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
 }
 
 // ─── MEAL PLAN MANAGER ───────────────────────────────────────────────────────
-function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping}) {
+function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping, language='en'}) {
   const [tab, setTab] = useState("plan");
   const [people, setPeople] = useState(2);
   const [weeks, setWeeks] = useState(1);
@@ -2618,12 +2618,12 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div>
-          <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>Meal Plan</h2>
-          <p style={{color:"#8a9bb0",fontSize:13,margin:0}}>{mealPlanItems.length} meals planned</p>
+          <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>{t('nav.mealPlan',language)}</h2>
+          <p style={{color:"#8a9bb0",fontSize:13,margin:0}}>{mealPlanItems.length} {t('planner.subtitle',language).replace('{count}',mealPlanItems.length).split(' ').slice(1).join(' ')}</p>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setTab("plan")} style={{...GB,background:tab==="plan"?"rgba(58,125,94,0.22)":"var(--bg-card)",color:tab==="plan"?"var(--accent)":"var(--text-sub)",borderRadius:20,padding:"7px 18px",fontSize:13}}>📅 Weekly Plan</button>
-          {onGoShopping && <button onClick={onGoShopping} style={{...GB,background:"rgba(90,143,212,0.15)",color:"#7ab0f0",borderRadius:20,padding:"7px 18px",fontSize:13}}>🛒 Shopping List →</button>}
+          <button onClick={()=>setTab("plan")} style={{...GB,background:tab==="plan"?"rgba(58,125,94,0.22)":"var(--bg-card)",color:tab==="plan"?"var(--accent)":"var(--text-sub)",borderRadius:20,padding:"7px 18px",fontSize:13}}>📅 {t('planner.weeklyPlan',language)}</button>
+          {onGoShopping && <button onClick={onGoShopping} style={{...GB,background:"rgba(90,143,212,0.15)",color:"#7ab0f0",borderRadius:20,padding:"7px 18px",fontSize:13}}>{t('planner.shoppingList',language)}</button>}
         </div>
       </div>
 
@@ -2658,7 +2658,7 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
           </div>
 
           {mealPlanItems.length===0
-            ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:42,marginBottom:10}}>📅</div><div style={{fontSize:15,color:"#8a9bb0"}}>No meals planned yet</div></div>
+            ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:42,marginBottom:10}}>📅</div><div style={{fontSize:15,color:"#8a9bb0"}}>{t('planner.noMeals',language)}</div></div>
             : <div style={{display:"grid",gap:10}}>
                 {DAYS.map(day=>{
                   const items = mealPlanItems.filter(i=>i.day===day);
@@ -3198,7 +3198,7 @@ function playAlarmSound(type) {
   } catch(e) { console.warn("Audio playback failed", e); }
 }
 
-function CookMode({recipe, onClose}) {
+function CookMode({recipe, onClose, language='en'}) {
   const [phase, setPhase] = useState("prep"); // "prep" | "cook"
   const [step, setStep] = useState(0);
   const [prepGuide, setPrepGuide] = useState(()=>buildStaticPrepGuide(recipe));
@@ -3360,7 +3360,7 @@ function CookMode({recipe, onClose}) {
           <button onClick={onClose} style={{...GB,padding:"6px 12px",fontSize:13}}>✕</button>
           <div style={{flex:1}}>
             <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15}}>{recipe.title}</div>
-            <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>🧑‍🍳 Prep Phase · {doneCount}/{totalAllTasks.length} tasks done {loadingAI&&"· AI enhancing…"}</div>
+            <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>🧑‍🍳 {t('cook.prepPhase',language)} · {doneCount}/{totalAllTasks.length} {t('cook.tasksDone',language).replace('{done}',doneCount).replace('{total}',totalAllTasks.length).split(' ').slice(1).join(' ')} {loadingAI&&"· "+t('cook.aiEnhancing',language)}</div>
           </div>
           {doneCount>0&&<div style={{color:"var(--accent)",fontSize:12,fontWeight:700}}>{Math.round(doneCount/Math.max(totalAllTasks.length,1)*100)}%</div>}
         </div>
@@ -3372,18 +3372,18 @@ function CookMode({recipe, onClose}) {
           {recipe.image && <div style={{borderRadius:16,overflow:"hidden",marginBottom:18,height:160,boxShadow:"var(--nm-raised)"}}><img src={recipe.image} alt={recipe.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
 
           {/* Optimization checklist */}
-          <Section icon="🔥" title="Preheat First" color="#e07a40" items={ph} offset={offset} />
+          <Section icon="🔥" title={t('cook.preheatFirst',language)} color="#e07a40" items={ph} offset={offset} />
           {offset+=ph.length}
-          <Section icon="⏱" title="Start These First (Long Cook)" color="#ffd580" items={sf} offset={offset}/>
+          <Section icon="⏱" title={t('cook.startFirst',language)} color="#ffd580" items={sf} offset={offset}/>
           {offset+=sf.length}
-          <Section icon="🚿" title="Wash & Clean" color="#5a8fd4" items={ws} offset={offset}/>
+          <Section icon="🚿" title={t('cook.washClean',language)} color="#5a8fd4" items={ws} offset={offset}/>
           {offset+=ws.length}
-          <Section icon="🔪" title="Prep & Cut" color="#d4875a" items={pr} offset={offset}/>
+          <Section icon="🔪" title={t('cook.prepCut',language)} color="#d4875a" items={pr} offset={offset}/>
 
           {/* Chef tips */}
           {(prepGuide.tips||[]).length>0 && (
             <div style={{background:"rgba(90,173,142,0.08)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"12px 14px",marginBottom:18}}>
-              <div style={{color:"#5aad8e",fontWeight:700,fontSize:12,marginBottom:8}}>👨‍🍳 Chef Tips</div>
+              <div style={{color:"#5aad8e",fontWeight:700,fontSize:12,marginBottom:8}}>👨‍🍳 {t('cook.chefTips',language)}</div>
               {(prepGuide.tips||[]).map((t,i)=>(
                 <div key={i} style={{color:"var(--text-sub)",fontSize:13,lineHeight:1.5,marginBottom:4}}>• {t}</div>
               ))}
@@ -3392,7 +3392,7 @@ function CookMode({recipe, onClose}) {
 
           {/* Ingredients overview */}
           <div style={{marginBottom:18}}>
-            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>🥗 All Ingredients ({(recipe.ingredients||[]).length})</div>
+            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>🥗 {t('cook.allIngredients',language)} ({(recipe.ingredients||[]).length})</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
               {(recipe.ingredients||[]).map((ing,i)=>(
                 <div key={i} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",borderRadius:10,overflow:"hidden"}}>
@@ -3411,7 +3411,7 @@ function CookMode({recipe, onClose}) {
 
           {/* Steps overview */}
           <div>
-            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📋 {steps.length} Steps · {recipe.totalTime||0} min total</div>
+            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📋 {t('cook.steps',language).replace('{count}',steps.length).replace('{time}',recipe.totalTime||0)}</div>
             {steps.map((s,i)=>(
               <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
                 <div style={{width:22,height:22,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div>
@@ -3425,7 +3425,7 @@ function CookMode({recipe, onClose}) {
         {/* Start cooking button */}
         <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 20px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)"}}>
           <button onClick={()=>{unlockAudio();setPhase("cook");}} style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:14,color:"#fff",padding:"16px",fontWeight:800,fontSize:17,cursor:"pointer",fontFamily:"inherit"}}>
-            🍳 Start Cooking →
+            {t('cook.startCooking',language)}
           </button>
         </div>
       </div>
@@ -3438,11 +3438,11 @@ function CookMode({recipe, onClose}) {
     <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {/* Header */}
       <div style={{padding:"12px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
-        <button onClick={()=>setPhase("prep")} style={{...GB,padding:"5px 10px",fontSize:12}}>← Prep</button>
+        <button onClick={()=>setPhase("prep")} style={{...GB,padding:"5px 10px",fontSize:12}}>← {t('cook.prepPhase',language)}</button>
         <div style={{flex:1,textAlign:"center",minWidth:0}}>
           <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{recipe.title}</div>
         </div>
-        <div style={{color:"var(--text-muted)",fontSize:12,fontWeight:700,flexShrink:0}}>Step {step+1}/{steps.length}</div>
+        <div style={{color:"var(--text-muted)",fontSize:12,fontWeight:700,flexShrink:0}}>{t('cook.step',language).replace('{n}',step+1).replace('{total}',steps.length)}</div>
         <button onClick={()=>setAfMode(m=>!m)}
           style={{...GB,padding:"5px 10px",fontSize:12,background:afMode?"rgba(255,160,50,0.18)":"var(--bg-card)",color:afMode?"#f5a623":"var(--text-sub)",border:afMode?"1px solid rgba(255,160,50,0.5)":"none",borderRadius:10,fontWeight:afMode?700:400,flexShrink:0}}>
           🌬️ {afMode?"AF ON":"AF"}
@@ -3464,10 +3464,10 @@ function CookMode({recipe, onClose}) {
       {/* Eat-at scheduler */}
       {showEatAt && (
         <div style={{background:"rgba(90,143,212,0.08)",borderBottom:"1px solid rgba(90,143,212,0.2)",padding:"10px 18px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-          <span style={{color:"#5a8fd4",fontSize:13,fontWeight:700}}>🍽 I want to eat at:</span>
+          <span style={{color:"#5a8fd4",fontSize:13,fontWeight:700}}>{t('cook.eatAtLabel',language)}</span>
           <input type="time" value={eatAt} onChange={e=>setEatAt(e.target.value)}
             style={{...IS,width:120,height:32,padding:"0 8px",fontSize:14,fontWeight:700,color:"#5a8fd4"}}/>
-          {eatAt&&<button onClick={()=>{setEatAt("");setShowEatAt(false);}} style={{...GB,padding:"4px 10px",fontSize:12,color:"var(--text-muted)"}}>Clear</button>}
+          {eatAt&&<button onClick={()=>{setEatAt("");setShowEatAt(false);}} style={{...GB,padding:"4px 10px",fontSize:12,color:"var(--text-muted)"}}>{t('cook.clear',language)}</button>}
           {eatAt&&<span style={{color:"var(--text-muted)",fontSize:12}}>Step 1 starts at {eatAtSchedule[0]?.startLabel}</span>}
         </div>
       )}
@@ -3535,20 +3535,20 @@ function CookMode({recipe, onClose}) {
           return (
             <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 24px",textAlign:"center",marginBottom:18}}>
               <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:4,textTransform:"uppercase",letterSpacing:.8}}>
-                ⏱ Timer{afMode&&afStep?.timeMin&&afStep.timeMin!==current.timeMin?<span style={{color:"#f5a623",marginLeft:6,fontWeight:700}}>🌬️ {timeMin}m (was {current.timeMin}m)</span>:""}
+                ⏱ {t('cook.timerLabel',language)}{afMode&&afStep?.timeMin&&afStep.timeMin!==current.timeMin?<span style={{color:"#f5a623",marginLeft:6,fontWeight:700}}>🌬️ {timeMin}m (was {current.timeMin}m)</span>:""}
                 {eatAtSchedule[step] && <span style={{color:"#5a8fd4",marginLeft:8,fontWeight:700,fontSize:10}}>▶ Start {eatAtSchedule[step].startLabel}</span>}
               </div>
               <div style={{color:isDone?"#5aad8e":isRunning?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(st.remaining)}</div>
               <div style={{display:"flex",gap:10,justifyContent:"center"}}>
                 <button onClick={()=>{unlockAudio();setStepTimers(t=>({...t,[step]:{...t[step],running:!isRunning}}));}}
                   style={{background:isRunning?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:isRunning?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
-                  {isDone?"✅ Done":isRunning?"⏸ Pause":"▶ Start"}
+                  {isDone?t('cook.doneTimer',language):isRunning?t('cook.pauseTimer',language):t('cook.startTimer',language)}
                 </button>
                 <button onClick={()=>setStepTimers(t=>({...t,[step]:{remaining:timeMin*60,running:false}}))} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
               </div>
               {/* Alarm sound picker */}
               <div style={{marginTop:14,borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>🔊 Alarm Sound</div>
+                <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>🔊 {t('cook.alarmSound',language)}</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
                   {ALARM_SOUNDS.map(s=>(
                     <button key={s.key} onClick={()=>{ setAlarmSound(s.key); if(s.key!=="none") playAlarmSound(s.key); }}
@@ -3557,7 +3557,7 @@ function CookMode({recipe, onClose}) {
                     </button>
                   ))}
                 </div>
-                <div style={{color:"var(--text-muted)",fontSize:10,marginTop:6,textAlign:"center"}}>Tap a sound to preview · selected plays when timer ends</div>
+                <div style={{color:"var(--text-muted)",fontSize:10,marginTop:6,textAlign:"center"}}>{t('cook.alarmHint',language)}</div>
               </div>
             </div>
           );
@@ -3566,7 +3566,7 @@ function CookMode({recipe, onClose}) {
         {/* Ingredients used in this step */}
         {stepIngredients.length>0 && (
           <div style={{marginBottom:18}}>
-            <div style={{color:"var(--text-sub)",fontSize:12,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🥗 Ingredients for this step</div>
+            <div style={{color:"var(--text-sub)",fontSize:12,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🥗 {t('cook.ingForStep',language)}</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {stepIngredients.map((ing,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"center",gap:7,background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",borderRadius:10,padding:"6px 10px"}}>
@@ -3586,7 +3586,7 @@ function CookMode({recipe, onClose}) {
 
         {/* All ingredients mini-strip */}
         <div style={{marginBottom:8}}>
-          <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:6}}>All ingredients</div>
+          <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:6}}>{t('cook.allIngStrip',language)}</div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {(recipe.ingredients||[]).map((ing,i)=>{
               const used = stepIngredients.some(s=>s.name===ing.name);
@@ -3603,10 +3603,10 @@ function CookMode({recipe, onClose}) {
       {/* Nav buttons */}
       <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 18px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",gap:10}}>
         <button onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0}
-          style={{...GB,flex:1,padding:"13px",fontSize:15,opacity:step===0?.35:1}}>← Back</button>
+          style={{...GB,flex:1,padding:"13px",fontSize:15,opacity:step===0?.35:1}}>{t('cook.back',language)}</button>
         {step<steps.length-1
-          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>Next →</button>
-          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>✅ Done!</button>
+          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>{t('cook.nextStep',language)}</button>
+          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>{t('cook.finished',language)}</button>
         }
       </div>
     </div>
@@ -4402,7 +4402,7 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
 }
 
 // ─── PANTRY MANAGER ───────────────────────────────────────────────────────────
-function PantryManager({pantry, setPantry, recipes}) {
+function PantryManager({pantry, setPantry, recipes, language='en'}) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState("");
@@ -4459,7 +4459,7 @@ function PantryManager({pantry, setPantry, recipes}) {
 
       {/* Add / edit form */}
       <div style={{background:"var(--bg-card)",borderRadius:14,padding:"14px",marginBottom:18,boxShadow:"var(--nm-raised-sm)"}}>
-        <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{editId?"✏️ Edit Item":"+ Add to Pantry"}</div>
+        <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{editId?t('pantry.editItem',language):t('pantry.addToPantry',language)}</div>
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
           <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ingredient name" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
           <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Qty" type="number" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
@@ -4469,7 +4469,7 @@ function PantryManager({pantry, setPantry, recipes}) {
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={add} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:10,color:"#fff",padding:"8px 20px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
-            {editId?"Save Changes":"Add Item"}
+            {editId?t('pantry.saveItem',language):t('pantry.add',language)}
           </button>
           {editId&&<button onClick={()=>{setEditId(null);setName("");setAmount("");setUnit("");setLowAt("");setPrice("");}} style={{...GB,padding:"8px 14px",fontSize:13}}>Cancel</button>}
         </div>
@@ -4931,19 +4931,19 @@ function App() {
   const clearAllFilters = () => { setCatF("all"); setTagF(null); setHealthF(null); setGoalF(null); setCuisineF(null); setDiffF(null); setMaxTimeF(null); setMaxCostF(null); setApplianceF([]); setSearch(""); };
 
   const navItems = [
-    {id:"dashboard",label:"Dashboard",icon:"🏠"},
-    {id:"recipes",label:"Recipes",icon:"📖"},
-    {id:"mix-match",label:"Mix & Match",icon:"🔀"},
-    {id:"meal-plan",label:"Meal Plan",icon:"📅"},
-    {id:"shopping",label:"Shopping List",icon:"🛒"},
-    {id:"pantry",label:"Pantry",icon:"🥫"},
-    {id:"optimizer",label:"Optimizer",icon:"⚡"},
-    {id:"ingredient-search",label:"Ingredients",icon:"🔍"},
-    {id:"favorites",label:"Favorites",icon:"♥"},
-    {id:"gallery",label:"Gallery",icon:"📸"},
-    {id:"supplements",label:"Supplements",icon:"💊"},
-    {id:"statistics",label:"Statistics",icon:"📊"},
-    {id:"settings",label:"Settings",icon:"⚙️"},
+    {id:"dashboard",      icon:"🏠", tKey:"nav.dashboard"},
+    {id:"recipes",        icon:"📖", tKey:"nav.recipes"},
+    {id:"mix-match",      icon:"🔀", tKey:"nav.mixMatch"},
+    {id:"meal-plan",      icon:"📅", tKey:"nav.mealPlan"},
+    {id:"shopping",       icon:"🛒", tKey:"nav.shopping"},
+    {id:"pantry",         icon:"🥫", tKey:"nav.pantry"},
+    {id:"optimizer",      icon:"⚡", tKey:"nav.optimizer"},
+    {id:"ingredient-search",icon:"🔍",tKey:"nav.ingredients"},
+    {id:"favorites",      icon:"♥", tKey:"nav.favorites"},
+    {id:"gallery",        icon:"📸", tKey:"nav.gallery"},
+    {id:"supplements",    icon:"💊", tKey:"nav.supplements"},
+    {id:"statistics",     icon:"📊", tKey:"nav.statistics"},
+    {id:"settings",       icon:"⚙️", tKey:"nav.settings"},
   ];
 
   const toggleFav = r => setFavorites(p=>p.some(f=>f.id===r.id)?p.filter(f=>f.id!==r.id):[...p,{id:r.id}]);
@@ -5062,16 +5062,16 @@ function App() {
           {navItems.map(item=>(
             <button key={item.id} onClick={()=>navTo(item.id)}
               style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,border:"none",cursor:"pointer",marginBottom:4,background:sec===item.id?"var(--bg-card)":"transparent",boxShadow:sec===item.id?"var(--nm-raised-sm)":"none",color:sec===item.id?"var(--accent)":"var(--text-sub)",fontFamily:"inherit",fontSize:13,fontWeight:sec===item.id?600:400,textAlign:"left",whiteSpace:"nowrap",transition:"all .15s"}}>
-              <span style={{fontSize:16}}>{item.icon}</span>{item.label}
+              <span style={{fontSize:16}}>{item.icon}</span>{t(item.tKey, language)}
               {item.id==="favorites"&&favorites.length>0&&<span style={{marginLeft:"auto",background:"var(--accent)",color:"var(--bg)",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{favorites.length}</span>}
             </button>
           ))}
 
-          <div style={{padding:"12px 12px 4px",color:"var(--text-muted)",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginTop:8}}>Filter by Goal</div>
+          <div style={{padding:"12px 12px 4px",color:"var(--text-muted)",fontSize:10,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginTop:8}}>{t('nav.filterByGoal', language)}</div>
           {[null,...GOALS].map(g=>(
             <button key={g||"all"} onClick={()=>setGoalF(g)}
               style={{width:"100%",display:"flex",alignItems:"center",padding:"7px 12px",borderRadius:10,border:"none",cursor:"pointer",background:goalF===g&&g?"var(--bg-card)":"transparent",boxShadow:goalF===g&&g?"var(--nm-raised-sm)":"none",color:goalF===g&&g?"var(--accent)":"var(--text-sub)",fontFamily:"inherit",fontSize:12,textAlign:"left",whiteSpace:"nowrap",transition:"all .15s"}}>
-              {g||"All goals"}
+              {g||t('nav.allGoals', language)}
             </button>
           ))}
         </div>
@@ -5242,10 +5242,10 @@ function App() {
           {/* Dashboard */}
           {sec==="dashboard" && (
             <div>
-              <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>Dashboard</h2>
-              <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:22}}>Your meal prep overview</p>
+              <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('dash.title', language)}</h2>
+              <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:22}}>{t('dash.subtitle', language)}</p>
               <div className="r-grid-sm" style={{marginBottom:28}}>
-                {[[recipes.length,"Recipes","📖","#5a8fd4"],[favorites.length,"Favorites","♥","#c06090"],[mealPlanItems.length,"Planned","📅","#5aad8e"],[recipes.filter(r=>(r.tags||[]).some(t=>HEALTH_TAGS.includes(t))).length,"Health","💚","#d4875a"]].map(([v,l,ico,col])=>(
+                {[[recipes.length,t('dash.recipes',language),"📖","#5a8fd4"],[favorites.length,t('dash.favorites',language),"♥","#c06090"],[mealPlanItems.length,t('dash.planned',language),"📅","#5aad8e"],[recipes.filter(r=>(r.tags||[]).some(tag=>HEALTH_TAGS.includes(tag))).length,t('dash.health',language),"💚","#d4875a"]].map(([v,l,ico,col])=>(
                   <div key={l} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",cursor:"pointer",transition:"all .2s"}}
                     onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow="var(--nm-inset)";}} onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="var(--nm-raised)";}}>
                     <div style={{fontSize:24,marginBottom:8}}>{ico}</div>
@@ -5389,7 +5389,7 @@ function App() {
                   </button>
                   {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>📚 Export Book</button>}
                   {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>🔍 Audit Recipes</button>}
-                  <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>🧑‍🍳 What Can I Cook?</button>
+                  <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>{t('pantry.whatCanICook',language)}</button>
                   <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>🎡 Spin</button>
                   <button onClick={()=>setRemixOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c8a8ff"}}>🔀 Remix</button>
                   <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
@@ -5513,10 +5513,10 @@ function App() {
 
           {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])}/>}
 
-          {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")}/>}
+          {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")} language={language}/>}
 
-          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null} pantry={pantry}/>}
-          {sec==="pantry" && <PantryManager pantry={pantry} setPantry={setPantry} recipes={recipes} onDeduct={updates=>setPantry(p=>p.map(item=>{const u=updates.find(x=>x.id===item.id);return u?{...item,amount:Math.max(0,item.amount-u.used)}:item;}))}/>}
+          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null} pantry={pantry} language={language}/>}
+          {sec==="pantry" && <PantryManager pantry={pantry} setPantry={setPantry} recipes={recipes} language={language} onDeduct={updates=>setPantry(p=>p.map(item=>{const u=updates.find(x=>x.id===item.id);return u?{...item,amount:Math.max(0,item.amount-u.used)}:item;}))}/>}
 
           {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing}/>}
 
