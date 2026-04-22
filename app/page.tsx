@@ -4673,7 +4673,11 @@ function App() {
         if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
         if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); pwaSet('anthropic_key', d.anthropicKey); }
         if (d.pexelsKey) { setPexelsKey(d.pexelsKey); pwaSet('pexels_key', d.pexelsKey); }
-        if (d.shoppingSpends) setShoppingSpends(d.shoppingSpends);
+        if (d.shoppingSpends) setShoppingSpends(local => {
+          const cloudIds = new Set(d.shoppingSpends.map((s:any) => s.id));
+          const localOnly = local.filter(s => !cloudIds.has(s.id));
+          return [...d.shoppingSpends, ...localOnly].sort((a:any,b:any) => new Date(a.date).getTime()-new Date(b.date).getTime());
+        });
         if (d.profiles && Array.isArray(d.profiles) && d.profiles.length > 0) {
           const sanitized = d.profiles.map(sanitizeProfile);
           setProfiles(sanitized);
