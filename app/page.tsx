@@ -1226,7 +1226,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                 <div style={{position:"relative",marginBottom:10,borderRadius:10,overflow:"hidden"}}>
                   <img src={recipe.ingredientsImage} alt="All ingredients" style={{width:"100%",maxHeight:220,objectFit:"contain",display:"block",background:"rgba(0,0,0,0.25)",borderRadius:8}}/>
                   <div style={{position:"absolute",top:5,right:5,display:"flex",gap:4}}>
-                    <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 Change</button>
+                    <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 {t('edit.change',language)}</button>
                     <button onClick={()=>setRecipe(p=>({...p,ingredientsImage:null}))} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
                   </div>
                 </div>
@@ -1563,56 +1563,56 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
       <div className="modal-inner" style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,maxWidth:700,width:"100%",maxHeight:"94vh",overflowY:"auto",padding:24}}>
 
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>✏️ Edit Recipe</h2>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{t('edit.modalTitle',language)}</h2>
           <button onClick={onClose} style={{...GB,padding:"4px 10px",fontSize:18}}>×</button>
         </div>
 
         {/* Re-import section */}
         <div style={{marginBottom:16,background:"rgba(90,143,212,0.06)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:12,padding:"12px 14px"}}>
-          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>↩ Replace Recipe Content</div>
-          <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:10}}>Re-import from a URL or image — all your photos will be kept, only ingredients & steps are replaced.</div>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>{t('edit.reimportSection',language)}</div>
+          <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:10}}>{t('edit.reimportDesc',language)}</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
             <input value={reimportUrl} onChange={e=>setReimportUrl(e.target.value)}
-              placeholder="Paste recipe URL…"
+              placeholder={t('edit.reimportUrl',language)}
               disabled={reimporting}
               onKeyDown={e=>{if(e.key==="Enter"&&reimportUrl.trim())doReimport(reimportUrl.trim());}}
               style={{...IS,flex:1,minWidth:200,height:36,padding:"0 10px",fontSize:13}}/>
             <button onClick={()=>doReimport(reimportUrl.trim())} disabled={reimporting||!reimportUrl.trim()}
               style={{...GB,padding:"8px 16px",fontSize:13,fontWeight:700,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.4)",opacity:reimporting||!reimportUrl.trim()?0.5:1,whiteSpace:"nowrap"}}>
-              {reimporting?"Importing…":"Re-import"}
+              {reimporting?t('edit.importing',language):t('edit.reimportBtn',language)}
             </button>
             <input ref={reimportFileRef} type="file" accept="image/*" style={{display:"none"}}
               onChange={e=>{const f=e.target.files?.[0];if(f)doReimportFromImage(f);e.target.value="";}}/>
             <button onClick={()=>reimportFileRef.current?.click()} disabled={reimporting}
               style={{...GB,padding:"8px 14px",fontSize:13,fontWeight:700,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.4)",opacity:reimporting?0.5:1,whiteSpace:"nowrap"}}>
-              📷 From Image
+              {t('edit.fromImage',language)}
             </button>
           </div>
           {reimportError && <div style={{color:"#d45a5a",fontSize:12,marginTop:8}}>{reimportError}</div>}
-          {reimporting && <div style={{color:"#5a8fd4",fontSize:12,marginTop:8,display:"flex",alignItems:"center",gap:6}}><span style={{animation:"spin 1.2s linear infinite",display:"inline-block"}}>⟳</span> Fetching & extracting from source…</div>}
+          {reimporting && <div style={{color:"#5a8fd4",fontSize:12,marginTop:8,display:"flex",alignItems:"center",gap:6}}><span style={{animation:"spin 1.2s linear infinite",display:"inline-block"}}>⟳</span> {t('edit.fetchingSource',language)}</div>}
         </div>
 
         {/* Main image */}
         <div style={{marginBottom:16}}>
-          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>📷 Recipe Photo</div>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>{t('edit.recipePhoto',language)}</div>
           <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
             {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover"}} onError={e=>e.target.style.display='none'}/>}
             <input ref={mainImgRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>set("image",url))}/>
-            <button onClick={()=>mainImgRef.current?.click()} style={{...GB,padding:"7px 14px"}}>📁 Upload Photo</button>
-            <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)} placeholder="Or paste image URL…"
+            <button onClick={()=>mainImgRef.current?.click()} style={{...GB,padding:"7px 14px"}}>{t('edit.uploadPhoto',language)}</button>
+            <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)} placeholder={t('edit.pasteImgUrl',language)}
               style={{...IS,flex:1,minWidth:150,height:34,padding:"0 10px",fontSize:12}}/>
-            <button onClick={()=>{if(imgUrlInput.trim()){set("image",imgUrlInput.trim());setImgUrlInput("");}}} style={{...GB,padding:"7px 10px",fontSize:12}}>Use</button>
+            <button onClick={()=>{if(imgUrlInput.trim()){set("image",imgUrlInput.trim());setImgUrlInput("");}}} style={{...GB,padding:"7px 10px",fontSize:12}}>{t('edit.use',language)}</button>
           </div>
         </div>
 
         {/* Basic info */}
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:12}}>
           <div>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Title</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('edit.titleField',language)}</div>
             <input value={data.title} onChange={e=>set("title",e.target.value)} style={IS}/>
           </div>
           <div>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Category</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('edit.categoryField',language)}</div>
             <select value={data.category} onChange={e=>set("category",e.target.value)} style={IS}>
               {["breakfast","lunch","dessert","drink"].map(c=><option key={c} value={c}>{c}</option>)}
             </select>
@@ -1620,14 +1620,14 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         </div>
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
-          {[["prepTime","Prep (min)"],["cookTime","Cook (min)"],["servings","Servings"]].map(([k,l])=>(
+          {([["prepTime",'edit.prepMin'],["cookTime",'edit.cookMin'],["servings",'edit.servingsField']] as [string,string][]).map(([k,lk])=>(
             <div key={k}>
-              <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
+              <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t(lk,language)}</div>
               <input type="number" value={data[k]||""} onChange={e=>set(k,+e.target.value)} style={IS}/>
             </div>
           ))}
           <div>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Difficulty</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('edit.difficultyField',language)}</div>
             <select value={data.difficulty||"beginner"} onChange={e=>set("difficulty",e.target.value)} style={IS}>
               {["beginner","intermediate","advanced"].map(d=><option key={d} value={d}>{d}</option>)}
             </select>
@@ -1636,7 +1636,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Spice level */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🌶 Spice Level</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.spiceLevel',language)}</div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {[0,1,2,3,4,5].map(lvl=>(
               <button key={lvl} onClick={()=>set("spiceLevel",lvl)}
@@ -1649,7 +1649,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Cuisine */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🌍 Cuisine</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.cuisine',language)}</div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {[null,...CUISINES].map(c=>(
               <button key={c||"none"} onClick={()=>set("cuisine",c)}
@@ -1662,7 +1662,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Nutrition */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Nutrition (per serving)</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.nutritionPerServing',language)}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
             {[["calories","🔥 Cal"],["protein","💪 Protein"],["carbs","🌾 Carbs"],["fat","🥑 Fat"]].map(([k,l])=>(
               <div key={k}>
@@ -1675,7 +1675,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Tags */}
         <div style={{marginBottom:14}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Tags</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.tagsField',language)}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
             {ALL_TAGS.map(t=>{const on=(data.tags||[]).includes(t);return(
               <button key={t} onClick={()=>set("tags",on?data.tags.filter(x=>x!==t):[...(data.tags||[]),t])}
@@ -1688,7 +1688,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Goals */}
         <div style={{marginBottom:14}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🎯 Goals</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.goalsField',language)}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
             {GOALS.map(g=>{const on=(data.goal||[]).map(x=>(x||"").toLowerCase()).includes(g);return(
               <button key={g} onClick={()=>set("goal",on?(data.goal||[]).filter(x=>(x||"").toLowerCase()!==g):[...(data.goal||[]),g])}
@@ -1704,7 +1704,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{t('edit.ingredients',language)}</div>
             <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>ingOverallRef.current?.click()} style={{...GB,padding:"3px 10px",fontSize:12}}>📷 Overall Photo</button>
+              <button onClick={()=>ingOverallRef.current?.click()} style={{...GB,padding:"3px 10px",fontSize:12}}>{t('edit.overallPhoto',language)}</button>
               <button onClick={addIng} style={{...GB,padding:"3px 10px",fontSize:12}}>{t('edit.addIngredient',language)}</button>
             </div>
           </div>
@@ -1713,7 +1713,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
             <div style={{position:"relative",marginBottom:10,borderRadius:10,overflow:"hidden"}}>
               <img src={data.ingredientsImage} alt="All ingredients" style={{width:"100%",height:100,objectFit:"cover"}}/>
               <div style={{position:"absolute",top:5,right:5,display:"flex",gap:4}}>
-                <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 Change</button>
+                <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 {t('edit.change',language)}</button>
                 <button onClick={()=>set("ingredientsImage",null)} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
               </div>
             </div>
@@ -1726,9 +1726,9 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                   ? <img src={ing.image} alt="" style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,cursor:"pointer"}} onClick={()=>ingImgRefs.current[i]?.click()} title="Change photo"/>
                   : <button onClick={()=>ingImgRefs.current[i]?.click()} style={{width:36,height:36,borderRadius:8,border:"1px dashed var(--border)",background:"var(--nm-input-bg)",color:"var(--text-muted)",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} title="Add ingredient photo">📷</button>
                 }
-                <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder="Ingredient" style={{...IS,flex:2}}/>
-                <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder="Qty" style={{...IS,flex:1,minWidth:50}}/>
-                <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder="Unit" style={{...IS,flex:1,minWidth:50}}/>
+                <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder={t('edit.ingPlaceholder',language)} style={{...IS,flex:2}}/>
+                <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder={t('edit.qtyPlaceholder',language)} style={{...IS,flex:1,minWidth:50}}/>
+                <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder={t('edit.unitPlaceholder',language)} style={{...IS,flex:1,minWidth:50}}/>
                 <select value={ing.section||inferIngSection(ing.name)} onChange={e=>setIng(i,"section",e.target.value)}
                   style={{...IS,flex:"0 0 auto",width:"auto",padding:"0 6px",fontSize:11,height:36,color:(ING_SECTIONS.find(s=>s.key===(ing.section||inferIngSection(ing.name)))?.color||"var(--text-sub)")}}>
                   {ING_SECTIONS.map(s=><option key={s.key} value={s.key}>{getSectionLabel(s.key, language)}</option>)}
@@ -1748,15 +1748,15 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           {(data.steps||[]).map((step,i)=>(
             <div key={i} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:12,marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <span style={{color:"var(--accent)",fontWeight:700,fontSize:13}}>Step {i+1}</span>
-                <button onClick={()=>removeStep(i)} style={{...GB,padding:"2px 8px",color:"#f08080",fontSize:13}}>× Remove</button>
+                <span style={{color:"var(--accent)",fontWeight:700,fontSize:13}}>{t('edit.stepLabel',language,{n:String(i+1)})}</span>
+                <button onClick={()=>removeStep(i)} style={{...GB,padding:"2px 8px",color:"#f08080",fontSize:13}}>{t('edit.removeStep',language)}</button>
               </div>
-              <textarea value={step.text} onChange={e=>setStep(i,"text",e.target.value)} placeholder="Describe this step…"
+              <textarea value={step.text} onChange={e=>setStep(i,"text",e.target.value)} placeholder={t('edit.stepPlaceholder',language)}
                 style={{...IS,minHeight:60,resize:"vertical",marginBottom:8}}/>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{color:"var(--text-muted)",fontSize:11}}>⏱</span>
-                  <input type="number" value={step.timeMin||""} onChange={e=>setStep(i,"timeMin",+e.target.value)} placeholder="Min"
+                  <input type="number" value={step.timeMin||""} onChange={e=>setStep(i,"timeMin",+e.target.value)} placeholder={t('edit.minPlaceholder',language)}
                     style={{...IS,width:60,height:30,padding:"0 8px",fontSize:12}}/>
                   <span style={{color:"var(--text-muted)",fontSize:11}}>min</span>
                 </div>
@@ -1770,7 +1770,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                         style={{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:"50%",background:"#e05a6a",border:"none",color:"#fff",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
                     </div>
                   ))}
-                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 {getStepImages(step).length>0?"Add More":"Add Photo"}</button>
+                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 {getStepImages(step).length>0?t('edit.addMorePhotos',language):t('edit.addPhoto',language)}</button>
                 </div>
               </div>
             </div>
@@ -1781,38 +1781,38 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         <div style={{marginBottom:18,background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:14,padding:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:aiSuggestions?12:0}}>
             <div>
-              <span style={{color:"var(--text-sub)",fontSize:12,fontWeight:700}}>🔍 AI Completeness Check</span>
+              <span style={{color:"var(--text-sub)",fontSize:12,fontWeight:700}}>{t('edit.aiCheckTitle',language)}</span>
               <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>
-                {aiChecking ? aiCheckStatus : data.sourceUrl ? "🌐 Will compare against source page" : "Uses AI culinary knowledge (no source URL)"}
+                {aiChecking ? aiCheckStatus : data.sourceUrl ? t('edit.aiWillCompare',language) : t('edit.aiCulinary',language)}
               </div>
             </div>
             <button onClick={checkWithAI} disabled={aiChecking}
               style={{...GB,padding:"5px 12px",fontSize:12,background:aiChecking?"var(--nm-input-bg)":"linear-gradient(135deg,var(--accent2),var(--accent))",color:aiChecking?"var(--text-muted)":"#fff",border:"none",flexShrink:0}}>
-              {aiChecking?"⏳…":"🔍 Check Now"}
+              {aiChecking?t('edit.checking',language):t('edit.checkNow',language)}
             </button>
           </div>
           {aiSuggestions && (
             <div>
-              {aiSuggestions.usedSource && <div style={{color:"#5a8fd4",fontSize:11,marginBottom:8}}>🌐 Compared against source page</div>}
+              {aiSuggestions.usedSource && <div style={{color:"#5a8fd4",fontSize:11,marginBottom:8}}>{t('edit.aiUsedSource',language)}</div>}
               {aiSuggestions.error && <div style={{color:"#f08080",fontSize:12}}>{aiSuggestions.error}</div>}
               {aiSuggestions.notes && <div style={{color:"var(--text-sub)",fontSize:12,marginBottom:10,padding:"6px 10px",background:"rgba(90,173,142,0.08)",borderRadius:8}}>{aiSuggestions.notes}</div>}
               {(aiSuggestions.missingIngredients||[]).length > 0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{color:"#ffd580",fontSize:11,fontWeight:700,marginBottom:6}}>⚠️ Possibly missing ingredients</div>
+                  <div style={{color:"#ffd580",fontSize:11,fontWeight:700,marginBottom:6}}>{t('edit.aiMissingIng',language)}</div>
                   {(aiSuggestions.missingIngredients||[]).map((ing,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:8,background:"rgba(255,213,128,0.08)",marginBottom:4,border:"1px solid rgba(255,213,128,0.2)"}}>
                       <div style={{flex:1}}>
                         <span style={{color:"var(--text)",fontSize:13,fontWeight:600}}>{ing.amount} {ing.unit} {ing.name}</span>
                         <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:8}}>{ing.reason}</span>
                       </div>
-                      <button onClick={()=>acceptIngredient(ing)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5aad8e",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)"}}>+ Add</button>
+                      <button onClick={()=>acceptIngredient(ing)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5aad8e",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)"}}>{t('edit.addBtn',language)}</button>
                     </div>
                   ))}
                 </div>
               )}
               {(aiSuggestions.missingSteps||[]).length > 0 && (
                 <div>
-                  <div style={{color:"#5a8fd4",fontSize:11,fontWeight:700,marginBottom:6}}>⚠️ Possibly missing steps</div>
+                  <div style={{color:"#5a8fd4",fontSize:11,fontWeight:700,marginBottom:6}}>{t('edit.aiMissingSteps',language)}</div>
                   {(aiSuggestions.missingSteps||[]).map((st,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 8px",borderRadius:8,background:"rgba(90,143,212,0.08)",marginBottom:4,border:"1px solid rgba(90,143,212,0.2)"}}>
                       <div style={{flex:1}}>
@@ -1820,13 +1820,13 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                         {st.timeMin > 0 && <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:6}}>⏱ {st.timeMin}m</span>}
                         <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{st.reason}</div>
                       </div>
-                      <button onClick={()=>acceptStep(st)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5a8fd4",background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",flexShrink:0}}>+ Add</button>
+                      <button onClick={()=>acceptStep(st)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5a8fd4",background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",flexShrink:0}}>{t('edit.addBtn',language)}</button>
                     </div>
                   ))}
                 </div>
               )}
               {!aiSuggestions.error && (aiSuggestions.missingIngredients||[]).length===0 && (aiSuggestions.missingSteps||[]).length===0 && (
-                <div style={{color:"#5aad8e",fontSize:12,textAlign:"center",padding:"6px 0"}}>✅ Recipe looks complete!</div>
+                <div style={{color:"#5aad8e",fontSize:12,textAlign:"center",padding:"6px 0"}}>{t('edit.aiComplete',language)}</div>
               )}
             </div>
           )}
@@ -1835,7 +1835,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         {/* Delete confirmation */}
         {confirmDelete && (
           <div style={{marginBottom:12,background:"rgba(212,90,90,0.1)",border:"1px solid rgba(212,90,90,0.35)",borderRadius:12,padding:"12px 14px"}}>
-            <div style={{color:"#d45a5a",fontWeight:700,fontSize:13,marginBottom:10}}>Delete "{data.title}"? This cannot be undone.</div>
+            <div style={{color:"#d45a5a",fontWeight:700,fontSize:13,marginBottom:10}}>{t('edit.deleteConfirmMsg',language,{title:data.title})}</div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>setConfirmDelete(false)} style={{...GB,flex:1}}>{t('edit.keepIt',language)}</button>
               <button onClick={()=>onDelete(data.id)}
@@ -1850,7 +1850,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           {onDelete && !confirmDelete && (
             <button onClick={()=>setConfirmDelete(true)}
               style={{...GB,flex:"0 0 auto",padding:"0 14px",color:"#d45a5a",border:"1px solid rgba(212,90,90,0.35)"}}>
-              🗑 Delete
+              {t('edit.deleteBtn',language)}
             </button>
           )}
           <button onClick={onClose} style={{...GB,flex:1}}>{t('edit.cancel',language)}</button>
@@ -1865,7 +1865,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 }
 
 // ─── ADD RECIPE MODAL ─────────────────────────────────────────────────────────
-function SmartAddModal({onClose, onAdd, initialUrl=""}) {
+function SmartAddModal({onClose, onAdd, initialUrl="", language='en'}) {
   const [phase, setPhase] = useState("input");
   const [loadingMsg, setLoadingMsg] = useState("Extracting your recipe...");
   const [inputVal, setInputVal] = useState(initialUrl);
@@ -1980,7 +1980,7 @@ Return empty arrays if nothing is missing or wrong.`}]
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
       <div className="modal-inner" style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",border:"1px solid var(--border)",borderRadius:20,maxWidth:680,width:"100%",maxHeight:"92vh",overflowY:"auto",padding:24}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>Add Recipe</h2>
+          <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>{t('add.title',language)}</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#6a7a90",cursor:"pointer",fontSize:22}}>×</button>
         </div>
 
@@ -1989,8 +1989,8 @@ Return empty arrays if nothing is missing or wrong.`}]
             {/* Camera / Image scan */}
             <div style={{border:"1px dashed rgba(90,173,142,0.4)",borderRadius:14,padding:"20px 16px",marginBottom:20,textAlign:"center",background:"rgba(90,173,142,0.04)"}}>
               <div style={{fontSize:36,marginBottom:6}}>📷</div>
-              <div style={{color:"var(--text-sub)",fontSize:13,fontWeight:600,marginBottom:6}}>Scan a Recipe Photo</div>
-              <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>Point your camera at a recipe card, cookbook, or screenshot — AI reads it automatically</div>
+              <div style={{color:"var(--text-sub)",fontSize:13,fontWeight:600,marginBottom:6}}>{t('add.scanTitle',language)}</div>
+              <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>{t('add.scanDesc',language)}</div>
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
                 onChange={e=>{const f=e.target.files?.[0];if(f) runFromImage(f); e.target.value="";}}/>
               <input ref={galleryRef} type="file" accept="image/*" style={{display:"none"}}
@@ -1998,11 +1998,11 @@ Return empty arrays if nothing is missing or wrong.`}]
               <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
                 <button onClick={()=>cameraRef.current?.click()}
                   style={{...GB,padding:"10px 20px",fontSize:13,fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.35)"}}>
-                  📷 Take Photo
+                  {t('add.takePhoto',language)}
                 </button>
                 <button onClick={()=>galleryRef.current?.click()}
                   style={{...GB,padding:"10px 20px",fontSize:13,fontWeight:700}}>
-                  🖼 Upload Image
+                  {t('add.uploadImage',language)}
                 </button>
               </div>
             </div>
@@ -2010,16 +2010,16 @@ Return empty arrays if nothing is missing or wrong.`}]
             {/* Divider */}
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
-              <span style={{color:"var(--text-muted)",fontSize:12,flexShrink:0}}>or paste a URL / describe a recipe</span>
+              <span style={{color:"var(--text-muted)",fontSize:12,flexShrink:0}}>{t('add.orPaste',language)}</span>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
             </div>
 
             {error && <div style={{background:"rgba(192,80,80,0.15)",border:"1px solid rgba(192,80,80,0.3)",borderRadius:10,padding:"10px 14px",color:"#f08080",fontSize:13,marginBottom:14}}>{error}</div>}
             <textarea value={inputVal} onChange={e=>setInputVal(e.target.value)}
               style={{...IS,minHeight:90,resize:"vertical",marginBottom:14}}
-              placeholder="https://www.tiktok.com/... or paste recipe text here..."/>
+              placeholder={t('add.urlPlaceholder',language)}/>
             <button onClick={run} style={{width:"100%",background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
-              Extract Recipe with AI
+              {t('add.extractBtn',language)}
             </button>
           </div>
         )}
@@ -2037,7 +2037,7 @@ Return empty arrays if nothing is missing or wrong.`}]
             <div style={{background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.25)",borderRadius:12,padding:"14px 16px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
               {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
               <div style={{flex:1,minWidth:0}}>
-                <div style={{color:"#5aad8e",fontSize:11,fontWeight:700,marginBottom:4}}>✅ RECIPE EXTRACTED</div>
+                <div style={{color:"#5aad8e",fontSize:11,fontWeight:700,marginBottom:4}}>{t('add.extracted',language)}</div>
                 <div style={{color:"#fff",fontWeight:700,fontFamily:"'Playfair Display',serif",fontSize:16}}>{data.title}</div>
                 <NutriBadge n={data.nutrition}/>
                 <div style={{color:"#6a7a90",fontSize:11,marginTop:4}}>{(data.ingredients||[]).length} ingredients · {(data.steps||[]).length} steps</div>
@@ -2048,7 +2048,7 @@ Return empty arrays if nothing is missing or wrong.`}]
             {verifyStatus==='checking' && (
               <div style={{background:"rgba(90,143,212,0.1)",border:"1px solid rgba(90,143,212,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:16,animation:"spin 1.5s linear infinite",display:"inline-block"}}>🔍</span>
-                <div style={{color:"#5a8fd4",fontSize:13,fontWeight:600}}>Verifying completeness against source page…</div>
+                <div style={{color:"#5a8fd4",fontSize:13,fontWeight:600}}>{t('add.verifying',language)}</div>
               </div>
             )}
             {verifyStatus && verifyStatus!=='checking' && (() => {
@@ -2068,35 +2068,35 @@ Return empty arrays if nothing is missing or wrong.`}]
               return (
                 <div style={{background:"rgba(90,173,142,0.1)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
                   <span>✅</span>
-                  <div style={{color:"#5aad8e",fontSize:13,fontWeight:600}}>All ingredients & steps verified against source page</div>
+                  <div style={{color:"#5aad8e",fontSize:13,fontWeight:600}}>{t('add.allVerified',language)}</div>
                 </div>
               );
             })()}
 
             {/* Image upload */}
             <div style={{marginBottom:14,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"12px 14px"}}>
-              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>📷 Recipe Image (optional)</div>
+              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>{t('add.recipeImage',language)}</div>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 {data.image && <img src={data.image} alt="" style={{width:56,height:56,borderRadius:8,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
                 <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}}
                   onChange={e=>{const f=e.target.files?.[0];if(f){const r=new FileReader();r.onload=ev=>setData(d=>({...d,image:ev.target.result}));r.readAsDataURL(f);}}}/>
-                <button onClick={()=>fileRef.current?.click()} style={{...GB,padding:"6px 12px",fontSize:12}}>📁 Upload Photo</button>
+                <button onClick={()=>fileRef.current?.click()} style={{...GB,padding:"6px 12px",fontSize:12}}>{t('add.uploadPhoto',language)}</button>
                 <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)}
-                  placeholder="Or paste image URL..."
+                  placeholder={t('add.pasteImgUrl',language)}
                   style={{...IS,flex:1,minWidth:160,height:34,padding:"0 10px",fontSize:12}}/>
                 <button onClick={()=>{if(imgUrlInput.trim()){setData(d=>({...d,image:imgUrlInput.trim()}));setImgUrlInput("");}}}
-                  style={{...GB,padding:"6px 10px",fontSize:12}}>Use</button>
+                  style={{...GB,padding:"6px 10px",fontSize:12}}>{t('edit.use',language)}</button>
               </div>
             </div>
 
             {/* Editable fields */}
             <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:12}}>
               <div>
-                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Title</div>
+                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('add.titleField',language)}</div>
                 <input value={data.title} onChange={e=>set("title",e.target.value)} style={IS}/>
               </div>
               <div>
-                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Category</div>
+                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('add.categoryField',language)}</div>
                 <select value={data.category} onChange={e=>set("category",e.target.value)} style={IS}>
                   {["breakfast","lunch","dessert","drink"].map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
@@ -2104,16 +2104,16 @@ Return empty arrays if nothing is missing or wrong.`}]
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
-              {[["prepTime","Prep (min)"],["cookTime","Cook (min)"],["servings","Servings"]].map(([k,l])=>(
+              {([["prepTime",'edit.prepMin'],["cookTime",'edit.cookMin'],["servings",'edit.servingsField']] as [string,string][]).map(([k,lk])=>(
                 <div key={k}>
-                  <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
+                  <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t(lk,language)}</div>
                   <input type="number" value={data[k]||""} onChange={e=>set(k,+e.target.value)} style={IS}/>
                 </div>
               ))}
             </div>
 
             <div style={{marginBottom:12}}>
-              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Tags</div>
+              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('add.tagsField',language)}</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {ALL_TAGS.map(t=>{const on=(data.tags||[]).includes(t);return(
                   <button key={t} onClick={()=>set("tags",on?data.tags.filter(x=>x!==t):[...(data.tags||[]),t])}
@@ -2125,9 +2125,9 @@ Return empty arrays if nothing is missing or wrong.`}]
             </div>
 
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{setPhase("input");setData(null);}} style={{...GB,flex:1}}>← Try Again</button>
+              <button onClick={()=>{setPhase("input");setData(null);}} style={{...GB,flex:1}}>{t('add.tryAgain',language)}</button>
               <button onClick={save} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
-                💾 Save Recipe
+                {t('add.saveRecipe',language)}
               </button>
             </div>
           </div>
@@ -5168,7 +5168,7 @@ function App() {
             {isMobile ? "⚙️" : ({en:"⚙️ Settings",es:"⚙️ Configuración",ru:"⚙️ Настройки"}[language]||"⚙️ Settings")}
           </button>
           <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:10,color:"#fff",padding:isMobile?"8px 12px":"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
-            {isMobile?"＋":"+ Add Recipe"}
+            {isMobile?"＋":t('dash.addRecipe',language)}
           </button>
         </div>
         {/* Mobile search bar (expandable) */}
@@ -5341,8 +5341,8 @@ function App() {
                 return (
                   <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"16px 18px",marginBottom:24}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                      <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,margin:0}}>🎯 Daily Macro Goals vs Plan</h3>
-                      <button onClick={()=>setSec("statistics")} style={{...GB,fontSize:11,padding:"3px 8px",color:"var(--accent)"}}>Edit Goals</button>
+                      <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,margin:0}}>{t('dash.macroVsPlan',language)}</h3>
+                      <button onClick={()=>setSec("statistics")} style={{...GB,fontSize:11,padding:"3px 8px",color:"var(--accent)"}}>{t('dash.editGoals',language)}</button>
                     </div>
                     {[["🔥 Calories",planned.calories,macroGoals.calories,"#e05a6a"],["💪 Protein",planned.protein,macroGoals.protein,"#5aad8e"],["🌾 Carbs",planned.carbs,macroGoals.carbs,"#5a8fd4"],["🥑 Fat",planned.fat,macroGoals.fat,"#d4875a"]].map(([l,v,g,col])=>{
                       const pct=Math.min(v/Math.max(g,1)*100,120);const over=pct>100;
@@ -5375,13 +5375,13 @@ function App() {
                         ? <div style={{color:"#ffd580",fontWeight:800,fontSize:20}}>{streak} week{streak!==1?"s":""} streak!</div>
                         : <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:16}}>{t('dash.startStreak',language)}</div>}
                       <div style={{color:"var(--text-sub)",fontSize:12,marginTop:2}}>
-                        {cookedThisWeek ? "✅ Cooked this week — streak safe!" : "Cook at least once this week to keep going"}
+                        {cookedThisWeek ? t('dash.cookedSafe',language) : t('dash.cookWeek',language)}
                       </div>
-                      <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{cookLog.length} total sessions</div>
+                      <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{t('dash.totalSessions',language,{n:String(cookLog.length)})}</div>
                     </div>
                     <button onClick={()=>setComfortModalOpen(true)}
                       style={{background:"rgba(255,213,128,0.15)",border:"1px solid rgba(255,213,128,0.35)",borderRadius:10,color:"#ffd580",padding:"7px 14px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>
-                      🏠 Log Comfort Meal
+                      {t('dash.logComfort',language)}
                     </button>
                   </div>
                 );
@@ -5407,7 +5407,7 @@ function App() {
                 return (
                   <div style={{marginBottom:28}}>
                     <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>{t('dash.resources',language)}</h3>
-                    <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Browse these sites for inspiration, then paste the recipe URL into + Add Recipe</p>
+                    <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>{t('dash.resourcesDesc',language)}</p>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
                       {RESOURCES.map(r=>(
                         <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
@@ -5430,7 +5430,7 @@ function App() {
                 <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                   <div style={{fontSize:40,marginBottom:12}}>🥗</div>
                   <div style={{fontSize:15,color:"#8a9bb0",marginBottom:8}}>{t('dash.noRecipes',language)}</div>
-                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:10,color:"#fff",padding:"10px 20px",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add your first recipe</button>
+                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:10,color:"#fff",padding:"10px 20px",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t('dash.addFirst',language)}</button>
                 </div>
               )}
             </div>
@@ -5714,7 +5714,7 @@ function App() {
       {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)}/>}
       {spinWheelOpen && <SpinWheelModal recipes={recipes} onClose={()=>setSpinWheelOpen(false)} onView={r=>{setViewing(r);setSpinWheelOpen(false);}}/>}
       {remixOpen && <RecipeRemixModal recipes={recipes} onClose={()=>setRemixOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
-      {addOpen && <SmartAddModal initialUrl={addInitialUrl} onClose={()=>{setAddOpen(false);setAddInitialUrl("");}} onAdd={r=>setRecipes(p=>[...p,r])}/>}
+      {addOpen && <SmartAddModal initialUrl={addInitialUrl} onClose={()=>{setAddOpen(false);setAddInitialUrl("");}} onAdd={r=>setRecipes(p=>[...p,r])} language={language}/>}
 
       {/* Comfort meal log modal */}
       {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])} language={language}/>}
