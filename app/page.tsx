@@ -4064,30 +4064,72 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
         </div>
       )}
 
-      {/* Spending history */}
-      {(shoppingSpends||[]).length>0 && (
-        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Shopping Spend History</div>
-            <span style={{color:"var(--accent)",fontWeight:700,fontSize:14}}>${totalSpend.toFixed(2)} total</span>
-          </div>
-          {(shoppingSpends||[]).slice().reverse().map(s=>(
-            <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)"}}>
-              <span style={{fontSize:18}}>🛒</span>
-              <div style={{flex:1}}>
-                <div style={{color:"var(--text)",fontSize:13}}>{s.note}</div>
-                <div style={{color:"var(--text-muted)",fontSize:11}}>{new Date(s.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
-              </div>
-              <span style={{color:"var(--accent)",fontWeight:700,fontSize:15}}>${s.amount.toFixed(2)}</span>
-              <button onClick={()=>onDeleteSpend?.(s.id)} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:14,cursor:"pointer",padding:"0 4px"}} title="Delete">×</button>
+      {/* Spending breakdown */}
+      {(shoppingSpends||[]).length>0 && (()=>{
+        const now = new Date();
+        const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate()-now.getDay()); startOfWeek.setHours(0,0,0,0);
+        const startOfMonth = new Date(now.getFullYear(),now.getMonth(),1);
+        const startOfYear = new Date(now.getFullYear(),0,1);
+        const sum = (arr) => arr.reduce((s,x)=>s+(x.amount||0),0);
+        const weekSpends  = (shoppingSpends||[]).filter(s=>new Date(s.date)>=startOfWeek);
+        const monthSpends = (shoppingSpends||[]).filter(s=>new Date(s.date)>=startOfMonth);
+        const yearSpends  = (shoppingSpends||[]).filter(s=>new Date(s.date)>=startOfYear);
+        const weekTotal  = sum(weekSpends);
+        const monthTotal = sum(monthSpends);
+        const yearTotal  = sum(yearSpends);
+        const maxBar = Math.max(weekTotal, monthTotal, yearTotal, 1);
+        const periods = [
+          {label:"This Week",  value:weekTotal,  trips:weekSpends.length,  color:"#5aad8e"},
+          {label:"This Month", value:monthTotal, trips:monthSpends.length, color:"#5a8fd4"},
+          {label:"This Year",  value:yearTotal,  trips:yearSpends.length,  color:"#c06090"},
+        ];
+        return (
+          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Shopping Spending</div>
+              <span style={{color:"var(--text-sub)",fontSize:12}}>{(shoppingSpends||[]).length} trips total</span>
             </div>
-          ))}
-          <div style={{marginTop:12,display:"flex",gap:16,fontSize:12,color:"var(--text-sub)"}}>
-            <span>📈 Avg per trip: <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong></span>
-            <span>🧾 {(shoppingSpends||[]).length} trips logged</span>
+            {/* Period summary bars */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
+              {periods.map(({label,value,trips,color})=>(
+                <div key={label} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
+                  <div style={{color,fontWeight:800,fontSize:20}}>${value.toFixed(2)}</div>
+                  <div style={{color:"var(--text-muted)",fontSize:10,textTransform:"uppercase",letterSpacing:.5,marginTop:2}}>{label}</div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,marginTop:4}}>{trips} trip{trips!==1?"s":""}</div>
+                </div>
+              ))}
+            </div>
+            {/* Comparison bars */}
+            {periods.map(({label,value,color})=>(
+              <div key={label} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
+                  <span style={{color:"var(--text-sub)"}}>{label}</span>
+                  <span style={{color,fontWeight:700}}>${value.toFixed(2)}</span>
+                </div>
+                <Bar pct={value/maxBar*100} color={color}/>
+              </div>
+            ))}
+            {/* Recent trips */}
+            <div style={{marginTop:16,borderTop:"1px solid var(--border)",paddingTop:14}}>
+              <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Recent Trips</div>
+              {(shoppingSpends||[]).slice().reverse().map(s=>(
+                <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid var(--border)"}}>
+                  <span style={{fontSize:16}}>🛒</span>
+                  <div style={{flex:1}}>
+                    <div style={{color:"var(--text)",fontSize:13}}>{s.note}</div>
+                    <div style={{color:"var(--text-muted)",fontSize:11}}>{new Date(s.date).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
+                  </div>
+                  <span style={{color:"var(--accent)",fontWeight:700,fontSize:14}}>${s.amount.toFixed(2)}</span>
+                  <button onClick={()=>onDeleteSpend?.(s.id)} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:14,cursor:"pointer",padding:"0 4px"}} title="Delete">×</button>
+                </div>
+              ))}
+              <div style={{marginTop:10,fontSize:12,color:"var(--text-sub)"}}>
+                📈 Avg per trip: <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {totalRecipes===0 && (
         <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
@@ -4673,11 +4715,7 @@ function App() {
         if (d.ratings) setRatings(local => ({...d.ratings, ...local}));
         if (d.anthropicKey) { setAnthropicKey(d.anthropicKey); pwaSet('anthropic_key', d.anthropicKey); }
         if (d.pexelsKey) { setPexelsKey(d.pexelsKey); pwaSet('pexels_key', d.pexelsKey); }
-        if (d.shoppingSpends) setShoppingSpends(local => {
-          const cloudIds = new Set(d.shoppingSpends.map((s:any) => s.id));
-          const localOnly = local.filter(s => !cloudIds.has(s.id));
-          return [...d.shoppingSpends, ...localOnly].sort((a:any,b:any) => new Date(a.date).getTime()-new Date(b.date).getTime());
-        });
+        if (d.shoppingSpends) setShoppingSpends(d.shoppingSpends);
         if (d.profiles && Array.isArray(d.profiles) && d.profiles.length > 0) {
           const sanitized = d.profiles.map(sanitizeProfile);
           setProfiles(sanitized);
