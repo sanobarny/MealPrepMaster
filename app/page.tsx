@@ -5102,11 +5102,23 @@ function App() {
             style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1,flexShrink:0}}>
             {darkMode?"☀️":"🌙"}
           </button>
+          {/* Language switcher — always visible */}
+          {(['en','es','ru'] as const).map((lang,i,arr)=>{
+            const next = arr[(i+1)%arr.length];
+            if (lang !== language) return null;
+            const flags = {en:'🇺🇸',es:'🇪🇸',ru:'🇷🇺'};
+            const labels = {en:'EN',es:'ES',ru:'RU'};
+            return (
+              <button key={lang} onClick={()=>setLanguage(next)} title="Change language"
+                style={{...GB,padding:"6px 10px",fontSize:13,fontWeight:700,flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
+                <span style={{fontSize:16}}>{flags[lang]}</span>
+                {!isMobile && <span style={{color:"var(--text)"}}>{labels[lang]}</span>}
+              </button>
+            );
+          })}
           <button onClick={()=>setSettingsOpen(s=>!s)} title="Settings"
             style={{...GB,background:settingsOpen?"var(--nm-inset)":"var(--bg-card)",color:"var(--text-sub)",padding:"7px 10px",fontSize:isMobile?13:13,flexShrink:0}}>
-            {isMobile
-              ? ({en:"🌐",es:"🇪🇸",ru:"🇷🇺"}[language]||"⚙️")
-              : ({en:"⚙️ Settings",es:"⚙️ Configuración",ru:"⚙️ Настройки"}[language]||"⚙️ Settings")}
+            {isMobile ? "⚙️" : ({en:"⚙️ Settings",es:"⚙️ Configuración",ru:"⚙️ Настройки"}[language]||"⚙️ Settings")}
           </button>
           <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:10,color:"#fff",padding:isMobile?"8px 12px":"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
             {isMobile?"＋":"+ Add Recipe"}
