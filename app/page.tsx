@@ -4067,21 +4067,26 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Spending breakdown */}
       {(shoppingSpends||[]).length>0 && (()=>{
         const now = new Date();
+        const startOfToday = new Date(now); startOfToday.setHours(0,0,0,0);
+        const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfToday.getDate()-1);
         const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate()-now.getDay()); startOfWeek.setHours(0,0,0,0);
         const startOfMonth = new Date(now.getFullYear(),now.getMonth(),1);
         const startOfYear = new Date(now.getFullYear(),0,1);
         const sum = (arr) => arr.reduce((s,x)=>s+(x.amount||0),0);
+        const yesterdaySpends = (shoppingSpends||[]).filter(s=>{const d=new Date(s.date);return d>=startOfYesterday&&d<startOfToday;});
         const weekSpends  = (shoppingSpends||[]).filter(s=>new Date(s.date)>=startOfWeek);
         const monthSpends = (shoppingSpends||[]).filter(s=>new Date(s.date)>=startOfMonth);
         const yearSpends  = (shoppingSpends||[]).filter(s=>new Date(s.date)>=startOfYear);
+        const yesterdayTotal = sum(yesterdaySpends);
         const weekTotal  = sum(weekSpends);
         const monthTotal = sum(monthSpends);
         const yearTotal  = sum(yearSpends);
-        const maxBar = Math.max(weekTotal, monthTotal, yearTotal, 1);
+        const maxBar = Math.max(yesterdayTotal, weekTotal, monthTotal, yearTotal, 1);
         const periods = [
-          {label:"This Week",  value:weekTotal,  trips:weekSpends.length,  color:"#5aad8e"},
-          {label:"This Month", value:monthTotal, trips:monthSpends.length, color:"#5a8fd4"},
-          {label:"This Year",  value:yearTotal,  trips:yearSpends.length,  color:"#c06090"},
+          {label:"Yesterday",  value:yesterdayTotal, trips:yesterdaySpends.length, color:"#ffd580"},
+          {label:"This Week",  value:weekTotal,       trips:weekSpends.length,      color:"#5aad8e"},
+          {label:"This Month", value:monthTotal,      trips:monthSpends.length,     color:"#5a8fd4"},
+          {label:"This Year",  value:yearTotal,       trips:yearSpends.length,      color:"#c06090"},
         ];
         return (
           <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
@@ -4090,7 +4095,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
               <span style={{color:"var(--text-sub)",fontSize:12}}>{(shoppingSpends||[]).length} trips total</span>
             </div>
             {/* Period summary bars */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:18}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:18}}>
               {periods.map(({label,value,trips,color})=>(
                 <div key={label} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
                   <div style={{color,fontWeight:800,fontSize:20}}>${value.toFixed(2)}</div>
