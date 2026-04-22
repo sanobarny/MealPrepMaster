@@ -2138,7 +2138,7 @@ Return empty arrays if nothing is missing or wrong.`}]
 }
 
 // ─── MIX & MATCH ─────────────────────────────────────────────────────────────
-function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
+function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
   const [sel, setSel] = useState({protein:null,grain:null,side:null});
   const [portions, setPortions] = useState(1);
   const [mealsPerDay, setMealsPerDay] = useState(1);
@@ -2198,8 +2198,8 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
 
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:4}}>Mix & Match</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>Build a custom meal — adjust portions, then save to your plan or as a new recipe.</p>
+      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('mix.title',language)}</h2>
+      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>{t('mix.subtitle',language)}</p>
 
       <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"14px 18px",marginBottom:18,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
         {[["Portions/person",portions,setPortions,1,10],["Meals/day",mealsPerDay,setMealsPerDay,1,6]].map(([lbl,val,fn,mn,mx])=>(
@@ -2225,22 +2225,22 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
             {combined.map(r=><span key={r.id} style={{background:"rgba(58,125,94,0.2)",color:"#5aad8e",border:"1px solid rgba(58,125,94,0.38)",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:600}}>{r.title}</span>)}
           </div>
           <div style={{marginBottom:10}}>
-            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>PER SERVING ({portions}×)</div>
+            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.perServing',language,{n:String(portions)})}</div>
             <NutriBadge n={totN}/>
           </div>
           {mealsPerDay>1 && <div style={{marginBottom:12}}>
-            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>DAILY TOTAL ({mealsPerDay} meals)</div>
+            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.dailyTotal',language,{n:String(mealsPerDay)})}</div>
             <NutriBadge n={dailyN}/>
           </div>}
           {totTime>0 && <div style={{color:"#5a8fd4",fontSize:12,marginBottom:14}}>⏱ ~{totTime}min cook time</div>}
           {allAllergens.length>0 && <div style={{color:"#f08080",fontSize:12,marginBottom:14}}>⚠ {allAllergens.join(", ")}</div>}
           <div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
-            <input value={comboName} onChange={e=>setComboName(e.target.value)} placeholder="Name this combo (optional)..."
+            <input value={comboName} onChange={e=>setComboName(e.target.value)} placeholder={t('mix.namePlaceholder',language)}
               style={{...IS,flex:1,minWidth:160,fontSize:13,padding:"8px 12px"}}/>
             <button onClick={handleSave} style={{background:saved?"rgba(58,125,94,0.55)":"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:11,color:"#fff",padding:"10px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
               {saved?"✓ Saved!":"📅 Add to Plan"}
             </button>
-            {onSaveAsRecipe && <button onClick={handleSaveAsRecipe} style={{...GB,whiteSpace:"nowrap"}}>💾 Save as Recipe</button>}
+            {onSaveAsRecipe && <button onClick={handleSaveAsRecipe} style={{...GB,whiteSpace:"nowrap"}}>{t('mix.saveRecipe',language)}</button>}
           </div>
         </div>
       )}
@@ -2249,7 +2249,7 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
 }
 
 // ─── MEAL PREP OPTIMIZER ─────────────────────────────────────────────────────
-function MealPrepOptimizer({recipes, onAddToMealPlan}) {
+function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
   const [selected, setSelected] = useState([]);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -2276,8 +2276,8 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚡ Meal Prep Optimizer</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:20}}>Select 2+ recipes and get an AI-optimized parallel cooking workflow.</p>
+      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('opt.title',language)}</h2>
+      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:20}}>{t('opt.subtitle',language)}</p>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10,marginBottom:20}}>
         {recipes.map(r=>(
@@ -2299,7 +2299,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 
       {result && (
         <div style={{background:"rgba(90,143,212,0.07)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:14,padding:18,marginBottom:20}}>
-          <div style={{color:"#5a8fd4",fontWeight:700,fontSize:13,marginBottom:12}}>⚡ Optimized Workflow</div>
+          <div style={{color:"#5a8fd4",fontWeight:700,fontSize:13,marginBottom:12}}>{t('opt.workflow',language)}</div>
           {result.split("\n").filter(l=>l.trim()).map((line,i)=>{
             const isParallel = line.includes("[PARALLEL]");
             return (
@@ -2314,7 +2314,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
       )}
 
       <div style={{background:"rgba(90,173,142,0.07)",border:"1px solid rgba(90,173,142,0.2)",borderRadius:14,padding:18}}>
-        <div style={{color:"#5aad8e",fontWeight:700,fontSize:13,marginBottom:10}}>🥘 Prep Tips</div>
+        <div style={{color:"#5aad8e",fontWeight:700,fontSize:13,marginBottom:10}}>{t('opt.prepTips',language)}</div>
         {PREP_TIPS.map((tip,i)=>(
           <div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
             <span style={{color:"#5aad8e",flexShrink:0}}>•</span>
@@ -2429,7 +2429,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button onClick={()=>setBySection(s=>!s)} style={{...GB,fontSize:12}}>{bySection?"📋 All":"🏪 By Section"}</button>
-          {checkedItems.length>0&&<button onClick={clearChecked} style={{...GB,fontSize:12,color:"#f08080"}}>↺ Uncheck all</button>}
+          {checkedItems.length>0&&<button onClick={clearChecked} style={{...GB,fontSize:12,color:"#f08080"}}>{t('shopping.uncheckAll',language)}</button>}
           <button onClick={exportList} style={{...GB,fontSize:12}}>📄 Export</button>
         </div>
       </div>
@@ -2463,8 +2463,8 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
           <div style={{background:under?"rgba(90,173,142,0.08)":"rgba(240,128,128,0.08)",border:"1px solid "+(under?"rgba(90,173,142,0.3)":"rgba(240,128,128,0.3)"),borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
             <span style={{fontSize:22}}>💰</span>
             <div style={{flex:1}}>
-              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>Estimated grocery cost</div>
-              <div style={{color:"var(--text-muted)",fontSize:11}}>Based on {autoList.length} ingredients in your meal plan</div>
+              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('shopping.estimatedCost',language)}</div>
+              <div style={{color:"var(--text-muted)",fontSize:11}}>{t('shopping.basedOn',language,{n:String(autoList.length)})}</div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{color:under?"#5aad8e":"#f08080",fontWeight:800,fontSize:20}}>${estimated.toFixed(2)}</div>
@@ -2488,7 +2488,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
       {/* Manual add */}
       <div style={{display:"flex",gap:8,marginBottom:18}}>
         <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addManual()}
-          placeholder="Add item manually…" style={{...IS,flex:1,height:38,padding:"0 12px"}}/>
+          placeholder={t('shopping.addManual',language)} style={{...IS,flex:1,height:38,padding:"0 12px"}}/>
         <button onClick={addManual} style={{...GB,padding:"8px 16px",background:"var(--accent)",color:"#fff",fontWeight:700}}>+ Add</button>
       </div>
 
@@ -2508,7 +2508,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
 
       {checkedItems.length>0 && (
         <div style={{marginTop:16,opacity:.6}}>
-          <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>✅ In Cart</div>
+          <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>{t('shopping.inCart',language)}</div>
           {renderItems(checkedItems)}
         </div>
       )}
@@ -2516,27 +2516,27 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
       {/* Spend Logger */}
       <div style={{marginTop:24,background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showSpendLog?12:0}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Log Spending</div>
-          <button onClick={()=>setShowSpendLog(s=>!s)} style={{...GB,fontSize:12,padding:"4px 10px"}}>{showSpendLog?"Cancel":"+ Add"}</button>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('shopping.logSpend',language)}</div>
+          <button onClick={()=>setShowSpendLog(s=>!s)} style={{...GB,fontSize:12,padding:"4px 10px"}}>{showSpendLog?t('edit.cancel',language):t('shopping.add',language)}</button>
         </div>
         {showSpendLog && (
           <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:"0 0 110px"}}>
-              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Amount ($)</div>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>{t('shopping.amount',language)}</div>
               <input type="number" value={spendInput} onChange={e=>setSpendInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
                 placeholder="0.00" style={{...IS,height:34,padding:"0 10px",fontSize:14}}/>
             </div>
             <div style={{flex:1,minWidth:120}}>
-              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Note (optional)</div>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>{t('shopping.note',language)}</div>
               <input value={spendNote} onChange={e=>setSpendNote(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
-                placeholder="e.g. Whole Foods run" style={{...IS,height:34,padding:"0 10px",fontSize:13}}/>
+                placeholder={t('shopping.notePlaceholder',language)} style={{...IS,height:34,padding:"0 10px",fontSize:13}}/>
             </div>
-            <button onClick={logSpend} style={{...GB,padding:"8px 14px",background:"var(--accent)",color:"#fff",fontWeight:700,fontSize:13}}>Save</button>
+            <button onClick={logSpend} style={{...GB,padding:"8px 14px",background:"var(--accent)",color:"#fff",fontWeight:700,fontSize:13}}>{t('shopping.save',language)}</button>
           </div>
         )}
         {(spends||[]).length>0 && (
           <div style={{marginTop:showSpendLog?12:0}}>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Recent</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('shopping.recent',language)}</div>
             {(spends||[]).slice(-3).reverse().map(s=>(
               <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
                 <span style={{color:"var(--text-sub)"}}>{s.note}</span>
@@ -2953,7 +2953,7 @@ Empty arrays if complete.`}]
 }
 
 // ─── COMFORT MEAL MODAL ──────────────────────────────────────────────────────
-function ComfortMealModal({onClose, onLog}) {
+function ComfortMealModal({onClose, onLog, language='en'}) {
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const handle = () => {
@@ -2966,20 +2966,20 @@ function ComfortMealModal({onClose, onLog}) {
       <div style={{background:"var(--bg-card)",borderRadius:22,padding:28,width:"100%",maxWidth:380,boxShadow:"var(--nm-raised)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <div>
-            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18}}>🏠 Log Comfort Meal</div>
-            <div style={{color:"var(--text-muted)",fontSize:12,marginTop:3}}>Counts towards your weekly streak</div>
+            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18}}>{t('comfort.title',language)}</div>
+            <div style={{color:"var(--text-muted)",fontSize:12,marginTop:3}}>{t('comfort.subtitle',language)}</div>
           </div>
           <button onClick={onClose} style={{background:"transparent",border:"none",color:"var(--text-muted)",fontSize:20,cursor:"pointer",padding:4,lineHeight:1}}>✕</button>
         </div>
         <div style={{marginBottom:14}}>
-          <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>What did you cook?</label>
+          <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>{t('comfort.whatLabel',language)}</label>
           <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="e.g. Mom's pasta, chicken stir-fry…"
             autoFocus
             style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
         </div>
         <div style={{marginBottom:22}}>
           <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>Notes (optional)</label>
-          <input value={notes} onChange={e=>setNotes(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="How did it turn out?"
+          <input value={notes} onChange={e=>setNotes(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder={t('comfort.notesPlaceholder',language)}
             style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
         </div>
         <div style={{display:"flex",gap:10}}>
@@ -2994,7 +2994,7 @@ function ComfortMealModal({onClose, onLog}) {
   );
 }
 
-function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook}) {
+function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, language='en'}) {
   const favRecipes = favorites.map(f=>recipes.find(r=>r.id===f.id)||f).filter(Boolean);
   return (
     <div>
@@ -3010,8 +3010,8 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook})
       {favRecipes.length===0
         ? <div style={{textAlign:"center",padding:"70px 0"}}>
             <div style={{fontSize:48,marginBottom:14}}>♡</div>
-            <div style={{color:"#fff",fontSize:17,fontFamily:"'Playfair Display',serif",marginBottom:6}}>No favorites yet</div>
-            <div style={{color:"#6a7a90",fontSize:13}}>Tap the heart on any recipe to save it here</div>
+            <div style={{color:"#fff",fontSize:17,fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('fav.empty',language)}</div>
+            <div style={{color:"#6a7a90",fontSize:13}}>{t('fav.emptyHint',language)}</div>
           </div>
         : <div className="r-grid">
             {favRecipes.map(r=>(
@@ -3025,20 +3025,20 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook})
 }
 
 // ─── INGREDIENT SEARCH ────────────────────────────────────────────────────────
-function IngredientSearch({recipes, onView}) {
+function IngredientSearch({recipes, onView, language='en'}) {
   const [query, setQuery] = useState("");
   const results = query.trim().length>1
     ? recipes.filter(r=>(r.ingredients||[]).some(i=>(i.name||"").toLowerCase().includes(query.toLowerCase())))
     : [];
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>Ingredient Search</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>Find recipes by ingredient</p>
-      <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="e.g. chicken, quinoa, matcha..."
+      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('ingSearch.title',language)}</h2>
+      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>{t('ingSearch.subtitle',language)}</p>
+      <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('ingSearch.placeholder',language)}
         style={{...IS,marginBottom:20,fontSize:15}}/>
       {query.trim().length>1 && (
         results.length===0
-          ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>No recipes found with "{query}"</div>
+          ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>{t('ingSearch.noResults',language,{query})}</div>
           : <div className="r-grid">
               {results.map(r=><RecipeCard key={r.id} recipe={r} onClick={onView}/>)}
             </div>
@@ -3620,14 +3620,14 @@ function CookMode({recipe, onClose, language='en'}) {
 }
 
 // ─── PHOTO GALLERY ───────────────────────────────────────────────────────────
-function PhotoGallery({recipes, onView}) {
+function PhotoGallery({recipes, onView, language='en'}) {
   const [filter, setFilter] = useState("all");
   const withPhotos = recipes.filter(r => r.image);
   const displayed = filter==="all" ? withPhotos : withPhotos.filter(r=>r.category===filter);
 
   return (
     <div>
-      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📸 Photo Gallery</h2>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('gallery.title',language)}</h2>
       <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:18}}>{withPhotos.length} recipes with photos</p>
 
       <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:18}}>
@@ -3642,8 +3642,8 @@ function PhotoGallery({recipes, onView}) {
       {displayed.length===0 ? (
         <div style={{textAlign:"center",padding:"60px 0",color:"var(--text-muted)"}}>
           <div style={{fontSize:48,marginBottom:12}}>📷</div>
-          <div style={{fontSize:14,marginBottom:6}}>No photos yet</div>
-          <div style={{fontSize:12}}>Upload photos to your recipes to see them here</div>
+          <div style={{fontSize:14,marginBottom:6}}>{t('gallery.empty',language)}</div>
+          <div style={{fontSize:12}}>{t('gallery.emptyHint',language)}</div>
         </div>
       ) : (
         <div style={{columns:"3 200px",gap:12}}>
@@ -3841,7 +3841,7 @@ function ProfileSelector({profiles, activeProfileId, setActiveProfileId, addProf
 }
 
 // ─── STATISTICS PANEL ────────────────────────────────────────────────────────
-function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, cookLog, macroGoals, setMacroGoals, onDeleteSpend, profileSelector}) {
+function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, cookLog, macroGoals, setMacroGoals, onDeleteSpend, profileSelector, language='en'}) {
   const [editingGoals, setEditingGoals] = useState(false);
   const [goalDraft, setGoalDraft] = useState(macroGoals||{calories:2000,protein:50,carbs:130,fat:65});
   const totalRecipes = recipes.length;
@@ -3891,30 +3891,30 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 
   return (
     <div>
-      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📊 Statistics</h2>
-      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:14}}>Your meal prep insights at a glance</p>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('stat.title',language)}</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:14}}>{t('stat.subtitle',language)}</p>
       {profileSelector}
 
       {/* Summary cards */}
       <div className="r-grid-sm" style={{marginBottom:24}}>
         {(()=>{
           const streak = computeWeeklyStreak(cookLog);
-          return <StatCard icon="🔥" value={streak} label="Week Streak" color="#ffd580" sub={`${(cookLog||[]).length} total sessions`}/>;
+          return <StatCard icon="🔥" value={streak} label={t('stat.weekStreak',language)} color="#ffd580" sub={t('stat.totalSessions',language,{n:String((cookLog||[]).length)})}/>;
         })()}
-        <StatCard icon="📖" value={totalRecipes} label="Total Recipes" color="#5a8fd4"/>
-        <StatCard icon="⏱" value={avgCookTime+"m"} label="Avg Cook Time" color="#d4875a"/>
-        <StatCard icon="📅" value={mealPlanItems.length} label="Meals Planned" color="#5aad8e"/>
-        <StatCard icon="💰" value={"$"+totalSpend.toFixed(2)} label="Total Spent" color="#c06090" sub={`${(shoppingSpends||[]).length} trips · avg $${avgSpend.toFixed(2)}`}/>
-        <StatCard icon="♥" value={favorites.length} label="Favorites" color="#e05a6a"/>
-        <StatCard icon="⭐" value={ratedRecipes.length} label="Rated" color="#ffd580"/>
+        <StatCard icon="📖" value={totalRecipes} label={t('stat.totalRecipes',language)} color="#5a8fd4"/>
+        <StatCard icon="⏱" value={avgCookTime+"m"} label={t('stat.avgCookTime',language)} color="#d4875a"/>
+        <StatCard icon="📅" value={mealPlanItems.length} label={t('stat.mealsPlanned',language)} color="#5aad8e"/>
+        <StatCard icon="💰" value={"$"+totalSpend.toFixed(2)} label={t('stat.totalSpent',language)} color="#c06090" sub={`${(shoppingSpends||[]).length} ${t('stat.trips',language)} $${avgSpend.toFixed(2)}`}/>
+        <StatCard icon="♥" value={favorites.length} label={t('stat.favorites',language)} color="#e05a6a"/>
+        <StatCard icon="⭐" value={ratedRecipes.length} label={t('stat.rated',language)} color="#ffd580"/>
       </div>
 
       {/* Macro Goals Editor */}
       <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editingGoals?14:0}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>🎯 Daily Macro Goals</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('stat.macroGoals',language)}</div>
           <button onClick={()=>{if(editingGoals){setMacroGoals(goalDraft);}setEditingGoals(e=>!e);}} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:8,color:editingGoals?"var(--accent)":"var(--text-sub)",padding:"4px 10px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
-            {editingGoals?"✓ Save":"✏️ Edit"}
+            {editingGoals?t('stat.saveGoals',language):t('stat.editGoals',language)}
           </button>
         </div>
         {editingGoals ? (
@@ -3939,7 +3939,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
         {/* Category breakdown */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>📂 Recipes by Category</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.byCategory',language)}</div>
           {catBreakdown.map(c=>(
             <div key={c.id} style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
@@ -3953,7 +3953,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 
         {/* Nutrition averages */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🥗 Avg Nutrition / Recipe</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.avgNutrition',language)}</div>
           {[["🔥 Calories",avgCalories,"kcal","#e05a6a",2000],["💪 Protein",avgProtein,"g","#5aad8e",50],["🌾 Carbs",avgCarbs,"g","#5a8fd4",130],["🥑 Fat",avgFat,"g","#d4875a",65]].map(([l,v,u,col,max])=>(
             <div key={l} style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
@@ -3979,8 +3979,8 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
         {/* Top tags */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🏷️ Most Used Tags</div>
-          {topTags.length===0 && <div style={{color:"var(--text-muted)",fontSize:12}}>No tags yet</div>}
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.topTags',language)}</div>
+          {topTags.length===0 && <div style={{color:"var(--text-muted)",fontSize:12}}>{t('stat.noTags',language)}</div>}
           {topTags.map(([tag,count])=>(
             <div key={tag} style={{marginBottom:9}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
@@ -3994,7 +3994,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 
         {/* Spice distribution */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🌶️ Spice Distribution</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.spiceDist',language)}</div>
           {spiceDist.map(({lvl,count})=>(
             <div key={lvl} style={{marginBottom:9}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
@@ -4010,7 +4010,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Cuisine breakdown */}
       {cuisineBreakdown.length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🌍 Recipes by Cuisine</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.byCuisine',language)}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
             {cuisineBreakdown.map(({c,count})=>(
               <div key={c} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:10,padding:"10px 12px"}}>
@@ -4030,7 +4030,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Cooking log */}
       {(cookLog||[]).length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🍳 Recent Cooking Sessions</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.recentSessions',language)}</div>
           {(cookLog||[]).slice().reverse().slice(0,10).map(l=>(
             <div key={l.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
               <span style={{fontSize:18}}>{l.isComfortMeal ? "🏠" : "🍳"}</span>
@@ -4048,7 +4048,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Top rated */}
       {ratedRecipes.length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>⭐ Top Rated Recipes</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.topRated',language)}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
             {ratedRecipes.slice(0,6).map(({recipe,rt})=>(
               <div key={recipe.id} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"10px 12px"}}>
@@ -4083,16 +4083,16 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
         const yearTotal  = sum(yearSpends);
         const maxBar = Math.max(yesterdayTotal, weekTotal, monthTotal, yearTotal, 1);
         const periods = [
-          {label:"Yesterday",  value:yesterdayTotal, trips:yesterdaySpends.length, color:"#ffd580"},
-          {label:"This Week",  value:weekTotal,       trips:weekSpends.length,      color:"#5aad8e"},
-          {label:"This Month", value:monthTotal,      trips:monthSpends.length,     color:"#5a8fd4"},
-          {label:"This Year",  value:yearTotal,       trips:yearSpends.length,      color:"#c06090"},
+          {label:t('stat.yesterday',language),  value:yesterdayTotal, trips:yesterdaySpends.length, color:"#ffd580"},
+          {label:t('stat.thisWeek',language),   value:weekTotal,       trips:weekSpends.length,      color:"#5aad8e"},
+          {label:t('stat.thisMonth',language),  value:monthTotal,      trips:monthSpends.length,     color:"#5a8fd4"},
+          {label:t('stat.thisYear',language),   value:yearTotal,       trips:yearSpends.length,      color:"#c06090"},
         ];
         return (
           <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Shopping Spending</div>
-              <span style={{color:"var(--text-sub)",fontSize:12}}>{(shoppingSpends||[]).length} trips total</span>
+              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('stat.spendTitle',language)}</div>
+              <span style={{color:"var(--text-sub)",fontSize:12}}>{t('stat.totalTrips',language,{n:String((shoppingSpends||[]).length)})}</span>
             </div>
             {/* Period summary bars */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:18}}>
@@ -4100,7 +4100,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
                 <div key={label} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
                   <div style={{color,fontWeight:800,fontSize:20}}>${value.toFixed(2)}</div>
                   <div style={{color:"var(--text-muted)",fontSize:10,textTransform:"uppercase",letterSpacing:.5,marginTop:2}}>{label}</div>
-                  <div style={{color:"var(--text-sub)",fontSize:11,marginTop:4}}>{trips} trip{trips!==1?"s":""}</div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,marginTop:4}}>{trips} {trips!==1?t('stat.trips2',language):t('stat.trip',language)}</div>
                 </div>
               ))}
             </div>
@@ -4116,7 +4116,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
             ))}
             {/* Recent trips */}
             <div style={{marginTop:16,borderTop:"1px solid var(--border)",paddingTop:14}}>
-              <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Recent Trips</div>
+              <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>{t('stat.recentTrips',language)}</div>
               {(shoppingSpends||[]).slice().reverse().map(s=>(
                 <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid var(--border)"}}>
                   <span style={{fontSize:16}}>🛒</span>
@@ -4129,7 +4129,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
                 </div>
               ))}
               <div style={{marginTop:10,fontSize:12,color:"var(--text-sub)"}}>
-                📈 Avg per trip: <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong>
+                📈 {t('stat.avgPerTrip',language)} <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong>
               </div>
             </div>
           </div>
@@ -4139,7 +4139,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {totalRecipes===0 && (
         <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
           <div style={{fontSize:40,marginBottom:10}}>📊</div>
-          <div style={{fontSize:14}}>Add recipes to see your stats</div>
+          <div style={{fontSize:14}}>{t('stat.noData',language)}</div>
         </div>
       )}
     </div>
@@ -4319,7 +4319,7 @@ function IngredientWikiModal({ingredient, onClose}) {
   );
 }
 
-function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
+function WhatCanICookModal({recipes, onClose, onView, pantry=[], language='en'}) {
   // Pre-populate with all pantry items on first open
   const [ingredients, setIngredients] = useState(()=>pantry.map(p=>p.name.toLowerCase()));
   const [input, setInput] = useState("");
@@ -4354,10 +4354,10 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
       <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:640,width:"100%",maxHeight:"90vh",overflowY:"auto",padding:24,border:"1px solid var(--border)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>🧑‍🍳 What Can I Cook?</h2>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{t('cook2.title',language)}</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
         </div>
-        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:16}}>Toggle pantry items on/off and add extras to see which recipes you can make right now.</p>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:16}}>{t('cook2.subtitle',language)}</p>
 
         {/* Pantry items grid */}
         {pantry.length>0&&(
@@ -4365,7 +4365,7 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>🥫 Your Pantry ({pantry.length} items)</div>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setIngredients(pantry.map(p=>p.name.toLowerCase()))} style={{...GB,padding:"3px 10px",fontSize:11,color:"#5aad8e"}}>Select all</button>
+                <button onClick={()=>setIngredients(pantry.map(p=>p.name.toLowerCase()))} style={{...GB,padding:"3px 10px",fontSize:11,color:"#5aad8e"}}>{t('cook2.selectAll',language)}</button>
                 <button onClick={()=>setIngredients(i=>i.filter(x=>!pantryNames.has(x)))} style={{...GB,padding:"3px 10px",fontSize:11,color:"var(--text-muted)"}}>None</button>
               </div>
             </div>
@@ -4391,11 +4391,11 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
 
         {/* Manual add */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>+ Add More Ingredients</div>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>{t('cook2.addMore',language)}</div>
           <div style={{display:"flex",gap:8}}>
             <input value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();addIng();}}}
-              placeholder="e.g. eggs, olive oil…"
+              placeholder={t('cook2.addPlaceholder',language)}
               style={{...IS,flex:1,height:38,padding:"0 12px",fontSize:14}}/>
             <button onClick={addIng} style={{...GB,padding:"0 16px",fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.4)"}}>+ Add</button>
           </div>
@@ -4416,15 +4416,15 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
         {/* Summary line */}
         {ingredients.length>0&&(
           <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>
-            Using <b style={{color:"var(--text)"}}>{ingredients.length}</b> ingredient{ingredients.length!==1?"s":""} — {scored.length} recipe{scored.length!==1?"s":""} found
+            {t('cook2.results',language,{ing:String(ingredients.length),rec:String(scored.length)})}
           </div>
         )}
 
         {ingredients.length>0&&scored.length===0&&(
-          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>No matches — try selecting more pantry items or adding extra ingredients.</div>
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>{t('cook2.noMatches',language)}</div>
         )}
         {ingredients.length===0&&pantry.length===0&&(
-          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>Add items to your Pantry first, or type ingredients above.</div>
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>{t('cook2.noPantry',language)}</div>
         )}
 
         {scored.map(r=>(
@@ -5373,7 +5373,7 @@ function App() {
                     <div style={{flex:1,minWidth:160}}>
                       {streak > 0
                         ? <div style={{color:"#ffd580",fontWeight:800,fontSize:20}}>{streak} week{streak!==1?"s":""} streak!</div>
-                        : <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:16}}>Start your streak!</div>}
+                        : <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:16}}>{t('dash.startStreak',language)}</div>}
                       <div style={{color:"var(--text-sub)",fontSize:12,marginTop:2}}>
                         {cookedThisWeek ? "✅ Cooked this week — streak safe!" : "Cook at least once this week to keep going"}
                       </div>
@@ -5387,7 +5387,7 @@ function App() {
                 );
               })()}
 
-              <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,marginBottom:14}}>Recent Recipes</h3>
+              <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,marginBottom:14}}>{t('dash.recentRecipes',language)}</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18,marginBottom:28}}>
                 {recipes.slice(-4).reverse().map(r=>(
                   <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
@@ -5406,7 +5406,7 @@ function App() {
                 ];
                 return (
                   <div style={{marginBottom:28}}>
-                    <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>📚 Recipe Resources</h3>
+                    <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>{t('dash.resources',language)}</h3>
                     <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Browse these sites for inspiration, then paste the recipe URL into + Add Recipe</p>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
                       {RESOURCES.map(r=>(
@@ -5429,7 +5429,7 @@ function App() {
               {recipes.length===0 && (
                 <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                   <div style={{fontSize:40,marginBottom:12}}>🥗</div>
-                  <div style={{fontSize:15,color:"#8a9bb0",marginBottom:8}}>No recipes yet</div>
+                  <div style={{fontSize:15,color:"#8a9bb0",marginBottom:8}}>{t('dash.noRecipes',language)}</div>
                   <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:10,color:"#fff",padding:"10px 20px",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add your first recipe</button>
                 </div>
               )}
@@ -5442,12 +5442,12 @@ function App() {
               {/* Header row */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
                 <div style={{display:"flex",alignItems:"baseline",gap:10}}>
-                  <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>All Recipes</h2>
+                  <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{t('dash.allRecipes',language)}</h2>
                   <span style={{color:"var(--text-muted)",fontSize:12}}>{filtered.length} of {recipes.length}</span>
                 </div>
                 <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
                   {anyFilterActive && (
-                    <button onClick={clearAllFilters} style={{...CB,fontSize:11,color:"#f08080",border:"1px solid rgba(240,128,128,0.3)"}}>✕ Clear filters</button>
+                    <button onClick={clearAllFilters} style={{...CB,fontSize:11,color:"#f08080",border:"1px solid rgba(240,128,128,0.3)"}}>{t('dash.clearFilters',language)}</button>
                   )}
                   <button onClick={()=>setBudgetMode(b=>!b)}
                     style={{...CB,fontSize:12,padding:"5px 12px",background:budgetMode?"rgba(90,173,142,0.18)":"var(--bg-card)",color:budgetMode?"#5aad8e":"var(--text-sub)",boxShadow:budgetMode?"var(--nm-inset)":"var(--nm-raised-sm)",border:budgetMode?"1px solid rgba(90,173,142,0.3)":"none"}}>
@@ -5567,8 +5567,8 @@ function App() {
               {filtered.length===0
                 ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                     <div style={{fontSize:36,marginBottom:10}}>🔍</div>
-                    <div style={{marginBottom:12}}>No recipes match your filters</div>
-                    {anyFilterActive && <button onClick={clearAllFilters} style={{...CB,color:"var(--accent)"}}>Clear all filters</button>}
+                    <div style={{marginBottom:12}}>{t('dash.noMatches',language)}</div>
+                    {anyFilterActive && <button onClick={clearAllFilters} style={{...CB,color:"var(--accent)"}}>{t('dash.clearAll',language)}</button>}
                   </div>
                 : <div className="r-grid">
                     {filtered.map(r=><RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined}/>)}
@@ -5577,14 +5577,14 @@ function App() {
             </div>
           )}
 
-          {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])}/>}
+          {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])} language={language}/>}
 
           {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")} language={language}/>}
 
           {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null} pantry={pantry} language={language}/>}
           {sec==="pantry" && <PantryManager pantry={pantry} setPantry={setPantry} recipes={recipes} language={language} onDeduct={updates=>setPantry(p=>p.map(item=>{const u=updates.find(x=>x.id===item.id);return u?{...item,amount:Math.max(0,item.amount-u.used)}:item;}))}/>}
 
-          {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing}/>}
+          {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing} language={language}/>}
 
           {sec==="supplements" && (
             <div>
@@ -5593,13 +5593,13 @@ function App() {
             </div>
           )}
 
-          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} cookLog={cookLog} macroGoals={macroGoals} setMacroGoals={setMacroGoals} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))} profileSelector={<ProfileSelector profiles={profiles} activeProfileId={activeProfileId} setActiveProfileId={setActiveProfileId} addProfile={addProfile} deleteProfile={deleteProfile} renameProfile={renameProfile}/>}/>}
+          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} cookLog={cookLog} macroGoals={macroGoals} setMacroGoals={setMacroGoals} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))} language={language} profileSelector={<ProfileSelector profiles={profiles} activeProfileId={activeProfileId} setActiveProfileId={setActiveProfileId} addProfile={addProfile} deleteProfile={deleteProfile} renameProfile={renameProfile}/>}/>}
 
-          {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])}/>}
+          {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} language={language}/>}
 
-          {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing}/>}
+          {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing} language={language}/>}
 
-          {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing}/>}
+          {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing} language={language}/>}
 
           {sec==="settings" && (
             <div style={{maxWidth:560,margin:"0 auto"}}>
@@ -5717,11 +5717,11 @@ function App() {
       {addOpen && <SmartAddModal initialUrl={addInitialUrl} onClose={()=>{setAddOpen(false);setAddInitialUrl("");}} onAdd={r=>setRecipes(p=>[...p,r])}/>}
 
       {/* Comfort meal log modal */}
-      {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])}/>}
+      {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])} language={language}/>}
 
       {/* Recipe audit modal */}
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
-      {whatCanICookOpen && <WhatCanICookModal recipes={recipes} pantry={pantry} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}}/>}
+      {whatCanICookOpen && <WhatCanICookModal recipes={recipes} pantry={pantry} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}} language={language}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)} language={language}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
         onDelete={id=>{trackDeleted(id,recipes);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
