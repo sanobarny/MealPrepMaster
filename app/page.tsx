@@ -66,12 +66,14 @@ const getDifficultyLabel = (key, lang = 'en') => {
   return t(keys[key], lang);
 };
 
-const translateRecipe = async (recipe, targetLang, anthropicKey) => {
+const translateRecipe = async (recipe, targetLang, anthropicKey?) => {
   if (targetLang === 'en' || !recipe) return recipe;
   const cacheKey = `mpm_recipe_translation_${recipe.id}_${targetLang}`;
   const cached = localStorage.getItem(cacheKey);
-  if (cached) return JSON.parse(cached);
-  if (!anthropicKey?.trim()) return recipe;
+  if (cached) try { return JSON.parse(cached); } catch(e) {}
+  // Fall back to reading key from localStorage/cookie directly if state hasn't propagated yet
+  const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+  if (!keyToUse) return recipe;
   try {
     const systemPrompt = `Translate the following recipe to ${targetLang === 'es' ? 'Spanish' : 'Russian'}.
 Return ONLY valid JSON with the same structure. Translate: title, description, healthBenefits, and all ingredient names and step text.
@@ -4648,6 +4650,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [translatedRecipes, setTranslatedRecipes] = useState<Record<string,any>>({});
+  const [translatingCount, setTranslatingCount] = useState(0);
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachMsgs, setCoachMsgs] = useState([{role:"assistant",content:"Hi! I'm your Meal Coach 👋 Ask me anything about your recipes, nutrition, or meal planning!"}]);
   const [coachInput, setCoachInput] = useState("");
@@ -4883,10 +4886,11 @@ function App() {
 
   // Auto-translate viewing recipe when language changes
   useEffect(() => {
-    if (viewing && language !== 'en' && anthropicKey?.trim()) {
+    const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+    if (viewing && language !== 'en' && keyToUse) {
       const timer = setTimeout(async () => {
         try {
-          const translated = await translateRecipe(viewing, language, anthropicKey);
+          const translated = await translateRecipe(viewing, language, keyToUse);
           if (translated && translated.id === viewing.id) {
             setViewing(translated);
             setTranslatedRecipes(p => ({...p, [translated.id]: translated}));
@@ -4911,21 +4915,29 @@ function App() {
 
   // Background-translate all recipes when language or API key changes
   useEffect(() => {
-    if (language === 'en' || !anthropicKey?.trim() || !hydrated || recipes.length === 0) return;
+    const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+    if (language === 'en' || !keyToUse || !hydrated || recipes.length === 0) return;
     let cancelled = false;
+    // Count how many need translation (not yet cached)
+    const needTranslation = recipes.filter(r => !localStorage.getItem(`mpm_recipe_translation_${r.id}_${language}`));
+    if (needTranslation.length > 0) setTranslatingCount(needTranslation.length);
     (async () => {
+      let remaining = needTranslation.length;
       for (const recipe of recipes) {
         if (cancelled) break;
+        const wasCached = !!localStorage.getItem(`mpm_recipe_translation_${recipe.id}_${language}`);
         try {
-          const translated = await translateRecipe(recipe, language, anthropicKey);
+          const translated = await translateRecipe(recipe, language, keyToUse);
           if (!cancelled && translated && translated.id === recipe.id) {
             setTranslatedRecipes(p => ({...p, [recipe.id]: translated}));
+            if (!wasCached) { remaining--; setTranslatingCount(remaining); }
           }
         } catch(e) {}
         if (!cancelled) await new Promise(res => setTimeout(res, 150));
       }
+      if (!cancelled) setTranslatingCount(0);
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; setTranslatingCount(0); };
   }, [language, anthropicKey, hydrated, recipes.length]);
 
   // Canvas compress fallback (for when storage upload is unavailable)
@@ -5525,6 +5537,14 @@ function App() {
                     <span style={{color:"var(--text-muted)",fontSize:11}}>{t('dash.perWeek',language)}</span>
                   </div>
                   <div style={{color:"var(--text-muted)",fontSize:11}}>~${(weeklyBudget/21).toFixed(2)}/meal max</div>
+                </div>
+              )}
+
+              {/* Translation progress indicator */}
+              {translatingCount > 0 && (
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 14px",marginBottom:8,background:"rgba(90,173,142,0.08)",border:"1px solid rgba(90,173,142,0.2)",borderRadius:10,fontSize:12,color:"var(--text-sub)"}}>
+                  <span style={{display:"inline-block",animation:"spin 1s linear infinite",fontSize:14}}>⟳</span>
+                  {language==='es' ? `Traduciendo ${translatingCount} receta${translatingCount!==1?'s':''}…` : language==='ru' ? `Перевод: осталось ${translatingCount} ${translatingCount===1?'рецепт':translatingCount<5?'рецепта':'рецептов'}…` : `Translating ${translatingCount} recipe${translatingCount!==1?'s':''}…`}
                 </div>
               )}
 
