@@ -1049,6 +1049,9 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
 function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap, language='en'}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
+  // Sync local state when translated prop arrives (title change = new translation)
+  useEffect(() => { if (init.id === recipe.id && init.title !== recipe.title) setRecipe(init); }, [init.title]);
+  useEffect(() => { if (init.id !== recipe.id) { setRecipe(init); setScale(init.servings||1); } }, [init.id]);
   const [genIdx, setGenIdx] = useState(null);
   const [imgVer, setImgVer] = useState(0);
   const [timers, setTimers] = useState({});
@@ -3003,7 +3006,8 @@ function ComfortMealModal({onClose, onLog, language='en'}) {
   );
 }
 
-function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, language='en'}) {
+function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, language='en', translatedRecipes={}}) {
+  const dr = (r: any) => (r && language !== 'en' && translatedRecipes[r.id]) ? translatedRecipes[r.id] : r;
   const favRecipes = favorites.map(f=>recipes.find(r=>r.id===f.id)||f).filter(Boolean);
   return (
     <div>
@@ -3013,7 +3017,7 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, 
           <p style={{color:"#8a9bb0",fontSize:13,margin:0}}>{favRecipes.length} saved recipes</p>
         </div>
         {favRecipes.length>0 && (
-          <button onClick={()=>exportMealBookToPDF(favRecipes,"My Favorite Recipes")} style={{...GB}}>📚 Export Cookbook PDF</button>
+          <button onClick={()=>exportMealBookToPDF(favRecipes.map(dr),"My Favorite Recipes")} style={{...GB}}>📚 Export Cookbook PDF</button>
         )}
       </div>
       {favRecipes.length===0
@@ -3024,7 +3028,7 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, 
           </div>
         : <div className="r-grid">
             {favRecipes.map(r=>(
-              <RecipeCard key={r.id} recipe={r} onClick={onView}
+              <RecipeCard key={r.id} recipe={dr(r)} onClick={()=>onView(dr(r))}
                 onFavorite={()=>setFavorites(p=>p.filter(f=>f.id!==r.id))} isFavorite={true}/>
             ))}
           </div>
@@ -3034,7 +3038,8 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, 
 }
 
 // ─── INGREDIENT SEARCH ────────────────────────────────────────────────────────
-function IngredientSearch({recipes, onView, language='en'}) {
+function IngredientSearch({recipes, onView, language='en', translatedRecipes={}}) {
+  const dr = (r: any) => (r && language !== 'en' && translatedRecipes[r.id]) ? translatedRecipes[r.id] : r;
   const [query, setQuery] = useState("");
   const results = query.trim().length>1
     ? recipes.filter(r=>(r.ingredients||[]).some(i=>(i.name||"").toLowerCase().includes(query.toLowerCase())))
@@ -3049,7 +3054,7 @@ function IngredientSearch({recipes, onView, language='en'}) {
         results.length===0
           ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>{t('ingSearch.noResults',language,{query})}</div>
           : <div className="r-grid">
-              {results.map(r=><RecipeCard key={r.id} recipe={r} onClick={onView}/>)}
+              {results.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>onView(dr(r))}/>)}
             </div>
       )}
     </div>
@@ -4642,6 +4647,7 @@ function App() {
   const [language, setLanguage] = useState('en');
   const [searchOpen, setSearchOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [translatedRecipes, setTranslatedRecipes] = useState<Record<string,any>>({});
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachMsgs, setCoachMsgs] = useState([{role:"assistant",content:"Hi! I'm your Meal Coach 👋 Ask me anything about your recipes, nutrition, or meal planning!"}]);
   const [coachInput, setCoachInput] = useState("");
@@ -4883,6 +4889,7 @@ function App() {
           const translated = await translateRecipe(viewing, language, anthropicKey);
           if (translated && translated.id === viewing.id) {
             setViewing(translated);
+            setTranslatedRecipes(p => ({...p, [translated.id]: translated}));
           }
         } catch(e) { console.warn('Translation failed:', e); }
       }, 300);
@@ -4890,6 +4897,36 @@ function App() {
     }
   }, [language, viewing?.id, anthropicKey]);
 
+  // Load cached translations when language changes
+  useEffect(() => {
+    if (language === 'en') { setTranslatedRecipes({}); return; }
+    const cached: Record<string,any> = {};
+    recipes.forEach(r => {
+      const key = `mpm_recipe_translation_${r.id}_${language}`;
+      const c = localStorage.getItem(key);
+      if (c) { try { cached[r.id] = JSON.parse(c); } catch {} }
+    });
+    setTranslatedRecipes(cached);
+  }, [language]);
+
+  // Background-translate all recipes when language or API key changes
+  useEffect(() => {
+    if (language === 'en' || !anthropicKey?.trim() || !hydrated || recipes.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const recipe of recipes) {
+        if (cancelled) break;
+        try {
+          const translated = await translateRecipe(recipe, language, anthropicKey);
+          if (!cancelled && translated && translated.id === recipe.id) {
+            setTranslatedRecipes(p => ({...p, [recipe.id]: translated}));
+          }
+        } catch(e) {}
+        if (!cancelled) await new Promise(res => setTimeout(res, 150));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [language, anthropicKey, hydrated, recipes.length]);
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
@@ -5011,6 +5048,8 @@ function App() {
 
   const toggleFav = r => setFavorites(p=>p.some(f=>f.id===r.id)?p.filter(f=>f.id!==r.id):[...p,{id:r.id}]);
   const isFav = r => favorites.some(f=>f.id===r.id);
+  // Return translated version of recipe if available, else original
+  const dr = (r: any) => (r && language !== 'en' && translatedRecipes[r.id]) ? translatedRecipes[r.id] : r;
 
   const toggleDark = () => setDarkMode(d => { const nd = !d; if(typeof localStorage!=='undefined') localStorage.setItem('dark_mode',String(nd)); return nd; });
 
@@ -5399,7 +5438,7 @@ function App() {
               <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,marginBottom:14}}>{t('dash.recentRecipes',language)}</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18,marginBottom:28}}>
                 {recipes.slice(-4).reverse().map(r=>(
-                  <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
+                  <RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)}/>
                 ))}
               </div>
               {/* Recipe Resources */}
@@ -5462,7 +5501,7 @@ function App() {
                     style={{...CB,fontSize:12,padding:"5px 12px",background:budgetMode?"rgba(90,173,142,0.18)":"var(--bg-card)",color:budgetMode?"#5aad8e":"var(--text-sub)",boxShadow:budgetMode?"var(--nm-inset)":"var(--nm-raised-sm)",border:budgetMode?"1px solid rgba(90,173,142,0.3)":"none"}}>
                     {budgetMode?t('dash.budgetOn',language):t('dash.budgetOff',language)}
                   </button>
-                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>{t('dash.exportBook',language)}</button>}
+                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes.map(dr),"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>{t('dash.exportBook',language)}</button>}
                   {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>{t('dash.auditRecipes',language)}</button>}
                   <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>{t('pantry.whatCanICook',language)}</button>
                   <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>{t('dash.spin',language)}</button>
@@ -5580,7 +5619,7 @@ function App() {
                     {anyFilterActive && <button onClick={clearAllFilters} style={{...CB,color:"var(--accent)"}}>{t('dash.clearAll',language)}</button>}
                   </div>
                 : <div className="r-grid">
-                    {filtered.map(r=><RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined}/>)}
+                    {filtered.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined}/>)}
                   </div>
               }
             </div>
@@ -5606,9 +5645,9 @@ function App() {
 
           {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} language={language}/>}
 
-          {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing} language={language}/>}
+          {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing} language={language} translatedRecipes={translatedRecipes}/>}
 
-          {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing} language={language}/>}
+          {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing} language={language} translatedRecipes={translatedRecipes}/>}
 
           {sec==="settings" && (
             <div style={{maxWidth:560,margin:"0 auto"}}>
