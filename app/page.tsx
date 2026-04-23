@@ -66,12 +66,14 @@ const getDifficultyLabel = (key, lang = 'en') => {
   return t(keys[key], lang);
 };
 
-const translateRecipe = async (recipe, targetLang, anthropicKey) => {
+const translateRecipe = async (recipe, targetLang, anthropicKey?) => {
   if (targetLang === 'en' || !recipe) return recipe;
   const cacheKey = `mpm_recipe_translation_${recipe.id}_${targetLang}`;
   const cached = localStorage.getItem(cacheKey);
-  if (cached) return JSON.parse(cached);
-  if (!anthropicKey?.trim()) return recipe;
+  if (cached) try { return JSON.parse(cached); } catch(e) {}
+  // Fall back to reading key from localStorage/cookie directly if state hasn't propagated yet
+  const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+  if (!keyToUse) return recipe;
   try {
     const systemPrompt = `Translate the following recipe to ${targetLang === 'es' ? 'Spanish' : 'Russian'}.
 Return ONLY valid JSON with the same structure. Translate: title, description, healthBenefits, and all ingredient names and step text.
@@ -1049,6 +1051,9 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
 function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap, language='en'}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
+  // Sync local state when translated prop arrives (title change = new translation)
+  useEffect(() => { if (init.id === recipe.id && init.title !== recipe.title) setRecipe(init); }, [init.title]);
+  useEffect(() => { if (init.id !== recipe.id) { setRecipe(init); setScale(init.servings||1); } }, [init.id]);
   const [genIdx, setGenIdx] = useState(null);
   const [imgVer, setImgVer] = useState(0);
   const [timers, setTimers] = useState({});
@@ -1226,7 +1231,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                 <div style={{position:"relative",marginBottom:10,borderRadius:10,overflow:"hidden"}}>
                   <img src={recipe.ingredientsImage} alt="All ingredients" style={{width:"100%",maxHeight:220,objectFit:"contain",display:"block",background:"rgba(0,0,0,0.25)",borderRadius:8}}/>
                   <div style={{position:"absolute",top:5,right:5,display:"flex",gap:4}}>
-                    <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 Change</button>
+                    <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 {t('edit.change',language)}</button>
                     <button onClick={()=>setRecipe(p=>({...p,ingredientsImage:null}))} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
                   </div>
                 </div>
@@ -1291,7 +1296,16 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             {/* Details */}
             <div>
               <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>{t('label.details', language)}</h3>
-              {[["Prep",recipe.prepTime+"min"],["Cook",recipe.cookTime+"min"],["Total",total+"min"],["Servings",scale],["Calories",Math.round(recipe.nutrition.calories*r)+"kcal"],["Equipment",(recipe.equipment||[]).join(", ")],["Spice",(recipe.spiceLevel||0)===0?"None":"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]],recipe.cuisine&&["Cuisine","🌍 "+recipe.cuisine]].filter(Boolean).map(([k,v])=>(
+              {([
+                [t('label.prep',language), recipe.prepTime+"min"],
+                [t('label.cook',language), recipe.cookTime+"min"],
+                [t('label.total',language), total+"min"],
+                [t('label.servings',language), String(scale)],
+                [t('label.calories',language), Math.round(recipe.nutrition.calories*r)+"kcal"],
+                [t('label.equipment',language), (recipe.equipment||[]).join(", ")],
+                [t('label.spice',language), (recipe.spiceLevel||0)===0?t('label.none',language):"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]],
+                recipe.cuisine&&[t('label.cuisine',language), "🌍 "+recipe.cuisine]
+              ] as [string,string][]).filter(Boolean).map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
                   <span style={{color:"#6a7a90"}}>{k}</span>
                   <span style={{color:"#c8d0dc"}}>{v}</span>
@@ -1563,56 +1577,56 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
       <div className="modal-inner" style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,maxWidth:700,width:"100%",maxHeight:"94vh",overflowY:"auto",padding:24}}>
 
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>✏️ Edit Recipe</h2>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{t('edit.modalTitle',language)}</h2>
           <button onClick={onClose} style={{...GB,padding:"4px 10px",fontSize:18}}>×</button>
         </div>
 
         {/* Re-import section */}
         <div style={{marginBottom:16,background:"rgba(90,143,212,0.06)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:12,padding:"12px 14px"}}>
-          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>↩ Replace Recipe Content</div>
-          <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:10}}>Re-import from a URL or image — all your photos will be kept, only ingredients & steps are replaced.</div>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.5}}>{t('edit.reimportSection',language)}</div>
+          <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:10}}>{t('edit.reimportDesc',language)}</div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
             <input value={reimportUrl} onChange={e=>setReimportUrl(e.target.value)}
-              placeholder="Paste recipe URL…"
+              placeholder={t('edit.reimportUrl',language)}
               disabled={reimporting}
               onKeyDown={e=>{if(e.key==="Enter"&&reimportUrl.trim())doReimport(reimportUrl.trim());}}
               style={{...IS,flex:1,minWidth:200,height:36,padding:"0 10px",fontSize:13}}/>
             <button onClick={()=>doReimport(reimportUrl.trim())} disabled={reimporting||!reimportUrl.trim()}
               style={{...GB,padding:"8px 16px",fontSize:13,fontWeight:700,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.4)",opacity:reimporting||!reimportUrl.trim()?0.5:1,whiteSpace:"nowrap"}}>
-              {reimporting?"Importing…":"Re-import"}
+              {reimporting?t('edit.importing',language):t('edit.reimportBtn',language)}
             </button>
             <input ref={reimportFileRef} type="file" accept="image/*" style={{display:"none"}}
               onChange={e=>{const f=e.target.files?.[0];if(f)doReimportFromImage(f);e.target.value="";}}/>
             <button onClick={()=>reimportFileRef.current?.click()} disabled={reimporting}
               style={{...GB,padding:"8px 14px",fontSize:13,fontWeight:700,color:"#5a8fd4",border:"1px solid rgba(90,143,212,0.4)",opacity:reimporting?0.5:1,whiteSpace:"nowrap"}}>
-              📷 From Image
+              {t('edit.fromImage',language)}
             </button>
           </div>
           {reimportError && <div style={{color:"#d45a5a",fontSize:12,marginTop:8}}>{reimportError}</div>}
-          {reimporting && <div style={{color:"#5a8fd4",fontSize:12,marginTop:8,display:"flex",alignItems:"center",gap:6}}><span style={{animation:"spin 1.2s linear infinite",display:"inline-block"}}>⟳</span> Fetching & extracting from source…</div>}
+          {reimporting && <div style={{color:"#5a8fd4",fontSize:12,marginTop:8,display:"flex",alignItems:"center",gap:6}}><span style={{animation:"spin 1.2s linear infinite",display:"inline-block"}}>⟳</span> {t('edit.fetchingSource',language)}</div>}
         </div>
 
         {/* Main image */}
         <div style={{marginBottom:16}}>
-          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>📷 Recipe Photo</div>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>{t('edit.recipePhoto',language)}</div>
           <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
             {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover"}} onError={e=>e.target.style.display='none'}/>}
             <input ref={mainImgRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadImg(e,url=>set("image",url))}/>
-            <button onClick={()=>mainImgRef.current?.click()} style={{...GB,padding:"7px 14px"}}>📁 Upload Photo</button>
-            <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)} placeholder="Or paste image URL…"
+            <button onClick={()=>mainImgRef.current?.click()} style={{...GB,padding:"7px 14px"}}>{t('edit.uploadPhoto',language)}</button>
+            <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)} placeholder={t('edit.pasteImgUrl',language)}
               style={{...IS,flex:1,minWidth:150,height:34,padding:"0 10px",fontSize:12}}/>
-            <button onClick={()=>{if(imgUrlInput.trim()){set("image",imgUrlInput.trim());setImgUrlInput("");}}} style={{...GB,padding:"7px 10px",fontSize:12}}>Use</button>
+            <button onClick={()=>{if(imgUrlInput.trim()){set("image",imgUrlInput.trim());setImgUrlInput("");}}} style={{...GB,padding:"7px 10px",fontSize:12}}>{t('edit.use',language)}</button>
           </div>
         </div>
 
         {/* Basic info */}
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:12}}>
           <div>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Title</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('edit.titleField',language)}</div>
             <input value={data.title} onChange={e=>set("title",e.target.value)} style={IS}/>
           </div>
           <div>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Category</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('edit.categoryField',language)}</div>
             <select value={data.category} onChange={e=>set("category",e.target.value)} style={IS}>
               {["breakfast","lunch","dessert","drink"].map(c=><option key={c} value={c}>{c}</option>)}
             </select>
@@ -1620,14 +1634,14 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         </div>
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
-          {[["prepTime","Prep (min)"],["cookTime","Cook (min)"],["servings","Servings"]].map(([k,l])=>(
+          {([["prepTime",'edit.prepMin'],["cookTime",'edit.cookMin'],["servings",'edit.servingsField']] as [string,string][]).map(([k,lk])=>(
             <div key={k}>
-              <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
+              <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t(lk,language)}</div>
               <input type="number" value={data[k]||""} onChange={e=>set(k,+e.target.value)} style={IS}/>
             </div>
           ))}
           <div>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Difficulty</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('edit.difficultyField',language)}</div>
             <select value={data.difficulty||"beginner"} onChange={e=>set("difficulty",e.target.value)} style={IS}>
               {["beginner","intermediate","advanced"].map(d=><option key={d} value={d}>{d}</option>)}
             </select>
@@ -1636,12 +1650,12 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Spice level */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🌶 Spice Level</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.spiceLevel',language)}</div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {[0,1,2,3,4,5].map(lvl=>(
               <button key={lvl} onClick={()=>set("spiceLevel",lvl)}
                 style={{...GB,padding:"5px 10px",fontSize:12,background:(data.spiceLevel||0)===lvl?"var(--accent)":"var(--bg-card)",color:(data.spiceLevel||0)===lvl?"#fff":"var(--text-sub)",boxShadow:(data.spiceLevel||0)===lvl?"var(--nm-inset)":"var(--nm-raised-sm)"}}>
-                {lvl===0?"⚪ None":"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}
+                {lvl===0?"⚪ "+t('label.none',language):"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}
               </button>
             ))}
           </div>
@@ -1649,7 +1663,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Cuisine */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🌍 Cuisine</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.cuisine',language)}</div>
           <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
             {[null,...CUISINES].map(c=>(
               <button key={c||"none"} onClick={()=>set("cuisine",c)}
@@ -1662,7 +1676,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Nutrition */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Nutrition (per serving)</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.nutritionPerServing',language)}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
             {[["calories","🔥 Cal"],["protein","💪 Protein"],["carbs","🌾 Carbs"],["fat","🥑 Fat"]].map(([k,l])=>(
               <div key={k}>
@@ -1675,7 +1689,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Tags */}
         <div style={{marginBottom:14}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Tags</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.tagsField',language)}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
             {ALL_TAGS.map(t=>{const on=(data.tags||[]).includes(t);return(
               <button key={t} onClick={()=>set("tags",on?data.tags.filter(x=>x!==t):[...(data.tags||[]),t])}
@@ -1688,7 +1702,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 
         {/* Goals */}
         <div style={{marginBottom:14}}>
-          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>🎯 Goals</div>
+          <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('edit.goalsField',language)}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
             {GOALS.map(g=>{const on=(data.goal||[]).map(x=>(x||"").toLowerCase()).includes(g);return(
               <button key={g} onClick={()=>set("goal",on?(data.goal||[]).filter(x=>(x||"").toLowerCase()!==g):[...(data.goal||[]),g])}
@@ -1704,7 +1718,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
             <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase"}}>{t('edit.ingredients',language)}</div>
             <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>ingOverallRef.current?.click()} style={{...GB,padding:"3px 10px",fontSize:12}}>📷 Overall Photo</button>
+              <button onClick={()=>ingOverallRef.current?.click()} style={{...GB,padding:"3px 10px",fontSize:12}}>{t('edit.overallPhoto',language)}</button>
               <button onClick={addIng} style={{...GB,padding:"3px 10px",fontSize:12}}>{t('edit.addIngredient',language)}</button>
             </div>
           </div>
@@ -1713,7 +1727,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
             <div style={{position:"relative",marginBottom:10,borderRadius:10,overflow:"hidden"}}>
               <img src={data.ingredientsImage} alt="All ingredients" style={{width:"100%",height:100,objectFit:"cover"}}/>
               <div style={{position:"absolute",top:5,right:5,display:"flex",gap:4}}>
-                <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 Change</button>
+                <button onClick={()=>ingOverallRef.current?.click()} style={{background:"rgba(0,0,0,0.65)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>📷 {t('edit.change',language)}</button>
                 <button onClick={()=>set("ingredientsImage",null)} style={{background:"rgba(180,40,40,0.75)",border:"none",borderRadius:7,color:"#fff",padding:"3px 8px",fontSize:11,cursor:"pointer"}}>🗑</button>
               </div>
             </div>
@@ -1726,9 +1740,9 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                   ? <img src={ing.image} alt="" style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,cursor:"pointer"}} onClick={()=>ingImgRefs.current[i]?.click()} title="Change photo"/>
                   : <button onClick={()=>ingImgRefs.current[i]?.click()} style={{width:36,height:36,borderRadius:8,border:"1px dashed var(--border)",background:"var(--nm-input-bg)",color:"var(--text-muted)",fontSize:14,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}} title="Add ingredient photo">📷</button>
                 }
-                <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder="Ingredient" style={{...IS,flex:2}}/>
-                <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder="Qty" style={{...IS,flex:1,minWidth:50}}/>
-                <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder="Unit" style={{...IS,flex:1,minWidth:50}}/>
+                <input value={ing.name} onChange={e=>setIng(i,"name",e.target.value)} placeholder={t('edit.ingPlaceholder',language)} style={{...IS,flex:2}}/>
+                <input type="number" value={ing.amount||""} onChange={e=>setIng(i,"amount",+e.target.value)} placeholder={t('edit.qtyPlaceholder',language)} style={{...IS,flex:1,minWidth:50}}/>
+                <input value={ing.unit} onChange={e=>setIng(i,"unit",e.target.value)} placeholder={t('edit.unitPlaceholder',language)} style={{...IS,flex:1,minWidth:50}}/>
                 <select value={ing.section||inferIngSection(ing.name)} onChange={e=>setIng(i,"section",e.target.value)}
                   style={{...IS,flex:"0 0 auto",width:"auto",padding:"0 6px",fontSize:11,height:36,color:(ING_SECTIONS.find(s=>s.key===(ing.section||inferIngSection(ing.name)))?.color||"var(--text-sub)")}}>
                   {ING_SECTIONS.map(s=><option key={s.key} value={s.key}>{getSectionLabel(s.key, language)}</option>)}
@@ -1748,15 +1762,15 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           {(data.steps||[]).map((step,i)=>(
             <div key={i} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:12,marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <span style={{color:"var(--accent)",fontWeight:700,fontSize:13}}>Step {i+1}</span>
-                <button onClick={()=>removeStep(i)} style={{...GB,padding:"2px 8px",color:"#f08080",fontSize:13}}>× Remove</button>
+                <span style={{color:"var(--accent)",fontWeight:700,fontSize:13}}>{t('edit.stepLabel',language,{n:String(i+1)})}</span>
+                <button onClick={()=>removeStep(i)} style={{...GB,padding:"2px 8px",color:"#f08080",fontSize:13}}>{t('edit.removeStep',language)}</button>
               </div>
-              <textarea value={step.text} onChange={e=>setStep(i,"text",e.target.value)} placeholder="Describe this step…"
+              <textarea value={step.text} onChange={e=>setStep(i,"text",e.target.value)} placeholder={t('edit.stepPlaceholder',language)}
                 style={{...IS,minHeight:60,resize:"vertical",marginBottom:8}}/>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{color:"var(--text-muted)",fontSize:11}}>⏱</span>
-                  <input type="number" value={step.timeMin||""} onChange={e=>setStep(i,"timeMin",+e.target.value)} placeholder="Min"
+                  <input type="number" value={step.timeMin||""} onChange={e=>setStep(i,"timeMin",+e.target.value)} placeholder={t('edit.minPlaceholder',language)}
                     style={{...IS,width:60,height:30,padding:"0 8px",fontSize:12}}/>
                   <span style={{color:"var(--text-muted)",fontSize:11}}>min</span>
                 </div>
@@ -1770,7 +1784,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                         style={{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:"50%",background:"#e05a6a",border:"none",color:"#fff",fontSize:9,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
                     </div>
                   ))}
-                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 {getStepImages(step).length>0?"Add More":"Add Photo"}</button>
+                  <button onClick={()=>stepImgRefs.current[i]?.click()} style={{...GB,padding:"4px 10px",fontSize:11}}>📷 {getStepImages(step).length>0?t('edit.addMorePhotos',language):t('edit.addPhoto',language)}</button>
                 </div>
               </div>
             </div>
@@ -1781,38 +1795,38 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         <div style={{marginBottom:18,background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:14,padding:14}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:aiSuggestions?12:0}}>
             <div>
-              <span style={{color:"var(--text-sub)",fontSize:12,fontWeight:700}}>🔍 AI Completeness Check</span>
+              <span style={{color:"var(--text-sub)",fontSize:12,fontWeight:700}}>{t('edit.aiCheckTitle',language)}</span>
               <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>
-                {aiChecking ? aiCheckStatus : data.sourceUrl ? "🌐 Will compare against source page" : "Uses AI culinary knowledge (no source URL)"}
+                {aiChecking ? aiCheckStatus : data.sourceUrl ? t('edit.aiWillCompare',language) : t('edit.aiCulinary',language)}
               </div>
             </div>
             <button onClick={checkWithAI} disabled={aiChecking}
               style={{...GB,padding:"5px 12px",fontSize:12,background:aiChecking?"var(--nm-input-bg)":"linear-gradient(135deg,var(--accent2),var(--accent))",color:aiChecking?"var(--text-muted)":"#fff",border:"none",flexShrink:0}}>
-              {aiChecking?"⏳…":"🔍 Check Now"}
+              {aiChecking?t('edit.checking',language):t('edit.checkNow',language)}
             </button>
           </div>
           {aiSuggestions && (
             <div>
-              {aiSuggestions.usedSource && <div style={{color:"#5a8fd4",fontSize:11,marginBottom:8}}>🌐 Compared against source page</div>}
+              {aiSuggestions.usedSource && <div style={{color:"#5a8fd4",fontSize:11,marginBottom:8}}>{t('edit.aiUsedSource',language)}</div>}
               {aiSuggestions.error && <div style={{color:"#f08080",fontSize:12}}>{aiSuggestions.error}</div>}
               {aiSuggestions.notes && <div style={{color:"var(--text-sub)",fontSize:12,marginBottom:10,padding:"6px 10px",background:"rgba(90,173,142,0.08)",borderRadius:8}}>{aiSuggestions.notes}</div>}
               {(aiSuggestions.missingIngredients||[]).length > 0 && (
                 <div style={{marginBottom:10}}>
-                  <div style={{color:"#ffd580",fontSize:11,fontWeight:700,marginBottom:6}}>⚠️ Possibly missing ingredients</div>
+                  <div style={{color:"#ffd580",fontSize:11,fontWeight:700,marginBottom:6}}>{t('edit.aiMissingIng',language)}</div>
                   {(aiSuggestions.missingIngredients||[]).map((ing,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:8,background:"rgba(255,213,128,0.08)",marginBottom:4,border:"1px solid rgba(255,213,128,0.2)"}}>
                       <div style={{flex:1}}>
                         <span style={{color:"var(--text)",fontSize:13,fontWeight:600}}>{ing.amount} {ing.unit} {ing.name}</span>
                         <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:8}}>{ing.reason}</span>
                       </div>
-                      <button onClick={()=>acceptIngredient(ing)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5aad8e",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)"}}>+ Add</button>
+                      <button onClick={()=>acceptIngredient(ing)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5aad8e",background:"rgba(90,173,142,0.15)",border:"1px solid rgba(90,173,142,0.3)"}}>{t('edit.addBtn',language)}</button>
                     </div>
                   ))}
                 </div>
               )}
               {(aiSuggestions.missingSteps||[]).length > 0 && (
                 <div>
-                  <div style={{color:"#5a8fd4",fontSize:11,fontWeight:700,marginBottom:6}}>⚠️ Possibly missing steps</div>
+                  <div style={{color:"#5a8fd4",fontSize:11,fontWeight:700,marginBottom:6}}>{t('edit.aiMissingSteps',language)}</div>
                   {(aiSuggestions.missingSteps||[]).map((st,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 8px",borderRadius:8,background:"rgba(90,143,212,0.08)",marginBottom:4,border:"1px solid rgba(90,143,212,0.2)"}}>
                       <div style={{flex:1}}>
@@ -1820,13 +1834,13 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
                         {st.timeMin > 0 && <span style={{color:"var(--text-muted)",fontSize:11,marginLeft:6}}>⏱ {st.timeMin}m</span>}
                         <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{st.reason}</div>
                       </div>
-                      <button onClick={()=>acceptStep(st)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5a8fd4",background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",flexShrink:0}}>+ Add</button>
+                      <button onClick={()=>acceptStep(st)} style={{...GB,padding:"3px 10px",fontSize:12,color:"#5a8fd4",background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",flexShrink:0}}>{t('edit.addBtn',language)}</button>
                     </div>
                   ))}
                 </div>
               )}
               {!aiSuggestions.error && (aiSuggestions.missingIngredients||[]).length===0 && (aiSuggestions.missingSteps||[]).length===0 && (
-                <div style={{color:"#5aad8e",fontSize:12,textAlign:"center",padding:"6px 0"}}>✅ Recipe looks complete!</div>
+                <div style={{color:"#5aad8e",fontSize:12,textAlign:"center",padding:"6px 0"}}>{t('edit.aiComplete',language)}</div>
               )}
             </div>
           )}
@@ -1835,7 +1849,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
         {/* Delete confirmation */}
         {confirmDelete && (
           <div style={{marginBottom:12,background:"rgba(212,90,90,0.1)",border:"1px solid rgba(212,90,90,0.35)",borderRadius:12,padding:"12px 14px"}}>
-            <div style={{color:"#d45a5a",fontWeight:700,fontSize:13,marginBottom:10}}>Delete "{data.title}"? This cannot be undone.</div>
+            <div style={{color:"#d45a5a",fontWeight:700,fontSize:13,marginBottom:10}}>{t('edit.deleteConfirmMsg',language,{title:data.title})}</div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>setConfirmDelete(false)} style={{...GB,flex:1}}>{t('edit.keepIt',language)}</button>
               <button onClick={()=>onDelete(data.id)}
@@ -1850,7 +1864,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
           {onDelete && !confirmDelete && (
             <button onClick={()=>setConfirmDelete(true)}
               style={{...GB,flex:"0 0 auto",padding:"0 14px",color:"#d45a5a",border:"1px solid rgba(212,90,90,0.35)"}}>
-              🗑 Delete
+              {t('edit.deleteBtn',language)}
             </button>
           )}
           <button onClick={onClose} style={{...GB,flex:1}}>{t('edit.cancel',language)}</button>
@@ -1865,7 +1879,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
 }
 
 // ─── ADD RECIPE MODAL ─────────────────────────────────────────────────────────
-function SmartAddModal({onClose, onAdd, initialUrl=""}) {
+function SmartAddModal({onClose, onAdd, initialUrl="", language='en'}) {
   const [phase, setPhase] = useState("input");
   const [loadingMsg, setLoadingMsg] = useState("Extracting your recipe...");
   const [inputVal, setInputVal] = useState(initialUrl);
@@ -1980,7 +1994,7 @@ Return empty arrays if nothing is missing or wrong.`}]
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
       <div className="modal-inner" style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",border:"1px solid var(--border)",borderRadius:20,maxWidth:680,width:"100%",maxHeight:"92vh",overflowY:"auto",padding:24}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>Add Recipe</h2>
+          <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:0}}>{t('add.title',language)}</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#6a7a90",cursor:"pointer",fontSize:22}}>×</button>
         </div>
 
@@ -1989,8 +2003,8 @@ Return empty arrays if nothing is missing or wrong.`}]
             {/* Camera / Image scan */}
             <div style={{border:"1px dashed rgba(90,173,142,0.4)",borderRadius:14,padding:"20px 16px",marginBottom:20,textAlign:"center",background:"rgba(90,173,142,0.04)"}}>
               <div style={{fontSize:36,marginBottom:6}}>📷</div>
-              <div style={{color:"var(--text-sub)",fontSize:13,fontWeight:600,marginBottom:6}}>Scan a Recipe Photo</div>
-              <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>Point your camera at a recipe card, cookbook, or screenshot — AI reads it automatically</div>
+              <div style={{color:"var(--text-sub)",fontSize:13,fontWeight:600,marginBottom:6}}>{t('add.scanTitle',language)}</div>
+              <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>{t('add.scanDesc',language)}</div>
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
                 onChange={e=>{const f=e.target.files?.[0];if(f) runFromImage(f); e.target.value="";}}/>
               <input ref={galleryRef} type="file" accept="image/*" style={{display:"none"}}
@@ -1998,11 +2012,11 @@ Return empty arrays if nothing is missing or wrong.`}]
               <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
                 <button onClick={()=>cameraRef.current?.click()}
                   style={{...GB,padding:"10px 20px",fontSize:13,fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.35)"}}>
-                  📷 Take Photo
+                  {t('add.takePhoto',language)}
                 </button>
                 <button onClick={()=>galleryRef.current?.click()}
                   style={{...GB,padding:"10px 20px",fontSize:13,fontWeight:700}}>
-                  🖼 Upload Image
+                  {t('add.uploadImage',language)}
                 </button>
               </div>
             </div>
@@ -2010,16 +2024,16 @@ Return empty arrays if nothing is missing or wrong.`}]
             {/* Divider */}
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
-              <span style={{color:"var(--text-muted)",fontSize:12,flexShrink:0}}>or paste a URL / describe a recipe</span>
+              <span style={{color:"var(--text-muted)",fontSize:12,flexShrink:0}}>{t('add.orPaste',language)}</span>
               <div style={{flex:1,height:1,background:"var(--border)"}}/>
             </div>
 
             {error && <div style={{background:"rgba(192,80,80,0.15)",border:"1px solid rgba(192,80,80,0.3)",borderRadius:10,padding:"10px 14px",color:"#f08080",fontSize:13,marginBottom:14}}>{error}</div>}
             <textarea value={inputVal} onChange={e=>setInputVal(e.target.value)}
               style={{...IS,minHeight:90,resize:"vertical",marginBottom:14}}
-              placeholder="https://www.tiktok.com/... or paste recipe text here..."/>
+              placeholder={t('add.urlPlaceholder',language)}/>
             <button onClick={run} style={{width:"100%",background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
-              Extract Recipe with AI
+              {t('add.extractBtn',language)}
             </button>
           </div>
         )}
@@ -2037,7 +2051,7 @@ Return empty arrays if nothing is missing or wrong.`}]
             <div style={{background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.25)",borderRadius:12,padding:"14px 16px",marginBottom:14,display:"flex",gap:14,alignItems:"center"}}>
               {data.image && <img src={data.image} alt="" style={{width:80,height:80,borderRadius:10,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
               <div style={{flex:1,minWidth:0}}>
-                <div style={{color:"#5aad8e",fontSize:11,fontWeight:700,marginBottom:4}}>✅ RECIPE EXTRACTED</div>
+                <div style={{color:"#5aad8e",fontSize:11,fontWeight:700,marginBottom:4}}>{t('add.extracted',language)}</div>
                 <div style={{color:"#fff",fontWeight:700,fontFamily:"'Playfair Display',serif",fontSize:16}}>{data.title}</div>
                 <NutriBadge n={data.nutrition}/>
                 <div style={{color:"#6a7a90",fontSize:11,marginTop:4}}>{(data.ingredients||[]).length} ingredients · {(data.steps||[]).length} steps</div>
@@ -2048,7 +2062,7 @@ Return empty arrays if nothing is missing or wrong.`}]
             {verifyStatus==='checking' && (
               <div style={{background:"rgba(90,143,212,0.1)",border:"1px solid rgba(90,143,212,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:16,animation:"spin 1.5s linear infinite",display:"inline-block"}}>🔍</span>
-                <div style={{color:"#5a8fd4",fontSize:13,fontWeight:600}}>Verifying completeness against source page…</div>
+                <div style={{color:"#5a8fd4",fontSize:13,fontWeight:600}}>{t('add.verifying',language)}</div>
               </div>
             )}
             {verifyStatus && verifyStatus!=='checking' && (() => {
@@ -2068,35 +2082,35 @@ Return empty arrays if nothing is missing or wrong.`}]
               return (
                 <div style={{background:"rgba(90,173,142,0.1)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
                   <span>✅</span>
-                  <div style={{color:"#5aad8e",fontSize:13,fontWeight:600}}>All ingredients & steps verified against source page</div>
+                  <div style={{color:"#5aad8e",fontSize:13,fontWeight:600}}>{t('add.allVerified',language)}</div>
                 </div>
               );
             })()}
 
             {/* Image upload */}
             <div style={{marginBottom:14,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"12px 14px"}}>
-              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>📷 Recipe Image (optional)</div>
+              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:8,textTransform:"uppercase"}}>{t('add.recipeImage',language)}</div>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 {data.image && <img src={data.image} alt="" style={{width:56,height:56,borderRadius:8,objectFit:"cover",flexShrink:0}} onError={e=>e.target.style.display='none'}/>}
                 <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}}
                   onChange={e=>{const f=e.target.files?.[0];if(f){const r=new FileReader();r.onload=ev=>setData(d=>({...d,image:ev.target.result}));r.readAsDataURL(f);}}}/>
-                <button onClick={()=>fileRef.current?.click()} style={{...GB,padding:"6px 12px",fontSize:12}}>📁 Upload Photo</button>
+                <button onClick={()=>fileRef.current?.click()} style={{...GB,padding:"6px 12px",fontSize:12}}>{t('add.uploadPhoto',language)}</button>
                 <input value={imgUrlInput} onChange={e=>setImgUrlInput(e.target.value)}
-                  placeholder="Or paste image URL..."
+                  placeholder={t('add.pasteImgUrl',language)}
                   style={{...IS,flex:1,minWidth:160,height:34,padding:"0 10px",fontSize:12}}/>
                 <button onClick={()=>{if(imgUrlInput.trim()){setData(d=>({...d,image:imgUrlInput.trim()}));setImgUrlInput("");}}}
-                  style={{...GB,padding:"6px 10px",fontSize:12}}>Use</button>
+                  style={{...GB,padding:"6px 10px",fontSize:12}}>{t('edit.use',language)}</button>
               </div>
             </div>
 
             {/* Editable fields */}
             <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:12}}>
               <div>
-                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Title</div>
+                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('add.titleField',language)}</div>
                 <input value={data.title} onChange={e=>set("title",e.target.value)} style={IS}/>
               </div>
               <div>
-                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Category</div>
+                <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('add.categoryField',language)}</div>
                 <select value={data.category} onChange={e=>set("category",e.target.value)} style={IS}>
                   {["breakfast","lunch","dessert","drink"].map(c=><option key={c} value={c}>{c}</option>)}
                 </select>
@@ -2104,16 +2118,16 @@ Return empty arrays if nothing is missing or wrong.`}]
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
-              {[["prepTime","Prep (min)"],["cookTime","Cook (min)"],["servings","Servings"]].map(([k,l])=>(
+              {([["prepTime",'edit.prepMin'],["cookTime",'edit.cookMin'],["servings",'edit.servingsField']] as [string,string][]).map(([k,lk])=>(
                 <div key={k}>
-                  <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{l}</div>
+                  <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t(lk,language)}</div>
                   <input type="number" value={data[k]||""} onChange={e=>set(k,+e.target.value)} style={IS}/>
                 </div>
               ))}
             </div>
 
             <div style={{marginBottom:12}}>
-              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Tags</div>
+              <div style={{color:"#6a7a90",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('add.tagsField',language)}</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {ALL_TAGS.map(t=>{const on=(data.tags||[]).includes(t);return(
                   <button key={t} onClick={()=>set("tags",on?data.tags.filter(x=>x!==t):[...(data.tags||[]),t])}
@@ -2125,9 +2139,9 @@ Return empty arrays if nothing is missing or wrong.`}]
             </div>
 
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{setPhase("input");setData(null);}} style={{...GB,flex:1}}>← Try Again</button>
+              <button onClick={()=>{setPhase("input");setData(null);}} style={{...GB,flex:1}}>{t('add.tryAgain',language)}</button>
               <button onClick={save} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
-                💾 Save Recipe
+                {t('add.saveRecipe',language)}
               </button>
             </div>
           </div>
@@ -2138,7 +2152,7 @@ Return empty arrays if nothing is missing or wrong.`}]
 }
 
 // ─── MIX & MATCH ─────────────────────────────────────────────────────────────
-function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
+function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
   const [sel, setSel] = useState({protein:null,grain:null,side:null});
   const [portions, setPortions] = useState(1);
   const [mealsPerDay, setMealsPerDay] = useState(1);
@@ -2198,8 +2212,8 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
 
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:4}}>Mix & Match</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>Build a custom meal — adjust portions, then save to your plan or as a new recipe.</p>
+      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('mix.title',language)}</h2>
+      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>{t('mix.subtitle',language)}</p>
 
       <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"14px 18px",marginBottom:18,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
         {[["Portions/person",portions,setPortions,1,10],["Meals/day",mealsPerDay,setMealsPerDay,1,6]].map(([lbl,val,fn,mn,mx])=>(
@@ -2225,22 +2239,22 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
             {combined.map(r=><span key={r.id} style={{background:"rgba(58,125,94,0.2)",color:"#5aad8e",border:"1px solid rgba(58,125,94,0.38)",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:600}}>{r.title}</span>)}
           </div>
           <div style={{marginBottom:10}}>
-            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>PER SERVING ({portions}×)</div>
+            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.perServing',language,{n:String(portions)})}</div>
             <NutriBadge n={totN}/>
           </div>
           {mealsPerDay>1 && <div style={{marginBottom:12}}>
-            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>DAILY TOTAL ({mealsPerDay} meals)</div>
+            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.dailyTotal',language,{n:String(mealsPerDay)})}</div>
             <NutriBadge n={dailyN}/>
           </div>}
           {totTime>0 && <div style={{color:"#5a8fd4",fontSize:12,marginBottom:14}}>⏱ ~{totTime}min cook time</div>}
           {allAllergens.length>0 && <div style={{color:"#f08080",fontSize:12,marginBottom:14}}>⚠ {allAllergens.join(", ")}</div>}
           <div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
-            <input value={comboName} onChange={e=>setComboName(e.target.value)} placeholder="Name this combo (optional)..."
+            <input value={comboName} onChange={e=>setComboName(e.target.value)} placeholder={t('mix.namePlaceholder',language)}
               style={{...IS,flex:1,minWidth:160,fontSize:13,padding:"8px 12px"}}/>
             <button onClick={handleSave} style={{background:saved?"rgba(58,125,94,0.55)":"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:11,color:"#fff",padding:"10px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
               {saved?"✓ Saved!":"📅 Add to Plan"}
             </button>
-            {onSaveAsRecipe && <button onClick={handleSaveAsRecipe} style={{...GB,whiteSpace:"nowrap"}}>💾 Save as Recipe</button>}
+            {onSaveAsRecipe && <button onClick={handleSaveAsRecipe} style={{...GB,whiteSpace:"nowrap"}}>{t('mix.saveRecipe',language)}</button>}
           </div>
         </div>
       )}
@@ -2249,7 +2263,7 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe}) {
 }
 
 // ─── MEAL PREP OPTIMIZER ─────────────────────────────────────────────────────
-function MealPrepOptimizer({recipes, onAddToMealPlan}) {
+function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
   const [selected, setSelected] = useState([]);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -2276,8 +2290,8 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚡ Meal Prep Optimizer</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:20}}>Select 2+ recipes and get an AI-optimized parallel cooking workflow.</p>
+      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('opt.title',language)}</h2>
+      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:20}}>{t('opt.subtitle',language)}</p>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10,marginBottom:20}}>
         {recipes.map(r=>(
@@ -2299,7 +2313,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
 
       {result && (
         <div style={{background:"rgba(90,143,212,0.07)",border:"1px solid rgba(90,143,212,0.2)",borderRadius:14,padding:18,marginBottom:20}}>
-          <div style={{color:"#5a8fd4",fontWeight:700,fontSize:13,marginBottom:12}}>⚡ Optimized Workflow</div>
+          <div style={{color:"#5a8fd4",fontWeight:700,fontSize:13,marginBottom:12}}>{t('opt.workflow',language)}</div>
           {result.split("\n").filter(l=>l.trim()).map((line,i)=>{
             const isParallel = line.includes("[PARALLEL]");
             return (
@@ -2314,7 +2328,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan}) {
       )}
 
       <div style={{background:"rgba(90,173,142,0.07)",border:"1px solid rgba(90,173,142,0.2)",borderRadius:14,padding:18}}>
-        <div style={{color:"#5aad8e",fontWeight:700,fontSize:13,marginBottom:10}}>🥘 Prep Tips</div>
+        <div style={{color:"#5aad8e",fontWeight:700,fontSize:13,marginBottom:10}}>{t('opt.prepTips',language)}</div>
         {PREP_TIPS.map((tip,i)=>(
           <div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
             <span style={{color:"#5aad8e",flexShrink:0}}>•</span>
@@ -2429,7 +2443,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <button onClick={()=>setBySection(s=>!s)} style={{...GB,fontSize:12}}>{bySection?"📋 All":"🏪 By Section"}</button>
-          {checkedItems.length>0&&<button onClick={clearChecked} style={{...GB,fontSize:12,color:"#f08080"}}>↺ Uncheck all</button>}
+          {checkedItems.length>0&&<button onClick={clearChecked} style={{...GB,fontSize:12,color:"#f08080"}}>{t('shopping.uncheckAll',language)}</button>}
           <button onClick={exportList} style={{...GB,fontSize:12}}>📄 Export</button>
         </div>
       </div>
@@ -2463,8 +2477,8 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
           <div style={{background:under?"rgba(90,173,142,0.08)":"rgba(240,128,128,0.08)",border:"1px solid "+(under?"rgba(90,173,142,0.3)":"rgba(240,128,128,0.3)"),borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
             <span style={{fontSize:22}}>💰</span>
             <div style={{flex:1}}>
-              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>Estimated grocery cost</div>
-              <div style={{color:"var(--text-muted)",fontSize:11}}>Based on {autoList.length} ingredients in your meal plan</div>
+              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('shopping.estimatedCost',language)}</div>
+              <div style={{color:"var(--text-muted)",fontSize:11}}>{t('shopping.basedOn',language,{n:String(autoList.length)})}</div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{color:under?"#5aad8e":"#f08080",fontWeight:800,fontSize:20}}>${estimated.toFixed(2)}</div>
@@ -2488,7 +2502,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
       {/* Manual add */}
       <div style={{display:"flex",gap:8,marginBottom:18}}>
         <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addManual()}
-          placeholder="Add item manually…" style={{...IS,flex:1,height:38,padding:"0 12px"}}/>
+          placeholder={t('shopping.addManual',language)} style={{...IS,flex:1,height:38,padding:"0 12px"}}/>
         <button onClick={addManual} style={{...GB,padding:"8px 16px",background:"var(--accent)",color:"#fff",fontWeight:700}}>+ Add</button>
       </div>
 
@@ -2508,7 +2522,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
 
       {checkedItems.length>0 && (
         <div style={{marginTop:16,opacity:.6}}>
-          <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>✅ In Cart</div>
+          <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:8}}>{t('shopping.inCart',language)}</div>
           {renderItems(checkedItems)}
         </div>
       )}
@@ -2516,27 +2530,27 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
       {/* Spend Logger */}
       <div style={{marginTop:24,background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"14px 16px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:showSpendLog?12:0}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Log Spending</div>
-          <button onClick={()=>setShowSpendLog(s=>!s)} style={{...GB,fontSize:12,padding:"4px 10px"}}>{showSpendLog?"Cancel":"+ Add"}</button>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('shopping.logSpend',language)}</div>
+          <button onClick={()=>setShowSpendLog(s=>!s)} style={{...GB,fontSize:12,padding:"4px 10px"}}>{showSpendLog?t('edit.cancel',language):t('shopping.add',language)}</button>
         </div>
         {showSpendLog && (
           <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
             <div style={{flex:"0 0 110px"}}>
-              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Amount ($)</div>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>{t('shopping.amount',language)}</div>
               <input type="number" value={spendInput} onChange={e=>setSpendInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
                 placeholder="0.00" style={{...IS,height:34,padding:"0 10px",fontSize:14}}/>
             </div>
             <div style={{flex:1,minWidth:120}}>
-              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>Note (optional)</div>
+              <div style={{color:"var(--text-muted)",fontSize:10,marginBottom:4}}>{t('shopping.note',language)}</div>
               <input value={spendNote} onChange={e=>setSpendNote(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSpend()}
-                placeholder="e.g. Whole Foods run" style={{...IS,height:34,padding:"0 10px",fontSize:13}}/>
+                placeholder={t('shopping.notePlaceholder',language)} style={{...IS,height:34,padding:"0 10px",fontSize:13}}/>
             </div>
-            <button onClick={logSpend} style={{...GB,padding:"8px 14px",background:"var(--accent)",color:"#fff",fontWeight:700,fontSize:13}}>Save</button>
+            <button onClick={logSpend} style={{...GB,padding:"8px 14px",background:"var(--accent)",color:"#fff",fontWeight:700,fontSize:13}}>{t('shopping.save',language)}</button>
           </div>
         )}
         {(spends||[]).length>0 && (
           <div style={{marginTop:showSpendLog?12:0}}>
-            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Recent</div>
+            <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('shopping.recent',language)}</div>
             {(spends||[]).slice(-3).reverse().map(s=>(
               <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
                 <span style={{color:"var(--text-sub)"}}>{s.note}</span>
@@ -2953,7 +2967,7 @@ Empty arrays if complete.`}]
 }
 
 // ─── COMFORT MEAL MODAL ──────────────────────────────────────────────────────
-function ComfortMealModal({onClose, onLog}) {
+function ComfortMealModal({onClose, onLog, language='en'}) {
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const handle = () => {
@@ -2966,20 +2980,20 @@ function ComfortMealModal({onClose, onLog}) {
       <div style={{background:"var(--bg-card)",borderRadius:22,padding:28,width:"100%",maxWidth:380,boxShadow:"var(--nm-raised)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
           <div>
-            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18}}>🏠 Log Comfort Meal</div>
-            <div style={{color:"var(--text-muted)",fontSize:12,marginTop:3}}>Counts towards your weekly streak</div>
+            <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18}}>{t('comfort.title',language)}</div>
+            <div style={{color:"var(--text-muted)",fontSize:12,marginTop:3}}>{t('comfort.subtitle',language)}</div>
           </div>
           <button onClick={onClose} style={{background:"transparent",border:"none",color:"var(--text-muted)",fontSize:20,cursor:"pointer",padding:4,lineHeight:1}}>✕</button>
         </div>
         <div style={{marginBottom:14}}>
-          <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>What did you cook?</label>
+          <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>{t('comfort.whatLabel',language)}</label>
           <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="e.g. Mom's pasta, chicken stir-fry…"
             autoFocus
             style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
         </div>
         <div style={{marginBottom:22}}>
           <label style={{color:"var(--text-sub)",fontSize:12,display:"block",marginBottom:5}}>Notes (optional)</label>
-          <input value={notes} onChange={e=>setNotes(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder="How did it turn out?"
+          <input value={notes} onChange={e=>setNotes(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()} placeholder={t('comfort.notesPlaceholder',language)}
             style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",border:"none",borderRadius:10,color:"var(--text)",padding:"10px 14px",fontSize:14,outline:"none",width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
         </div>
         <div style={{display:"flex",gap:10}}>
@@ -2994,7 +3008,8 @@ function ComfortMealModal({onClose, onLog}) {
   );
 }
 
-function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook}) {
+function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, language='en', translatedRecipes={}}) {
+  const dr = (r: any) => (r && language !== 'en' && translatedRecipes[r.id]) ? translatedRecipes[r.id] : r;
   const favRecipes = favorites.map(f=>recipes.find(r=>r.id===f.id)||f).filter(Boolean);
   return (
     <div>
@@ -3004,18 +3019,18 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook})
           <p style={{color:"#8a9bb0",fontSize:13,margin:0}}>{favRecipes.length} saved recipes</p>
         </div>
         {favRecipes.length>0 && (
-          <button onClick={()=>exportMealBookToPDF(favRecipes,"My Favorite Recipes")} style={{...GB}}>📚 Export Cookbook PDF</button>
+          <button onClick={()=>exportMealBookToPDF(favRecipes.map(dr),"My Favorite Recipes")} style={{...GB}}>📚 Export Cookbook PDF</button>
         )}
       </div>
       {favRecipes.length===0
         ? <div style={{textAlign:"center",padding:"70px 0"}}>
             <div style={{fontSize:48,marginBottom:14}}>♡</div>
-            <div style={{color:"#fff",fontSize:17,fontFamily:"'Playfair Display',serif",marginBottom:6}}>No favorites yet</div>
-            <div style={{color:"#6a7a90",fontSize:13}}>Tap the heart on any recipe to save it here</div>
+            <div style={{color:"#fff",fontSize:17,fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('fav.empty',language)}</div>
+            <div style={{color:"#6a7a90",fontSize:13}}>{t('fav.emptyHint',language)}</div>
           </div>
         : <div className="r-grid">
             {favRecipes.map(r=>(
-              <RecipeCard key={r.id} recipe={r} onClick={onView}
+              <RecipeCard key={r.id} recipe={dr(r)} onClick={()=>onView(dr(r))}
                 onFavorite={()=>setFavorites(p=>p.filter(f=>f.id!==r.id))} isFavorite={true}/>
             ))}
           </div>
@@ -3025,22 +3040,23 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook})
 }
 
 // ─── INGREDIENT SEARCH ────────────────────────────────────────────────────────
-function IngredientSearch({recipes, onView}) {
+function IngredientSearch({recipes, onView, language='en', translatedRecipes={}}) {
+  const dr = (r: any) => (r && language !== 'en' && translatedRecipes[r.id]) ? translatedRecipes[r.id] : r;
   const [query, setQuery] = useState("");
   const results = query.trim().length>1
     ? recipes.filter(r=>(r.ingredients||[]).some(i=>(i.name||"").toLowerCase().includes(query.toLowerCase())))
     : [];
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>Ingredient Search</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>Find recipes by ingredient</p>
-      <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="e.g. chicken, quinoa, matcha..."
+      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('ingSearch.title',language)}</h2>
+      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>{t('ingSearch.subtitle',language)}</p>
+      <input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('ingSearch.placeholder',language)}
         style={{...IS,marginBottom:20,fontSize:15}}/>
       {query.trim().length>1 && (
         results.length===0
-          ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>No recipes found with "{query}"</div>
+          ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>{t('ingSearch.noResults',language,{query})}</div>
           : <div className="r-grid">
-              {results.map(r=><RecipeCard key={r.id} recipe={r} onClick={onView}/>)}
+              {results.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>onView(dr(r))}/>)}
             </div>
       )}
     </div>
@@ -3620,14 +3636,14 @@ function CookMode({recipe, onClose, language='en'}) {
 }
 
 // ─── PHOTO GALLERY ───────────────────────────────────────────────────────────
-function PhotoGallery({recipes, onView}) {
+function PhotoGallery({recipes, onView, language='en'}) {
   const [filter, setFilter] = useState("all");
   const withPhotos = recipes.filter(r => r.image);
   const displayed = filter==="all" ? withPhotos : withPhotos.filter(r=>r.category===filter);
 
   return (
     <div>
-      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📸 Photo Gallery</h2>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('gallery.title',language)}</h2>
       <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:18}}>{withPhotos.length} recipes with photos</p>
 
       <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:18}}>
@@ -3642,8 +3658,8 @@ function PhotoGallery({recipes, onView}) {
       {displayed.length===0 ? (
         <div style={{textAlign:"center",padding:"60px 0",color:"var(--text-muted)"}}>
           <div style={{fontSize:48,marginBottom:12}}>📷</div>
-          <div style={{fontSize:14,marginBottom:6}}>No photos yet</div>
-          <div style={{fontSize:12}}>Upload photos to your recipes to see them here</div>
+          <div style={{fontSize:14,marginBottom:6}}>{t('gallery.empty',language)}</div>
+          <div style={{fontSize:12}}>{t('gallery.emptyHint',language)}</div>
         </div>
       ) : (
         <div style={{columns:"3 200px",gap:12}}>
@@ -3841,7 +3857,7 @@ function ProfileSelector({profiles, activeProfileId, setActiveProfileId, addProf
 }
 
 // ─── STATISTICS PANEL ────────────────────────────────────────────────────────
-function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, cookLog, macroGoals, setMacroGoals, onDeleteSpend, profileSelector}) {
+function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSpends, cookLog, macroGoals, setMacroGoals, onDeleteSpend, profileSelector, language='en'}) {
   const [editingGoals, setEditingGoals] = useState(false);
   const [goalDraft, setGoalDraft] = useState(macroGoals||{calories:2000,protein:50,carbs:130,fat:65});
   const totalRecipes = recipes.length;
@@ -3891,30 +3907,30 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 
   return (
     <div>
-      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>📊 Statistics</h2>
-      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:14}}>Your meal prep insights at a glance</p>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('stat.title',language)}</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:14}}>{t('stat.subtitle',language)}</p>
       {profileSelector}
 
       {/* Summary cards */}
       <div className="r-grid-sm" style={{marginBottom:24}}>
         {(()=>{
           const streak = computeWeeklyStreak(cookLog);
-          return <StatCard icon="🔥" value={streak} label="Week Streak" color="#ffd580" sub={`${(cookLog||[]).length} total sessions`}/>;
+          return <StatCard icon="🔥" value={streak} label={t('stat.weekStreak',language)} color="#ffd580" sub={t('stat.totalSessions',language,{n:String((cookLog||[]).length)})}/>;
         })()}
-        <StatCard icon="📖" value={totalRecipes} label="Total Recipes" color="#5a8fd4"/>
-        <StatCard icon="⏱" value={avgCookTime+"m"} label="Avg Cook Time" color="#d4875a"/>
-        <StatCard icon="📅" value={mealPlanItems.length} label="Meals Planned" color="#5aad8e"/>
-        <StatCard icon="💰" value={"$"+totalSpend.toFixed(2)} label="Total Spent" color="#c06090" sub={`${(shoppingSpends||[]).length} trips · avg $${avgSpend.toFixed(2)}`}/>
-        <StatCard icon="♥" value={favorites.length} label="Favorites" color="#e05a6a"/>
-        <StatCard icon="⭐" value={ratedRecipes.length} label="Rated" color="#ffd580"/>
+        <StatCard icon="📖" value={totalRecipes} label={t('stat.totalRecipes',language)} color="#5a8fd4"/>
+        <StatCard icon="⏱" value={avgCookTime+"m"} label={t('stat.avgCookTime',language)} color="#d4875a"/>
+        <StatCard icon="📅" value={mealPlanItems.length} label={t('stat.mealsPlanned',language)} color="#5aad8e"/>
+        <StatCard icon="💰" value={"$"+totalSpend.toFixed(2)} label={t('stat.totalSpent',language)} color="#c06090" sub={`${(shoppingSpends||[]).length} ${t('stat.trips',language)} $${avgSpend.toFixed(2)}`}/>
+        <StatCard icon="♥" value={favorites.length} label={t('stat.favorites',language)} color="#e05a6a"/>
+        <StatCard icon="⭐" value={ratedRecipes.length} label={t('stat.rated',language)} color="#ffd580"/>
       </div>
 
       {/* Macro Goals Editor */}
       <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editingGoals?14:0}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>🎯 Daily Macro Goals</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('stat.macroGoals',language)}</div>
           <button onClick={()=>{if(editingGoals){setMacroGoals(goalDraft);}setEditingGoals(e=>!e);}} style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:8,color:editingGoals?"var(--accent)":"var(--text-sub)",padding:"4px 10px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
-            {editingGoals?"✓ Save":"✏️ Edit"}
+            {editingGoals?t('stat.saveGoals',language):t('stat.editGoals',language)}
           </button>
         </div>
         {editingGoals ? (
@@ -3939,7 +3955,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
         {/* Category breakdown */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>📂 Recipes by Category</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.byCategory',language)}</div>
           {catBreakdown.map(c=>(
             <div key={c.id} style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
@@ -3953,7 +3969,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 
         {/* Nutrition averages */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🥗 Avg Nutrition / Recipe</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.avgNutrition',language)}</div>
           {[["🔥 Calories",avgCalories,"kcal","#e05a6a",2000],["💪 Protein",avgProtein,"g","#5aad8e",50],["🌾 Carbs",avgCarbs,"g","#5a8fd4",130],["🥑 Fat",avgFat,"g","#d4875a",65]].map(([l,v,u,col,max])=>(
             <div key={l} style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4,fontSize:12}}>
@@ -3979,8 +3995,8 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24}}>
         {/* Top tags */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🏷️ Most Used Tags</div>
-          {topTags.length===0 && <div style={{color:"var(--text-muted)",fontSize:12}}>No tags yet</div>}
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.topTags',language)}</div>
+          {topTags.length===0 && <div style={{color:"var(--text-muted)",fontSize:12}}>{t('stat.noTags',language)}</div>}
           {topTags.map(([tag,count])=>(
             <div key={tag} style={{marginBottom:9}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
@@ -3994,7 +4010,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 
         {/* Spice distribution */}
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px"}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🌶️ Spice Distribution</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.spiceDist',language)}</div>
           {spiceDist.map(({lvl,count})=>(
             <div key={lvl} style={{marginBottom:9}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
@@ -4010,7 +4026,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Cuisine breakdown */}
       {cuisineBreakdown.length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🌍 Recipes by Cuisine</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.byCuisine',language)}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
             {cuisineBreakdown.map(({c,count})=>(
               <div key={c} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:10,padding:"10px 12px"}}>
@@ -4030,7 +4046,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Cooking log */}
       {(cookLog||[]).length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>🍳 Recent Cooking Sessions</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.recentSessions',language)}</div>
           {(cookLog||[]).slice().reverse().slice(0,10).map(l=>(
             <div key={l.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
               <span style={{fontSize:18}}>{l.isComfortMeal ? "🏠" : "🍳"}</span>
@@ -4048,7 +4064,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {/* Top rated */}
       {ratedRecipes.length>0 && (
         <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
-          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>⭐ Top Rated Recipes</div>
+          <div style={{color:"var(--text)",fontWeight:700,fontSize:13,marginBottom:14}}>{t('stat.topRated',language)}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
             {ratedRecipes.slice(0,6).map(({recipe,rt})=>(
               <div key={recipe.id} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"10px 12px"}}>
@@ -4083,16 +4099,16 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
         const yearTotal  = sum(yearSpends);
         const maxBar = Math.max(yesterdayTotal, weekTotal, monthTotal, yearTotal, 1);
         const periods = [
-          {label:"Yesterday",  value:yesterdayTotal, trips:yesterdaySpends.length, color:"#ffd580"},
-          {label:"This Week",  value:weekTotal,       trips:weekSpends.length,      color:"#5aad8e"},
-          {label:"This Month", value:monthTotal,      trips:monthSpends.length,     color:"#5a8fd4"},
-          {label:"This Year",  value:yearTotal,       trips:yearSpends.length,      color:"#c06090"},
+          {label:t('stat.yesterday',language),  value:yesterdayTotal, trips:yesterdaySpends.length, color:"#ffd580"},
+          {label:t('stat.thisWeek',language),   value:weekTotal,       trips:weekSpends.length,      color:"#5aad8e"},
+          {label:t('stat.thisMonth',language),  value:monthTotal,      trips:monthSpends.length,     color:"#5a8fd4"},
+          {label:t('stat.thisYear',language),   value:yearTotal,       trips:yearSpends.length,      color:"#c06090"},
         ];
         return (
           <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 16px",marginBottom:24}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>💰 Shopping Spending</div>
-              <span style={{color:"var(--text-sub)",fontSize:12}}>{(shoppingSpends||[]).length} trips total</span>
+              <div style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('stat.spendTitle',language)}</div>
+              <span style={{color:"var(--text-sub)",fontSize:12}}>{t('stat.totalTrips',language,{n:String((shoppingSpends||[]).length)})}</span>
             </div>
             {/* Period summary bars */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:18}}>
@@ -4100,7 +4116,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
                 <div key={label} style={{background:"var(--nm-input-bg)",boxShadow:"var(--nm-inset)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
                   <div style={{color,fontWeight:800,fontSize:20}}>${value.toFixed(2)}</div>
                   <div style={{color:"var(--text-muted)",fontSize:10,textTransform:"uppercase",letterSpacing:.5,marginTop:2}}>{label}</div>
-                  <div style={{color:"var(--text-sub)",fontSize:11,marginTop:4}}>{trips} trip{trips!==1?"s":""}</div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,marginTop:4}}>{trips} {trips!==1?t('stat.trips2',language):t('stat.trip',language)}</div>
                 </div>
               ))}
             </div>
@@ -4116,7 +4132,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
             ))}
             {/* Recent trips */}
             <div style={{marginTop:16,borderTop:"1px solid var(--border)",paddingTop:14}}>
-              <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Recent Trips</div>
+              <div style={{color:"var(--text-muted)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>{t('stat.recentTrips',language)}</div>
               {(shoppingSpends||[]).slice().reverse().map(s=>(
                 <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid var(--border)"}}>
                   <span style={{fontSize:16}}>🛒</span>
@@ -4129,7 +4145,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
                 </div>
               ))}
               <div style={{marginTop:10,fontSize:12,color:"var(--text-sub)"}}>
-                📈 Avg per trip: <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong>
+                📈 {t('stat.avgPerTrip',language)} <strong style={{color:"var(--text)"}}>${avgSpend.toFixed(2)}</strong>
               </div>
             </div>
           </div>
@@ -4139,7 +4155,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
       {totalRecipes===0 && (
         <div style={{textAlign:"center",padding:"40px 0",color:"var(--text-muted)"}}>
           <div style={{fontSize:40,marginBottom:10}}>📊</div>
-          <div style={{fontSize:14}}>Add recipes to see your stats</div>
+          <div style={{fontSize:14}}>{t('stat.noData',language)}</div>
         </div>
       )}
     </div>
@@ -4319,7 +4335,7 @@ function IngredientWikiModal({ingredient, onClose}) {
   );
 }
 
-function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
+function WhatCanICookModal({recipes, onClose, onView, pantry=[], language='en'}) {
   // Pre-populate with all pantry items on first open
   const [ingredients, setIngredients] = useState(()=>pantry.map(p=>p.name.toLowerCase()));
   const [input, setInput] = useState("");
@@ -4354,10 +4370,10 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
       <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:640,width:"100%",maxHeight:"90vh",overflowY:"auto",padding:24,border:"1px solid var(--border)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>🧑‍🍳 What Can I Cook?</h2>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{t('cook2.title',language)}</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
         </div>
-        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:16}}>Toggle pantry items on/off and add extras to see which recipes you can make right now.</p>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:16}}>{t('cook2.subtitle',language)}</p>
 
         {/* Pantry items grid */}
         {pantry.length>0&&(
@@ -4365,7 +4381,7 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>🥫 Your Pantry ({pantry.length} items)</div>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>setIngredients(pantry.map(p=>p.name.toLowerCase()))} style={{...GB,padding:"3px 10px",fontSize:11,color:"#5aad8e"}}>Select all</button>
+                <button onClick={()=>setIngredients(pantry.map(p=>p.name.toLowerCase()))} style={{...GB,padding:"3px 10px",fontSize:11,color:"#5aad8e"}}>{t('cook2.selectAll',language)}</button>
                 <button onClick={()=>setIngredients(i=>i.filter(x=>!pantryNames.has(x)))} style={{...GB,padding:"3px 10px",fontSize:11,color:"var(--text-muted)"}}>None</button>
               </div>
             </div>
@@ -4391,11 +4407,11 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
 
         {/* Manual add */}
         <div style={{marginBottom:12}}>
-          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>+ Add More Ingredients</div>
+          <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>{t('cook2.addMore',language)}</div>
           <div style={{display:"flex",gap:8}}>
             <input value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();addIng();}}}
-              placeholder="e.g. eggs, olive oil…"
+              placeholder={t('cook2.addPlaceholder',language)}
               style={{...IS,flex:1,height:38,padding:"0 12px",fontSize:14}}/>
             <button onClick={addIng} style={{...GB,padding:"0 16px",fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.4)"}}>+ Add</button>
           </div>
@@ -4416,15 +4432,15 @@ function WhatCanICookModal({recipes, onClose, onView, pantry=[]}) {
         {/* Summary line */}
         {ingredients.length>0&&(
           <div style={{color:"var(--text-muted)",fontSize:12,marginBottom:14}}>
-            Using <b style={{color:"var(--text)"}}>{ingredients.length}</b> ingredient{ingredients.length!==1?"s":""} — {scored.length} recipe{scored.length!==1?"s":""} found
+            {t('cook2.results',language,{ing:String(ingredients.length),rec:String(scored.length)})}
           </div>
         )}
 
         {ingredients.length>0&&scored.length===0&&(
-          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>No matches — try selecting more pantry items or adding extra ingredients.</div>
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>{t('cook2.noMatches',language)}</div>
         )}
         {ingredients.length===0&&pantry.length===0&&(
-          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>Add items to your Pantry first, or type ingredients above.</div>
+          <div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0",fontSize:14}}>{t('cook2.noPantry',language)}</div>
         )}
 
         {scored.map(r=>(
@@ -4633,6 +4649,8 @@ function App() {
   const [language, setLanguage] = useState('en');
   const [searchOpen, setSearchOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [translatedRecipes, setTranslatedRecipes] = useState<Record<string,any>>({});
+  const [translatingCount, setTranslatingCount] = useState(0);
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachMsgs, setCoachMsgs] = useState([{role:"assistant",content:"Hi! I'm your Meal Coach 👋 Ask me anything about your recipes, nutrition, or meal planning!"}]);
   const [coachInput, setCoachInput] = useState("");
@@ -4868,12 +4886,14 @@ function App() {
 
   // Auto-translate viewing recipe when language changes
   useEffect(() => {
-    if (viewing && language !== 'en' && anthropicKey?.trim()) {
+    const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+    if (viewing && language !== 'en' && keyToUse) {
       const timer = setTimeout(async () => {
         try {
-          const translated = await translateRecipe(viewing, language, anthropicKey);
+          const translated = await translateRecipe(viewing, language, keyToUse);
           if (translated && translated.id === viewing.id) {
             setViewing(translated);
+            setTranslatedRecipes(p => ({...p, [translated.id]: translated}));
           }
         } catch(e) { console.warn('Translation failed:', e); }
       }, 300);
@@ -4881,6 +4901,44 @@ function App() {
     }
   }, [language, viewing?.id, anthropicKey]);
 
+  // Load cached translations when language changes
+  useEffect(() => {
+    if (language === 'en') { setTranslatedRecipes({}); return; }
+    const cached: Record<string,any> = {};
+    recipes.forEach(r => {
+      const key = `mpm_recipe_translation_${r.id}_${language}`;
+      const c = localStorage.getItem(key);
+      if (c) { try { cached[r.id] = JSON.parse(c); } catch {} }
+    });
+    setTranslatedRecipes(cached);
+  }, [language]);
+
+  // Background-translate all recipes when language or API key changes
+  useEffect(() => {
+    const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+    if (language === 'en' || !keyToUse || !hydrated || recipes.length === 0) return;
+    let cancelled = false;
+    // Count how many need translation (not yet cached)
+    const needTranslation = recipes.filter(r => !localStorage.getItem(`mpm_recipe_translation_${r.id}_${language}`));
+    if (needTranslation.length > 0) setTranslatingCount(needTranslation.length);
+    (async () => {
+      let remaining = needTranslation.length;
+      for (const recipe of recipes) {
+        if (cancelled) break;
+        const wasCached = !!localStorage.getItem(`mpm_recipe_translation_${recipe.id}_${language}`);
+        try {
+          const translated = await translateRecipe(recipe, language, keyToUse);
+          if (!cancelled && translated && translated.id === recipe.id) {
+            setTranslatedRecipes(p => ({...p, [recipe.id]: translated}));
+            if (!wasCached) { remaining--; setTranslatingCount(remaining); }
+          }
+        } catch(e) {}
+        if (!cancelled) await new Promise(res => setTimeout(res, 150));
+      }
+      if (!cancelled) setTranslatingCount(0);
+    })();
+    return () => { cancelled = true; setTranslatingCount(0); };
+  }, [language, anthropicKey, hydrated, recipes.length]);
 
   // Canvas compress fallback (for when storage upload is unavailable)
   const compressImageCanvas = (base64) => new Promise(resolve => {
@@ -5002,6 +5060,8 @@ function App() {
 
   const toggleFav = r => setFavorites(p=>p.some(f=>f.id===r.id)?p.filter(f=>f.id!==r.id):[...p,{id:r.id}]);
   const isFav = r => favorites.some(f=>f.id===r.id);
+  // Return translated version of recipe if available, else original
+  const dr = (r: any) => (r && language !== 'en' && translatedRecipes[r.id]) ? translatedRecipes[r.id] : r;
 
   const toggleDark = () => setDarkMode(d => { const nd = !d; if(typeof localStorage!=='undefined') localStorage.setItem('dark_mode',String(nd)); return nd; });
 
@@ -5168,7 +5228,7 @@ function App() {
             {isMobile ? "⚙️" : ({en:"⚙️ Settings",es:"⚙️ Configuración",ru:"⚙️ Настройки"}[language]||"⚙️ Settings")}
           </button>
           <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",boxShadow:"var(--nm-raised-sm)",border:"none",borderRadius:10,color:"#fff",padding:isMobile?"8px 12px":"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",flexShrink:0}}>
-            {isMobile?"＋":"+ Add Recipe"}
+            {isMobile?"＋":t('dash.addRecipe',language)}
           </button>
         </div>
         {/* Mobile search bar (expandable) */}
@@ -5341,8 +5401,8 @@ function App() {
                 return (
                   <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"16px 18px",marginBottom:24}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                      <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,margin:0}}>🎯 Daily Macro Goals vs Plan</h3>
-                      <button onClick={()=>setSec("statistics")} style={{...GB,fontSize:11,padding:"3px 8px",color:"var(--accent)"}}>Edit Goals</button>
+                      <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,margin:0}}>{t('dash.macroVsPlan',language)}</h3>
+                      <button onClick={()=>setSec("statistics")} style={{...GB,fontSize:11,padding:"3px 8px",color:"var(--accent)"}}>{t('dash.editGoals',language)}</button>
                     </div>
                     {[["🔥 Calories",planned.calories,macroGoals.calories,"#e05a6a"],["💪 Protein",planned.protein,macroGoals.protein,"#5aad8e"],["🌾 Carbs",planned.carbs,macroGoals.carbs,"#5a8fd4"],["🥑 Fat",planned.fat,macroGoals.fat,"#d4875a"]].map(([l,v,g,col])=>{
                       const pct=Math.min(v/Math.max(g,1)*100,120);const over=pct>100;
@@ -5373,24 +5433,24 @@ function App() {
                     <div style={{flex:1,minWidth:160}}>
                       {streak > 0
                         ? <div style={{color:"#ffd580",fontWeight:800,fontSize:20}}>{streak} week{streak!==1?"s":""} streak!</div>
-                        : <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:16}}>Start your streak!</div>}
+                        : <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:16}}>{t('dash.startStreak',language)}</div>}
                       <div style={{color:"var(--text-sub)",fontSize:12,marginTop:2}}>
-                        {cookedThisWeek ? "✅ Cooked this week — streak safe!" : "Cook at least once this week to keep going"}
+                        {cookedThisWeek ? t('dash.cookedSafe',language) : t('dash.cookWeek',language)}
                       </div>
-                      <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{cookLog.length} total sessions</div>
+                      <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{t('dash.totalSessions',language,{n:String(cookLog.length)})}</div>
                     </div>
                     <button onClick={()=>setComfortModalOpen(true)}
                       style={{background:"rgba(255,213,128,0.15)",border:"1px solid rgba(255,213,128,0.35)",borderRadius:10,color:"#ffd580",padding:"7px 14px",fontSize:12,cursor:"pointer",fontFamily:"inherit",fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>
-                      🏠 Log Comfort Meal
+                      {t('dash.logComfort',language)}
                     </button>
                   </div>
                 );
               })()}
 
-              <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,marginBottom:14}}>Recent Recipes</h3>
+              <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,marginBottom:14}}>{t('dash.recentRecipes',language)}</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18,marginBottom:28}}>
                 {recipes.slice(-4).reverse().map(r=>(
-                  <RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)}/>
+                  <RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)}/>
                 ))}
               </div>
               {/* Recipe Resources */}
@@ -5406,8 +5466,8 @@ function App() {
                 ];
                 return (
                   <div style={{marginBottom:28}}>
-                    <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>📚 Recipe Resources</h3>
-                    <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>Browse these sites for inspiration, then paste the recipe URL into + Add Recipe</p>
+                    <h3 style={{color:"var(--accent)",fontSize:14,fontWeight:700,marginBottom:4}}>{t('dash.resources',language)}</h3>
+                    <p style={{color:"var(--text-sub)",fontSize:12,marginBottom:14}}>{t('dash.resourcesDesc',language)}</p>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
                       {RESOURCES.map(r=>(
                         <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
@@ -5429,8 +5489,8 @@ function App() {
               {recipes.length===0 && (
                 <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                   <div style={{fontSize:40,marginBottom:12}}>🥗</div>
-                  <div style={{fontSize:15,color:"#8a9bb0",marginBottom:8}}>No recipes yet</div>
-                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:10,color:"#fff",padding:"10px 20px",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Add your first recipe</button>
+                  <div style={{fontSize:15,color:"#8a9bb0",marginBottom:8}}>{t('dash.noRecipes',language)}</div>
+                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:10,color:"#fff",padding:"10px 20px",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t('dash.addFirst',language)}</button>
                 </div>
               )}
             </div>
@@ -5442,23 +5502,23 @@ function App() {
               {/* Header row */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
                 <div style={{display:"flex",alignItems:"baseline",gap:10}}>
-                  <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>All Recipes</h2>
+                  <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{t('dash.allRecipes',language)}</h2>
                   <span style={{color:"var(--text-muted)",fontSize:12}}>{filtered.length} of {recipes.length}</span>
                 </div>
                 <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
                   {anyFilterActive && (
-                    <button onClick={clearAllFilters} style={{...CB,fontSize:11,color:"#f08080",border:"1px solid rgba(240,128,128,0.3)"}}>✕ Clear filters</button>
+                    <button onClick={clearAllFilters} style={{...CB,fontSize:11,color:"#f08080",border:"1px solid rgba(240,128,128,0.3)"}}>{t('dash.clearFilters',language)}</button>
                   )}
                   <button onClick={()=>setBudgetMode(b=>!b)}
                     style={{...CB,fontSize:12,padding:"5px 12px",background:budgetMode?"rgba(90,173,142,0.18)":"var(--bg-card)",color:budgetMode?"#5aad8e":"var(--text-sub)",boxShadow:budgetMode?"var(--nm-inset)":"var(--nm-raised-sm)",border:budgetMode?"1px solid rgba(90,173,142,0.3)":"none"}}>
-                    💰 Budget Mode {budgetMode?"ON":"OFF"}
+                    {budgetMode?t('dash.budgetOn',language):t('dash.budgetOff',language)}
                   </button>
-                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>📚 Export Book</button>}
-                  {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>🔍 Audit Recipes</button>}
+                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes.map(dr),"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>{t('dash.exportBook',language)}</button>}
+                  {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>{t('dash.auditRecipes',language)}</button>}
                   <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>{t('pantry.whatCanICook',language)}</button>
-                  <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>🎡 Spin</button>
-                  <button onClick={()=>setRemixOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c8a8ff"}}>🔀 Remix</button>
-                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
+                  <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>{t('dash.spin',language)}</button>
+                  <button onClick={()=>setRemixOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c8a8ff"}}>{t('dash.remix',language)}</button>
+                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>{t('dash.addRecipe',language)}</button>
                 </div>
               </div>
 
@@ -5467,16 +5527,24 @@ function App() {
                 <div style={{background:"rgba(90,173,142,0.07)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
                   <span style={{fontSize:20}}>💰</span>
                   <div>
-                    <div style={{color:"#5aad8e",fontWeight:700,fontSize:13}}>Budget Mode</div>
-                    <div style={{color:"var(--text-muted)",fontSize:11}}>Showing estimated cost per serving on each recipe card</div>
+                    <div style={{color:"#5aad8e",fontWeight:700,fontSize:13}}>{t('dash.budgetMode',language)}</div>
+                    <div style={{color:"var(--text-muted)",fontSize:11}}>{t('dash.budgetDesc',language)}</div>
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-                    <span style={{color:"var(--text-sub)",fontSize:12}}>Weekly budget $</span>
+                    <span style={{color:"var(--text-sub)",fontSize:12}}>{t('dash.weeklyBudget',language)}</span>
                     <input type="number" value={weeklyBudget} onChange={e=>setWeeklyBudget(Math.max(1,+e.target.value))}
                       style={{...IS,width:70,height:32,padding:"0 8px",fontSize:13}}/>
-                    <span style={{color:"var(--text-muted)",fontSize:11}}>/week</span>
+                    <span style={{color:"var(--text-muted)",fontSize:11}}>{t('dash.perWeek',language)}</span>
                   </div>
                   <div style={{color:"var(--text-muted)",fontSize:11}}>~${(weeklyBudget/21).toFixed(2)}/meal max</div>
+                </div>
+              )}
+
+              {/* Translation progress indicator */}
+              {translatingCount > 0 && (
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 14px",marginBottom:8,background:"rgba(90,173,142,0.08)",border:"1px solid rgba(90,173,142,0.2)",borderRadius:10,fontSize:12,color:"var(--text-sub)"}}>
+                  <span style={{display:"inline-block",animation:"spin 1s linear infinite",fontSize:14}}>⟳</span>
+                  {language==='es' ? `Traduciendo ${translatingCount} receta${translatingCount!==1?'s':''}…` : language==='ru' ? `Перевод: осталось ${translatingCount} ${translatingCount===1?'рецепт':translatingCount<5?'рецепта':'рецептов'}…` : `Translating ${translatingCount} recipe${translatingCount!==1?'s':''}…`}
                 </div>
               )}
 
@@ -5567,24 +5635,24 @@ function App() {
               {filtered.length===0
                 ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>
                     <div style={{fontSize:36,marginBottom:10}}>🔍</div>
-                    <div style={{marginBottom:12}}>No recipes match your filters</div>
-                    {anyFilterActive && <button onClick={clearAllFilters} style={{...CB,color:"var(--accent)"}}>Clear all filters</button>}
+                    <div style={{marginBottom:12}}>{t('dash.noMatches',language)}</div>
+                    {anyFilterActive && <button onClick={clearAllFilters} style={{...CB,color:"var(--accent)"}}>{t('dash.clearAll',language)}</button>}
                   </div>
                 : <div className="r-grid">
-                    {filtered.map(r=><RecipeCard key={r.id} recipe={r} onClick={setViewing} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined}/>)}
+                    {filtered.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined}/>)}
                   </div>
               }
             </div>
           )}
 
-          {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])}/>}
+          {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])} language={language}/>}
 
           {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")} language={language}/>}
 
           {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null} pantry={pantry} language={language}/>}
           {sec==="pantry" && <PantryManager pantry={pantry} setPantry={setPantry} recipes={recipes} language={language} onDeduct={updates=>setPantry(p=>p.map(item=>{const u=updates.find(x=>x.id===item.id);return u?{...item,amount:Math.max(0,item.amount-u.used)}:item;}))}/>}
 
-          {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing}/>}
+          {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing} language={language}/>}
 
           {sec==="supplements" && (
             <div>
@@ -5593,23 +5661,23 @@ function App() {
             </div>
           )}
 
-          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} cookLog={cookLog} macroGoals={macroGoals} setMacroGoals={setMacroGoals} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))} profileSelector={<ProfileSelector profiles={profiles} activeProfileId={activeProfileId} setActiveProfileId={setActiveProfileId} addProfile={addProfile} deleteProfile={deleteProfile} renameProfile={renameProfile}/>}/>}
+          {sec==="statistics" && <StatisticsPanel recipes={recipes} mealPlanItems={mealPlanItems} ratings={ratings} favorites={favorites} shoppingSpends={shoppingSpends} cookLog={cookLog} macroGoals={macroGoals} setMacroGoals={setMacroGoals} onDeleteSpend={id=>setShoppingSpends(p=>p.filter(s=>s.id!==id))} language={language} profileSelector={<ProfileSelector profiles={profiles} activeProfileId={activeProfileId} setActiveProfileId={setActiveProfileId} addProfile={addProfile} deleteProfile={deleteProfile} renameProfile={renameProfile}/>}/>}
 
-          {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])}/>}
+          {sec==="optimizer" && <MealPrepOptimizer recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} language={language}/>}
 
-          {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing}/>}
+          {sec==="ingredient-search" && <IngredientSearch recipes={recipes} onView={setViewing} language={language} translatedRecipes={translatedRecipes}/>}
 
-          {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing}/>}
+          {sec==="favorites" && <FavoritesView favorites={favorites} recipes={recipes} setFavorites={setFavorites} onView={setViewing} language={language} translatedRecipes={translatedRecipes}/>}
 
           {sec==="settings" && (
             <div style={{maxWidth:560,margin:"0 auto"}}>
-              <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚙️ Settings</h2>
-              <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:24}}>App preferences and configuration</p>
+              <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚙️ {t('settings.title',language)}</h2>
+              <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:24}}>{t('settings.settingsDesc',language)}</p>
 
               {/* Language */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
                 <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🌐 Language</h3>
-                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Select your preferred display language. Recipe content is translated automatically using AI.</p>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>{t('settings.languageDesc',language)}</p>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                   {[["en","English","🇺🇸"],["es","Español","🇪🇸"],["ru","Русский","🇷🇺"]].map(([code,label,flag])=>(
                     <button key={code} onClick={()=>setLanguage(code)}
@@ -5620,21 +5688,21 @@ function App() {
                         border:language===code?"1px solid var(--accent)":"1px solid transparent",borderRadius:14,fontWeight:language===code?700:400}}>
                       <span style={{fontSize:28}}>{flag}</span>
                       <span style={{fontSize:13}}>{label}</span>
-                      {language===code && <span style={{fontSize:10,color:"var(--accent)"}}>✓ Active</span>}
+                      {language===code && <span style={{fontSize:10,color:"var(--accent)"}}>{t('settings.langActive',language)}</span>}
                     </button>
                   ))}
                 </div>
                 {language!=="en" && <div style={{marginTop:14,background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.2)",borderRadius:10,padding:"10px 14px",color:"var(--accent)",fontSize:12}}>
-                  ✓ UI is in {({es:"Spanish",ru:"Russian"}[language])}. Open a recipe to auto-translate its content (requires API key).
+                  {t('settings.langHint',language,{lang:({es:"Spanish",ru:"Russian"}[language])})}
                 </div>}
               </div>
 
               {/* Appearance */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
-                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🎨 Appearance</h3>
-                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Toggle between dark and light mode.</p>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>{t('settings.appearance',language)}</h3>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>{t('settings.appearanceDesc',language)}</p>
                 <div style={{display:"flex",gap:10}}>
-                  {[[true,"🌙 Dark"],[false,"☀️ Light"]].map(([val,label])=>(
+                  {([[true,"🌙 "+t('settings.dark',language)],[false,"☀️ "+t('settings.light',language)]] as [boolean,string][]).map(([val,label])=>(
                     <button key={String(val)} onClick={()=>toggleDark()} style={{...GB,flex:1,padding:"12px 0",
                       background:darkMode===val?"rgba(58,125,94,0.22)":"var(--bg-card)",
                       boxShadow:darkMode===val?"var(--nm-inset)":"var(--nm-raised-sm)",
@@ -5648,35 +5716,35 @@ function App() {
 
               {/* API Keys */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
-                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🤖 AI & API Keys</h3>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>{t('settings.aiKeys',language)}</h3>
                 <div style={{marginBottom:16}}>
-                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>Anthropic Key <span style={{color:"#f08080"}}>(required for AI features)</span></div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>{t('settings.anthropicKeyLabel',language)} <span style={{color:"#f08080"}}>{t('settings.anthropicRequired',language)}</span></div>
                   <input type="password" placeholder="sk-ant-api03-…" value={anthropicKey}
                     onChange={e=>{setAnthropicKey(e.target.value);pwaSet('anthropic_key',e.target.value);}}
                     style={{...IS,fontSize:14,marginBottom:8}}/>
                   {anthropicKey
-                    ? <div style={{color:"var(--accent)",fontSize:12}}>✓ AI extraction, image generation & translation enabled</div>
-                    : <div style={{color:"var(--text-sub)",fontSize:12}}>Get a free key at <span style={{color:"#5a8fd4"}}>console.anthropic.com</span> → API Keys</div>}
+                    ? <div style={{color:"var(--accent)",fontSize:12}}>{t('settings.aiEnabled',language)}</div>
+                    : <div style={{color:"var(--text-sub)",fontSize:12}}>{t('settings.anthropicFree',language)}</div>}
                 </div>
                 <div>
-                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>Pexels Key <span style={{color:"var(--text-muted)"}}>(optional, for real food photos)</span></div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>{t('settings.pexelsKey',language)} <span style={{color:"var(--text-muted)"}}>{t('settings.pexelsOptional',language)}</span></div>
                   <input type="password" placeholder="Pexels API key…" value={pexelsKey}
                     onChange={e=>{setPexelsKey(e.target.value);pwaSet('pexels_key',e.target.value);}}
                     style={{...IS,fontSize:14,marginBottom:8}}/>
                   {pexelsKey
-                    ? <div style={{color:"var(--accent)",fontSize:12}}>✓ Real food photos enabled</div>
-                    : <div style={{color:"var(--text-sub)",fontSize:12}}>Free at <span style={{color:"#5a8fd4"}}>pexels.com/api</span></div>}
+                    ? <div style={{color:"var(--accent)",fontSize:12}}>{t('settings.photosEnabled',language)}</div>
+                    : <div style={{color:"var(--text-sub)",fontSize:12}}>{t('settings.pexelsFree',language)}</div>}
                 </div>
               </div>
 
               {/* Data */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24}}>
-                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>💾 Data & Backup</h3>
-                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Export your recipes as a backup or import from a previous export.</p>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>{t('settings.dataBackup',language)}</h3>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>{t('settings.backupDesc',language)}</p>
                 <div style={{display:"flex",gap:10}}>
-                  <button onClick={exportData} style={{...GB,flex:1,fontSize:13,padding:"11px 0"}}>📤 Export Backup</button>
+                  <button onClick={exportData} style={{...GB,flex:1,fontSize:13,padding:"11px 0"}}>{t('settings.export',language)}</button>
                   <label style={{...GB,flex:1,fontSize:13,padding:"11px 0",textAlign:"center",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    📥 Import Backup
+                    {t('settings.importBackup',language)}
                     <input type="file" accept=".json" style={{display:"none"}} onChange={importData}/>
                   </label>
                 </div>
@@ -5714,14 +5782,14 @@ function App() {
       {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)}/>}
       {spinWheelOpen && <SpinWheelModal recipes={recipes} onClose={()=>setSpinWheelOpen(false)} onView={r=>{setViewing(r);setSpinWheelOpen(false);}}/>}
       {remixOpen && <RecipeRemixModal recipes={recipes} onClose={()=>setRemixOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
-      {addOpen && <SmartAddModal initialUrl={addInitialUrl} onClose={()=>{setAddOpen(false);setAddInitialUrl("");}} onAdd={r=>setRecipes(p=>[...p,r])}/>}
+      {addOpen && <SmartAddModal initialUrl={addInitialUrl} onClose={()=>{setAddOpen(false);setAddInitialUrl("");}} onAdd={r=>setRecipes(p=>[...p,r])} language={language}/>}
 
       {/* Comfort meal log modal */}
-      {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])}/>}
+      {comfortModalOpen && <ComfortMealModal onClose={()=>setComfortModalOpen(false)} onLog={(name,notes)=>setCookLog(p=>[...p,{id:Date.now(),recipeName:name,date:new Date().toISOString(),isComfortMeal:true,notes}])} language={language}/>}
 
       {/* Recipe audit modal */}
       {auditOpen && <RecipeAuditModal recipes={recipes} onClose={()=>setAuditOpen(false)} onSave={updated=>setRecipes(p=>p.map(r=>r.id===updated.id?updated:r))}/>}
-      {whatCanICookOpen && <WhatCanICookModal recipes={recipes} pantry={pantry} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}}/>}
+      {whatCanICookOpen && <WhatCanICookModal recipes={recipes} pantry={pantry} onClose={()=>setWhatCanICookOpen(false)} onView={r=>{setViewing(r);setWhatCanICookOpen(false);}} language={language}/>}
       {editTarget && <EditRecipeModal recipe={editTarget} onClose={()=>setEditTarget(null)} language={language}
         onSave={updated=>{setRecipes(p=>p.map(r=>r.id===updated.id?updated:r));setViewing(updated);setEditTarget(null);}}
         onDelete={id=>{trackDeleted(id,recipes);setRecipes(p=>p.filter(r=>r.id!==id));setViewing(null);setEditTarget(null);}}/>}
