@@ -35,6 +35,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'label.containerProtein': 'Protein',
     'label.containerGrain': 'Grain',
     'label.containerVeggies': 'Veggies',
+    'label.none': 'None',
 
     // Section Headers
     'section.sauces': 'For the Sauce',
@@ -521,6 +522,24 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'settings.photosEnabled': '✓ Real food photos enabled',
     'settings.langActive': '✓ Active',
     'settings.langHint': 'UI is in {lang}. Open a recipe to auto-translate its content (requires API key).',
+    'settings.settingsDesc': 'App preferences and configuration',
+    'settings.languageDesc': 'Select your preferred display language. Recipe content is translated automatically using AI.',
+    'settings.appearanceDesc': 'Toggle between dark and light mode.',
+    'settings.backupDesc': 'Export your recipes as a backup or import from a previous export.',
+    'settings.anthropicKeyLabel': 'Anthropic Key',
+    'settings.anthropicRequired': '(required for AI features)',
+    'settings.anthropicFree': 'Get a free key at console.anthropic.com → API Keys',
+    'settings.pexelsOptional': '(optional, for real food photos)',
+    'settings.pexelsFree': 'Free at pexels.com/api',
+    'settings.importBackup': '📥 Import Backup',
+
+    'dash.budgetOn': '💰 Budget Mode ON',
+    'dash.budgetOff': '💰 Budget Mode OFF',
+    'dash.exportBook': '📚 Export Book',
+    'dash.auditRecipes': '🔍 Audit Recipes',
+    'dash.spin': '🎡 Spin',
+    'dash.remix': '🔀 Remix',
+    'dash.perWeek': '/week',
 
     // Optimizer
     'opt.title': '⚡ Meal Prep Optimizer',
@@ -614,6 +633,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'label.containerProtein': 'Proteína',
     'label.containerGrain': 'Cereales',
     'label.containerVeggies': 'Verduras',
+    'label.none': 'Ninguno',
 
     // Section Headers
     'section.sauces': 'Para la Salsa',
@@ -1093,6 +1113,24 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'settings.photosEnabled': '✓ Fotos reales de alimentos habilitadas',
     'settings.langActive': '✓ Activo',
     'settings.langHint': 'La interfaz está en {lang}. Abre una receta para traducir su contenido (requiere clave API).',
+    'settings.settingsDesc': 'Preferencias y configuración de la app',
+    'settings.languageDesc': 'Elige tu idioma preferido. El contenido de las recetas se traduce automáticamente con IA.',
+    'settings.appearanceDesc': 'Alterna entre modo oscuro y claro.',
+    'settings.backupDesc': 'Exporta tus recetas como copia o importa una exportación anterior.',
+    'settings.anthropicKeyLabel': 'Clave Anthropic',
+    'settings.anthropicRequired': '(requerido para funciones de IA)',
+    'settings.anthropicFree': 'Obtén una clave gratis en console.anthropic.com → API Keys',
+    'settings.pexelsOptional': '(opcional, para fotos reales de comida)',
+    'settings.pexelsFree': 'Gratis en pexels.com/api',
+    'settings.importBackup': '📥 Importar Copia',
+
+    'dash.budgetOn': '💰 Modo Presupuesto ON',
+    'dash.budgetOff': '💰 Modo Presupuesto OFF',
+    'dash.exportBook': '📚 Exportar Libro',
+    'dash.auditRecipes': '🔍 Auditar Recetas',
+    'dash.spin': '🎡 Girar',
+    'dash.remix': '🔀 Remezclar',
+    'dash.perWeek': '/semana',
 
     'opt.title': '⚡ Optimizador de Preparación',
     'opt.subtitle': 'Selecciona 2+ recetas y obtén un flujo de trabajo paralelo optimizado por IA.',
@@ -1181,6 +1219,7 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'label.containerProtein': 'Белки',
     'label.containerGrain': 'Крупы',
     'label.containerVeggies': 'Овощи',
+    'label.none': 'Нет',
 
     // Section Headers
     'section.sauces': 'Для соуса',
@@ -1660,6 +1699,24 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'settings.photosEnabled': '✓ Реальные фото еды включены',
     'settings.langActive': '✓ Активно',
     'settings.langHint': 'Интерфейс на {lang}. Откройте рецепт для автоперевода содержимого (требуется API-ключ).',
+    'settings.settingsDesc': 'Настройки и параметры приложения',
+    'settings.languageDesc': 'Выберите предпочтительный язык. Содержимое рецептов переводится автоматически с помощью ИИ.',
+    'settings.appearanceDesc': 'Переключение между тёмным и светлым режимом.',
+    'settings.backupDesc': 'Экспортируйте рецепты в виде резервной копии или импортируйте предыдущий экспорт.',
+    'settings.anthropicKeyLabel': 'Ключ Anthropic',
+    'settings.anthropicRequired': '(необходим для функций ИИ)',
+    'settings.anthropicFree': 'Получите бесплатный ключ на console.anthropic.com → API Keys',
+    'settings.pexelsOptional': '(необязательно, для реальных фото еды)',
+    'settings.pexelsFree': 'Бесплатно на pexels.com/api',
+    'settings.importBackup': '📥 Импортировать копию',
+
+    'dash.budgetOn': '💰 Режим бюджета ВКЛ',
+    'dash.budgetOff': '💰 Режим бюджета ВЫКЛ',
+    'dash.exportBook': '📚 Экспорт книги',
+    'dash.auditRecipes': '🔍 Аудит рецептов',
+    'dash.spin': '🎡 Крутить',
+    'dash.remix': '🔀 Ремикс',
+    'dash.perWeek': '/нед.',
 
     'opt.title': '⚡ Оптимизатор готовки',
     'opt.subtitle': 'Выберите 2+ рецепта и получите оптимизированный рабочий процесс от ИИ.',

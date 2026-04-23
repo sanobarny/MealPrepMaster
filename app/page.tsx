@@ -1291,7 +1291,16 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             {/* Details */}
             <div>
               <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>{t('label.details', language)}</h3>
-              {[["Prep",recipe.prepTime+"min"],["Cook",recipe.cookTime+"min"],["Total",total+"min"],["Servings",scale],["Calories",Math.round(recipe.nutrition.calories*r)+"kcal"],["Equipment",(recipe.equipment||[]).join(", ")],["Spice",(recipe.spiceLevel||0)===0?"None":"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]],recipe.cuisine&&["Cuisine","🌍 "+recipe.cuisine]].filter(Boolean).map(([k,v])=>(
+              {([
+                [t('label.prep',language), recipe.prepTime+"min"],
+                [t('label.cook',language), recipe.cookTime+"min"],
+                [t('label.total',language), total+"min"],
+                [t('label.servings',language), String(scale)],
+                [t('label.calories',language), Math.round(recipe.nutrition.calories*r)+"kcal"],
+                [t('label.equipment',language), (recipe.equipment||[]).join(", ")],
+                [t('label.spice',language), (recipe.spiceLevel||0)===0?t('label.none',language):"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]],
+                recipe.cuisine&&[t('label.cuisine',language), "🌍 "+recipe.cuisine]
+              ] as [string,string][]).filter(Boolean).map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
                   <span style={{color:"#6a7a90"}}>{k}</span>
                   <span style={{color:"#c8d0dc"}}>{v}</span>
@@ -1641,7 +1650,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
             {[0,1,2,3,4,5].map(lvl=>(
               <button key={lvl} onClick={()=>set("spiceLevel",lvl)}
                 style={{...GB,padding:"5px 10px",fontSize:12,background:(data.spiceLevel||0)===lvl?"var(--accent)":"var(--bg-card)",color:(data.spiceLevel||0)===lvl?"#fff":"var(--text-sub)",boxShadow:(data.spiceLevel||0)===lvl?"var(--nm-inset)":"var(--nm-raised-sm)"}}>
-                {lvl===0?"⚪ None":"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}
+                {lvl===0?"⚪ "+t('label.none',language):"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}
               </button>
             ))}
           </div>
@@ -5451,14 +5460,14 @@ function App() {
                   )}
                   <button onClick={()=>setBudgetMode(b=>!b)}
                     style={{...CB,fontSize:12,padding:"5px 12px",background:budgetMode?"rgba(90,173,142,0.18)":"var(--bg-card)",color:budgetMode?"#5aad8e":"var(--text-sub)",boxShadow:budgetMode?"var(--nm-inset)":"var(--nm-raised-sm)",border:budgetMode?"1px solid rgba(90,173,142,0.3)":"none"}}>
-                    💰 Budget Mode {budgetMode?"ON":"OFF"}
+                    {budgetMode?t('dash.budgetOn',language):t('dash.budgetOff',language)}
                   </button>
-                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>📚 Export Book</button>}
-                  {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>🔍 Audit Recipes</button>}
+                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes,"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>{t('dash.exportBook',language)}</button>}
+                  {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>{t('dash.auditRecipes',language)}</button>}
                   <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>{t('pantry.whatCanICook',language)}</button>
-                  <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>🎡 Spin</button>
-                  <button onClick={()=>setRemixOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c8a8ff"}}>🔀 Remix</button>
-                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>+ Add Recipe</button>
+                  <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>{t('dash.spin',language)}</button>
+                  <button onClick={()=>setRemixOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c8a8ff"}}>{t('dash.remix',language)}</button>
+                  <button onClick={()=>setAddOpen(true)} style={{background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:9,color:"#fff",padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>{t('dash.addRecipe',language)}</button>
                 </div>
               </div>
 
@@ -5467,14 +5476,14 @@ function App() {
                 <div style={{background:"rgba(90,173,142,0.07)",border:"1px solid rgba(90,173,142,0.25)",borderRadius:14,padding:"12px 16px",marginBottom:14,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
                   <span style={{fontSize:20}}>💰</span>
                   <div>
-                    <div style={{color:"#5aad8e",fontWeight:700,fontSize:13}}>Budget Mode</div>
-                    <div style={{color:"var(--text-muted)",fontSize:11}}>Showing estimated cost per serving on each recipe card</div>
+                    <div style={{color:"#5aad8e",fontWeight:700,fontSize:13}}>{t('dash.budgetMode',language)}</div>
+                    <div style={{color:"var(--text-muted)",fontSize:11}}>{t('dash.budgetDesc',language)}</div>
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-                    <span style={{color:"var(--text-sub)",fontSize:12}}>Weekly budget $</span>
+                    <span style={{color:"var(--text-sub)",fontSize:12}}>{t('dash.weeklyBudget',language)}</span>
                     <input type="number" value={weeklyBudget} onChange={e=>setWeeklyBudget(Math.max(1,+e.target.value))}
                       style={{...IS,width:70,height:32,padding:"0 8px",fontSize:13}}/>
-                    <span style={{color:"var(--text-muted)",fontSize:11}}>/week</span>
+                    <span style={{color:"var(--text-muted)",fontSize:11}}>{t('dash.perWeek',language)}</span>
                   </div>
                   <div style={{color:"var(--text-muted)",fontSize:11}}>~${(weeklyBudget/21).toFixed(2)}/meal max</div>
                 </div>
@@ -5603,13 +5612,13 @@ function App() {
 
           {sec==="settings" && (
             <div style={{maxWidth:560,margin:"0 auto"}}>
-              <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚙️ Settings</h2>
-              <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:24}}>App preferences and configuration</p>
+              <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>⚙️ {t('settings.title',language)}</h2>
+              <p style={{color:"var(--text-sub)",fontSize:14,marginBottom:24}}>{t('settings.settingsDesc',language)}</p>
 
               {/* Language */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
                 <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🌐 Language</h3>
-                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Select your preferred display language. Recipe content is translated automatically using AI.</p>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>{t('settings.languageDesc',language)}</p>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
                   {[["en","English","🇺🇸"],["es","Español","🇪🇸"],["ru","Русский","🇷🇺"]].map(([code,label,flag])=>(
                     <button key={code} onClick={()=>setLanguage(code)}
@@ -5620,21 +5629,21 @@ function App() {
                         border:language===code?"1px solid var(--accent)":"1px solid transparent",borderRadius:14,fontWeight:language===code?700:400}}>
                       <span style={{fontSize:28}}>{flag}</span>
                       <span style={{fontSize:13}}>{label}</span>
-                      {language===code && <span style={{fontSize:10,color:"var(--accent)"}}>✓ Active</span>}
+                      {language===code && <span style={{fontSize:10,color:"var(--accent)"}}>{t('settings.langActive',language)}</span>}
                     </button>
                   ))}
                 </div>
                 {language!=="en" && <div style={{marginTop:14,background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.2)",borderRadius:10,padding:"10px 14px",color:"var(--accent)",fontSize:12}}>
-                  ✓ UI is in {({es:"Spanish",ru:"Russian"}[language])}. Open a recipe to auto-translate its content (requires API key).
+                  {t('settings.langHint',language,{lang:({es:"Spanish",ru:"Russian"}[language])})}
                 </div>}
               </div>
 
               {/* Appearance */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
-                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🎨 Appearance</h3>
-                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Toggle between dark and light mode.</p>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>{t('settings.appearance',language)}</h3>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>{t('settings.appearanceDesc',language)}</p>
                 <div style={{display:"flex",gap:10}}>
-                  {[[true,"🌙 Dark"],[false,"☀️ Light"]].map(([val,label])=>(
+                  {([[true,"🌙 "+t('settings.dark',language)],[false,"☀️ "+t('settings.light',language)]] as [boolean,string][]).map(([val,label])=>(
                     <button key={String(val)} onClick={()=>toggleDark()} style={{...GB,flex:1,padding:"12px 0",
                       background:darkMode===val?"rgba(58,125,94,0.22)":"var(--bg-card)",
                       boxShadow:darkMode===val?"var(--nm-inset)":"var(--nm-raised-sm)",
@@ -5648,35 +5657,35 @@ function App() {
 
               {/* API Keys */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24,marginBottom:20}}>
-                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🤖 AI & API Keys</h3>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>{t('settings.aiKeys',language)}</h3>
                 <div style={{marginBottom:16}}>
-                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>Anthropic Key <span style={{color:"#f08080"}}>(required for AI features)</span></div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>{t('settings.anthropicKeyLabel',language)} <span style={{color:"#f08080"}}>{t('settings.anthropicRequired',language)}</span></div>
                   <input type="password" placeholder="sk-ant-api03-…" value={anthropicKey}
                     onChange={e=>{setAnthropicKey(e.target.value);pwaSet('anthropic_key',e.target.value);}}
                     style={{...IS,fontSize:14,marginBottom:8}}/>
                   {anthropicKey
-                    ? <div style={{color:"var(--accent)",fontSize:12}}>✓ AI extraction, image generation & translation enabled</div>
-                    : <div style={{color:"var(--text-sub)",fontSize:12}}>Get a free key at <span style={{color:"#5a8fd4"}}>console.anthropic.com</span> → API Keys</div>}
+                    ? <div style={{color:"var(--accent)",fontSize:12}}>{t('settings.aiEnabled',language)}</div>
+                    : <div style={{color:"var(--text-sub)",fontSize:12}}>{t('settings.anthropicFree',language)}</div>}
                 </div>
                 <div>
-                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>Pexels Key <span style={{color:"var(--text-muted)"}}>(optional, for real food photos)</span></div>
+                  <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>{t('settings.pexelsKey',language)} <span style={{color:"var(--text-muted)"}}>{t('settings.pexelsOptional',language)}</span></div>
                   <input type="password" placeholder="Pexels API key…" value={pexelsKey}
                     onChange={e=>{setPexelsKey(e.target.value);pwaSet('pexels_key',e.target.value);}}
                     style={{...IS,fontSize:14,marginBottom:8}}/>
                   {pexelsKey
-                    ? <div style={{color:"var(--accent)",fontSize:12}}>✓ Real food photos enabled</div>
-                    : <div style={{color:"var(--text-sub)",fontSize:12}}>Free at <span style={{color:"#5a8fd4"}}>pexels.com/api</span></div>}
+                    ? <div style={{color:"var(--accent)",fontSize:12}}>{t('settings.photosEnabled',language)}</div>
+                    : <div style={{color:"var(--text-sub)",fontSize:12}}>{t('settings.pexelsFree',language)}</div>}
                 </div>
               </div>
 
               {/* Data */}
               <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:18,padding:24}}>
-                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>💾 Data & Backup</h3>
-                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>Export your recipes as a backup or import from a previous export.</p>
+                <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>{t('settings.dataBackup',language)}</h3>
+                <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>{t('settings.backupDesc',language)}</p>
                 <div style={{display:"flex",gap:10}}>
-                  <button onClick={exportData} style={{...GB,flex:1,fontSize:13,padding:"11px 0"}}>📤 Export Backup</button>
+                  <button onClick={exportData} style={{...GB,flex:1,fontSize:13,padding:"11px 0"}}>{t('settings.export',language)}</button>
                   <label style={{...GB,flex:1,fontSize:13,padding:"11px 0",textAlign:"center",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    📥 Import Backup
+                    {t('settings.importBackup',language)}
                     <input type="file" accept=".json" style={{display:"none"}} onChange={importData}/>
                   </label>
                 </div>
