@@ -71,8 +71,8 @@ const translateRecipe = async (recipe, targetLang, anthropicKey?) => {
   const cacheKey = `mpm_recipe_translation_${recipe.id}_${targetLang}`;
   const cached = localStorage.getItem(cacheKey);
   if (cached) try { return JSON.parse(cached); } catch(e) {}
-  // Fall back to reading key from localStorage/cookie directly if state hasn't propagated yet
-  const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+  // pwaGet is defined later in the file but safe to call at runtime (TDZ only applies at parse time)
+  const keyToUse = anthropicKey?.trim() || pwaGet('anthropic_key') || '';
   if (!keyToUse) return recipe;
   try {
     const systemPrompt = `Translate the following recipe to ${targetLang === 'es' ? 'Spanish' : 'Russian'}.
@@ -4886,7 +4886,7 @@ function App() {
 
   // Auto-translate viewing recipe when language changes
   useEffect(() => {
-    const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+    const keyToUse = anthropicKey?.trim() || pwaGet('anthropic_key') || '';
     if (viewing && language !== 'en' && keyToUse) {
       const timer = setTimeout(async () => {
         try {
@@ -4915,7 +4915,7 @@ function App() {
 
   // Background-translate all recipes when language or API key changes
   useEffect(() => {
-    const keyToUse = anthropicKey?.trim() || (typeof window !== 'undefined' ? (localStorage.getItem('anthropic_key') || '') : '');
+    const keyToUse = anthropicKey?.trim() || pwaGet('anthropic_key') || '';
     if (language === 'en' || !keyToUse || !hydrated || recipes.length === 0) return;
     let cancelled = false;
     // Count how many need translation (not yet cached)
@@ -5540,7 +5540,12 @@ function App() {
                 </div>
               )}
 
-              {/* Translation progress indicator */}
+              {/* Translation progress / no-key warning */}
+              {language !== 'en' && !anthropicKey && !pwaGet('anthropic_key') && (
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 14px",marginBottom:8,background:"rgba(240,128,128,0.1)",border:"1px solid rgba(240,128,128,0.3)",borderRadius:10,fontSize:12,color:"#f08080",cursor:"pointer"}} onClick={()=>setSettingsOpen(true)}>
+                  ⚠ {language==='es'?'La traducción de recetas requiere una clave API de Anthropic. Toca ⚙️ para añadirla.':language==='ru'?'Для перевода рецептов нужен API-ключ Anthropic. Нажмите ⚙️ чтобы добавить.':'Recipe translation requires an Anthropic API key. Tap ⚙️ Settings to add it.'}
+                </div>
+              )}
               {translatingCount > 0 && (
                 <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 14px",marginBottom:8,background:"rgba(90,173,142,0.08)",border:"1px solid rgba(90,173,142,0.2)",borderRadius:10,fontSize:12,color:"var(--text-sub)"}}>
                   <span style={{display:"inline-block",animation:"spin 1s linear infinite",fontSize:14}}>⟳</span>
