@@ -5701,14 +5701,14 @@ function App() {
                 <h3 style={{color:"var(--text)",fontSize:15,fontWeight:700,marginBottom:4,marginTop:0}}>🌐 Language</h3>
                 <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:14,marginTop:0}}>{t('settings.languageDesc',language)}</p>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-                  {[["en","English","🇺🇸"],["es","Español","🇪🇸"],["ru","Русский","🇷🇺"]].map(([code,label,flag])=>(
+                  {[["en","English","EN"],["es","Español","ES"],["ru","Русский","RU"]].map(([code,label,badge])=>(
                     <button key={code} onClick={()=>setLanguage(code)}
                       style={{...GB,padding:"14px 12px",flexDirection:"column",display:"flex",alignItems:"center",gap:6,
                         background:language===code?"rgba(58,125,94,0.22)":"var(--bg-card)",
                         boxShadow:language===code?"var(--nm-inset)":"var(--nm-raised-sm)",
                         color:language===code?"var(--accent)":"var(--text-sub)",
                         border:language===code?"1px solid var(--accent)":"1px solid transparent",borderRadius:14,fontWeight:language===code?700:400}}>
-                      <span style={{fontSize:28}}>{flag}</span>
+                      <span style={{fontSize:18,fontWeight:800,letterSpacing:1,fontFamily:"monospace"}}>{badge}</span>
                       <span style={{fontSize:13}}>{label}</span>
                       {language===code && <span style={{fontSize:10,color:"var(--accent)"}}>{t('settings.langActive',language)}</span>}
                     </button>
