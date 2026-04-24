@@ -130,8 +130,11 @@ const HEALTH_TAGS = ["Anti-Inflammatory","Blood Sugar Stable","Omega-3 Rich","An
 const ALL_TAGS = [...DIET_TAGS,...HEALTH_TAGS];
 const EQUIPMENT_LIST = ["stove","oven","air fryer","rice cooker","blender","microwave","instant pot","none"];
 const APPLIANCE_ICONS = {stove:"🍳",oven:"🔥","air fryer":"🌬️","rice cooker":"🍚",blender:"🫙",microwave:"📡","instant pot":"🫕",none:"🙌"};
+const APPLIANCE_KEYS: Record<string,string> = {"stove":"appliance.stove","oven":"appliance.oven","air fryer":"appliance.airFryer","rice cooker":"appliance.riceCooker","blender":"appliance.blender","microwave":"appliance.microwave","instant pot":"appliance.instantPot"};
 const ALLERGENS_LIST = ["gluten","dairy","eggs","nuts","soy","shellfish"];
 const GOALS = ["lose weight","gain muscle","maintenance"];
+const GOAL_KEYS: Record<string,string> = {"lose weight":"goal.loseWeight","gain muscle":"goal.gainMuscle","maintenance":"goal.maintenance"};
+const TAG_KEYS: Record<string,string> = {"PCOS-Friendly":"tag.pcos","High Protein":"tag.highProtein","Gluten-Free":"tag.glutenFree","Dairy-Free":"tag.dairyFree","Vegan":"tag.vegan","Low Carb":"tag.lowCarb","High Fiber":"tag.highFiber","Low Calorie":"tag.lowCalorie","Anti-Inflammatory":"tag.antiInflammatory","Blood Sugar Stable":"tag.bloodSugarStable","Omega-3 Rich":"tag.omega3","Antioxidant":"tag.antioxidant","Gut Health":"tag.gutHealth","Heart Healthy":"tag.heartHealthy"};
 
 // Ingredient sections — used in RecipeDetail grouping and extraction
 const ING_SECTIONS = [
@@ -5220,7 +5223,7 @@ function App() {
           {[null,...GOALS].map(g=>(
             <button key={g||"all"} onClick={()=>setGoalF(g)}
               style={{width:"100%",display:"flex",alignItems:"center",padding:"7px 12px",borderRadius:10,border:"none",cursor:"pointer",background:goalF===g&&g?"var(--bg-card)":"transparent",boxShadow:goalF===g&&g?"var(--nm-raised-sm)":"none",color:goalF===g&&g?"var(--accent)":"var(--text-sub)",fontFamily:"inherit",fontSize:12,textAlign:"left",whiteSpace:"nowrap",transition:"all .15s"}}>
-              {g||t('nav.allGoals', language)}
+              {g ? t(GOAL_KEYS[g]||g, language) : t('nav.allGoals', language)}
             </button>
           ))}
         </div>
@@ -5598,42 +5601,42 @@ function App() {
 
               {/* Diet tag filter */}
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
-                {DIET_TAGS.map(t=>(
-                  <button key={t} onClick={()=>setTagF(tagF===t?null:t)}
-                    style={{...CB,boxShadow:tagF===t?"var(--nm-inset)":"var(--nm-raised-sm)",color:tagF===t?(TAG_COLORS[t]||"var(--accent)"):"var(--text-sub)"}}>
-                    {t}
+                {DIET_TAGS.map(tag=>(
+                  <button key={tag} onClick={()=>setTagF(tagF===tag?null:tag)}
+                    style={{...CB,boxShadow:tagF===tag?"var(--nm-inset)":"var(--nm-raised-sm)",color:tagF===tag?(TAG_COLORS[tag]||"var(--accent)"):"var(--text-sub)"}}>
+                    {t(TAG_KEYS[tag]||tag, language)}
                   </button>
                 ))}
               </div>
 
               {/* Health tag filter */}
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
-                {HEALTH_TAGS.map(t=>(
-                  <button key={t} onClick={()=>setHealthF(healthF===t?null:t)}
-                    style={{...CB,boxShadow:healthF===t?"var(--nm-inset)":"var(--nm-raised-sm)",color:healthF===t?(HEALTH_COLORS[t]||"var(--accent)"):"var(--text-sub)"}}>
-                    {t}
+                {HEALTH_TAGS.map(tag=>(
+                  <button key={tag} onClick={()=>setHealthF(healthF===tag?null:tag)}
+                    style={{...CB,boxShadow:healthF===tag?"var(--nm-inset)":"var(--nm-raised-sm)",color:healthF===tag?(HEALTH_COLORS[tag]||"var(--accent)"):"var(--text-sub)"}}>
+                    {t(TAG_KEYS[tag]||tag, language)}
                   </button>
                 ))}
               </div>
 
-              {/* Difficulty + Time filters */}
+              {/* Difficulty + Time + Budget filters */}
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6,alignItems:"center"}}>
-                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginRight:2}}>Difficulty</span>
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginRight:2}}>{t('filter.difficulty',language)}</span>
                 {[null,"beginner","intermediate","advanced"].map(d=>(
                   <button key={d||"all"} onClick={()=>setDiffF(diffF===d?null:d)}
                     style={{...CB,boxShadow:diffF===d&&d?"var(--nm-inset)":"var(--nm-raised-sm)",color:diffF===d&&d?(DIFFICULTIES[d]?.color||"var(--accent)"):"var(--text-sub)",fontSize:11}}>
-                    {d?DIFFICULTIES[d].icon+" "+DIFFICULTIES[d].label:"All"}
+                    {d?DIFFICULTIES[d].icon+" "+t('diff.'+d,language):t('filter.all',language)}
                   </button>
                 ))}
-                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,margin:"0 2px 0 10px"}}>Time</span>
-                {[[null,"Any"],[15,"≤15m"],[30,"≤30m"],[60,"≤1hr"]].map(([val,label])=>(
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,margin:"0 2px 0 10px"}}>{t('filter.time',language)}</span>
+                {([[null,t('filter.any',language)],[15,"≤15m"],[30,"≤30m"],[60,"≤1hr"]] as [any,string][]).map(([val,label])=>(
                   <button key={label} onClick={()=>setMaxTimeF(maxTimeF===val?null:val)}
                     style={{...CB,boxShadow:maxTimeF===val&&val!==null?"var(--nm-inset)":"var(--nm-raised-sm)",color:maxTimeF===val&&val!==null?"var(--accent)":"var(--text-sub)",fontSize:11}}>
                     {label}
                   </button>
                 ))}
-                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,margin:"0 2px 0 10px"}}>Budget</span>
-                {[[null,"Any"],[2,"≤$2"],[4,"≤$4"],[6,"≤$6"]].map(([val,label])=>(
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,margin:"0 2px 0 10px"}}>{t('filter.budget',language)}</span>
+                {([[null,t('filter.any',language)],[2,"≤$2"],[4,"≤$4"],[6,"≤$6"]] as [any,string][]).map(([val,label])=>(
                   <button key={label} onClick={()=>setMaxCostF(maxCostF===val?null:val)}
                     style={{...CB,boxShadow:maxCostF===val&&val!==null?"var(--nm-inset)":"var(--nm-raised-sm)",color:maxCostF===val&&val!==null?"#5aad8e":"var(--text-sub)",fontSize:11}}>
                     {label}
@@ -5655,17 +5658,17 @@ function App() {
 
               {/* Appliance filter */}
               <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6,alignItems:"center"}}>
-                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginRight:2}}>Appliance</span>
+                <span style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.8,marginRight:2}}>{t('filter.appliance',language)}</span>
                 {EQUIPMENT_LIST.filter(a=>a!=="none").map(a=>{
                   const on = applianceF.includes(a);
                   return (
                     <button key={a} onClick={()=>setApplianceF(f=>on?f.filter(x=>x!==a):[...f,a])}
                       style={{...CB,boxShadow:on?"var(--nm-inset)":"var(--nm-raised-sm)",color:on?"var(--accent)":"var(--text-sub)",fontSize:11,fontWeight:on?700:400}}>
-                      {APPLIANCE_ICONS[a]||"🔧"} {a.split(" ").map(w=>w[0].toUpperCase()+w.slice(1)).join(" ")}
+                      {APPLIANCE_ICONS[a]||"🔧"} {t(APPLIANCE_KEYS[a]||a, language)}
                     </button>
                   );
                 })}
-                {applianceF.length > 0 && <button onClick={()=>setApplianceF([])} style={{...CB,fontSize:10,color:"var(--text-muted)"}}>✕ clear</button>}
+                {applianceF.length > 0 && <button onClick={()=>setApplianceF([])} style={{...CB,fontSize:10,color:"var(--text-muted)"}}>{t('filter.clear',language)}</button>}
               </div>
 
               <div style={{height:12}}/>
