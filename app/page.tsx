@@ -1228,7 +1228,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
         <div style={{padding:"20px 24px 28px"}}>
           {/* Tags */}
           <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
-            {(recipe.tags||[]).map(t=><TagChip key={t} label={t} color={ALL_TAG_COLORS[t]||"#888"}/>)}
+            {(recipe.tags||[]).map(tag=><TagChip key={tag} label={t(TAG_KEYS[tag]||tag,language)} color={ALL_TAG_COLORS[tag]||"#888"}/>)}
             {(recipe.allergens||[]).map(a=><TagChip key={a} label={"⚠ "+a} color="#c05050"/>)}
           </div>
 
@@ -1238,7 +1238,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           <div style={{display:"flex",gap:12,marginBottom:18,flexWrap:"wrap",alignItems:"center"}}>
             <NutriBadge n={{calories:Math.round(recipe.nutrition.calories*r),protein:Math.round(recipe.nutrition.protein*r),carbs:Math.round(recipe.nutrition.carbs*r),fat:Math.round(recipe.nutrition.fat*r)}}/>
             <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-              <span style={{color:"#6a7a90",fontSize:12}}>Servings:</span>
+              <span style={{color:"#6a7a90",fontSize:12}}>{t('label.servings',language)}:</span>
               <button onClick={()=>setScale(s=>Math.max(1,s-1))} style={{...GB,padding:"3px 10px"}}>−</button>
               <span style={{color:"#fff",fontWeight:700,minWidth:20,textAlign:"center"}}>{scale}</span>
               <button onClick={()=>setScale(s=>s+1)} style={{...GB,padding:"3px 10px"}}>+</button>
@@ -1394,9 +1394,9 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             const {protein,grain,veggie} = getContainerSections();
             return (
               <div style={{marginTop:20,marginBottom:16}}>
-                <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📦 Meal Prep Container Layout</h3>
+                <h3 style={{color:"#c8d0dc",fontSize:13,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📦 {t('label.container',language)}</h3>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,borderRadius:12,overflow:"hidden",border:"1px solid rgba(255,255,255,0.08)"}}>
-                  {[["Protein","#5aad8e",protein],["Grain","#e2d9c8",grain],["Veggies","#d4875a",veggie]].map(([label,color,items])=>(
+                  {[[t('label.containerProtein',language),"#5aad8e",protein],[t('label.containerGrain',language),"#e2d9c8",grain],[t('label.containerVeggies',language),"#d4875a",veggie]].map(([label,color,items])=>(
                     <div key={label} style={{background:color+"15",padding:"10px 12px",minHeight:80}}>
                       <div style={{color,fontWeight:700,fontSize:11,marginBottom:6,textTransform:"uppercase"}}>{label}</div>
                       {items.length===0
@@ -2469,15 +2469,15 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
           <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{unchecked.length} {t('shopping.subtitle',language).replace('{count}',unchecked.length).split(' ').slice(1).join(' ')}</p>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <button onClick={()=>setBySection(s=>!s)} style={{...GB,fontSize:12}}>{bySection?"📋 All":"🏪 By Section"}</button>
+          <button onClick={()=>setBySection(s=>!s)} style={{...GB,fontSize:12}}>{bySection?("📋 "+t('shopping.allItems',language)):("🏪 "+t('shopping.bySection',language))}</button>
           {checkedItems.length>0&&<button onClick={clearChecked} style={{...GB,fontSize:12,color:"#f08080"}}>{t('shopping.uncheckAll',language)}</button>}
-          <button onClick={exportList} style={{...GB,fontSize:12}}>📄 Export</button>
+          <button onClick={exportList} style={{...GB,fontSize:12}}>{t('shopping.export',language)}</button>
         </div>
       </div>
 
       {/* Settings row */}
       <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"12px 16px",marginBottom:18,display:"flex",gap:16,flexWrap:"wrap",alignItems:"center"}}>
-        {[["👥 People",people,setPeople,1,20],["📅 Weeks",weeks,setWeeks,1,8]].map(([lbl,val,fn,mn,mx])=>(
+        {[["👥 "+t('shopping.people',language),people,setPeople,1,20],["📅 "+t('shopping.weeks',language),weeks,setWeeks,1,8]].map(([lbl,val,fn,mn,mx])=>(
           <div key={lbl} style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{color:"var(--text-sub)",fontSize:13}}>{lbl}</span>
             <button onClick={()=>fn(v=>Math.max(mn,v-1))} style={{...GB,padding:"4px 10px"}}>−</button>
@@ -2486,7 +2486,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
           </div>
         ))}
         <div style={{color:"var(--text-muted)",fontSize:12,marginLeft:"auto"}}>
-          {mealPlanItems.length} meals · auto-updates as you add to plan
+          {t('shopping.mealsAutoUpdate',language,{n:String(mealPlanItems.length)})}
         </div>
       </div>
 
@@ -2540,7 +2540,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
           if (!items.length) return null;
           return (
             <div key={sec.key} style={{marginBottom:18}}>
-              <div style={{color:sec.color,fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:8,paddingLeft:4}}>{sec.label}</div>
+              <div style={{color:sec.color,fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:8,paddingLeft:4}}>{t('shopping.'+sec.key,language)||sec.label}</div>
               {renderItems(items)}
             </div>
           );
@@ -4543,8 +4543,8 @@ function PantryManager({pantry, setPantry, recipes, language='en'}) {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
-          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>🥫 Pantry</h2>
-          <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{pantry.length} items · Est. value ${totalValue.toFixed(2)}</p>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>🥫 {t('pantry.title',language)}</h2>
+          <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{t('pantry.estValue',language,{count:String(pantry.length),value:totalValue.toFixed(2)})}</p>
         </div>
         {lowStock.length>0&&(
           <div style={{background:"rgba(212,135,90,0.1)",border:"1px solid rgba(212,135,90,0.35)",borderRadius:10,padding:"8px 14px"}}>
@@ -4558,11 +4558,11 @@ function PantryManager({pantry, setPantry, recipes, language='en'}) {
       <div style={{background:"var(--bg-card)",borderRadius:14,padding:"14px",marginBottom:18,boxShadow:"var(--nm-raised-sm)"}}>
         <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>{editId?t('pantry.editItem',language):t('pantry.addToPantry',language)}</div>
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
-          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ingredient name" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
-          <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Qty" type="number" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
-          <input value={unit} onChange={e=>setUnit(e.target.value)} placeholder="Unit" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
-          <input value={lowAt} onChange={e=>setLowAt(e.target.value)} placeholder="Low at" type="number" title="Alert when quantity falls below this" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
-          <input value={price} onChange={e=>setPrice(e.target.value)} placeholder="$/unit" type="number" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder={t('pantry.name',language)} style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder={t('pantry.amount',language)} type="number" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={unit} onChange={e=>setUnit(e.target.value)} placeholder={t('pantry.unit',language)} style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={lowAt} onChange={e=>setLowAt(e.target.value)} placeholder={t('pantry.lowAt',language)} type="number" title="Alert when quantity falls below this" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
+          <input value={price} onChange={e=>setPrice(e.target.value)} placeholder={t('pantry.pricePerUnit',language)} type="number" style={{...IS,height:36,padding:"0 10px",fontSize:13}}/>
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={add} style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:10,color:"#fff",padding:"8px 20px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
@@ -4588,7 +4588,7 @@ function PantryManager({pantry, setPantry, recipes, language='en'}) {
       )}
 
       {/* Search */}
-      {pantry.length>5&&<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search pantry…" style={{...IS,width:"100%",height:36,padding:"0 12px",fontSize:13,marginBottom:12}}/>}
+      {pantry.length>5&&<input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('pantry.search',language)} style={{...IS,width:"100%",height:36,padding:"0 12px",fontSize:13,marginBottom:12}}/>}
 
       {/* Items list */}
       {displayed.length===0&&<div style={{textAlign:"center",color:"var(--text-muted)",padding:"40px 0",fontSize:14}}>Your pantry is empty — add ingredients you have at home.</div>}

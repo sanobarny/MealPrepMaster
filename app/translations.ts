@@ -318,6 +318,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'pantry.saveItem': 'Save Item',
     'pantry.deleteItem': 'Delete',
     'pantry.whatCanICook': '🤔 What Can I Cook?',
+    'pantry.estValue': '{count} items · Est. value ${value}',
+    'pantry.lowAt': 'Low at',
+    'pantry.pricePerUnit': '$/unit',
+    'shopping.mealsAutoUpdate': '{n} meals · auto-updates as you add to plan',
 
     // Meal Plan extended
     'planner.subtitle': '{count} meals planned',
@@ -933,6 +937,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'pantry.saveItem': 'Guardar Artículo',
     'pantry.deleteItem': 'Eliminar',
     'pantry.whatCanICook': '🤔 ¿Qué Puedo Cocinar?',
+    'pantry.estValue': '{count} artículos · Valor estimado ${value}',
+    'pantry.lowAt': 'Aviso bajo',
+    'pantry.pricePerUnit': '$/unidad',
+    'shopping.mealsAutoUpdate': '{n} comidas · se actualiza al añadir al plan',
 
     // Meal Plan extended
     'planner.subtitle': '{count} comidas planificadas',
@@ -1536,6 +1544,10 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'pantry.saveItem': 'Сохранить позицию',
     'pantry.deleteItem': 'Удалить',
     'pantry.whatCanICook': '🤔 Что я могу приготовить?',
+    'pantry.estValue': '{count} позиций · Ориент. стоимость ${value}',
+    'pantry.lowAt': 'Сигнал при',
+    'pantry.pricePerUnit': '$/ед.',
+    'shopping.mealsAutoUpdate': '{n} блюд · обновляется при добавлении в план',
 
     // Meal Plan extended
     'planner.subtitle': '{count} блюд запланировано',
