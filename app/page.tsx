@@ -75,9 +75,8 @@ const translateRecipe = async (recipe, targetLang, anthropicKey?) => {
   const keyToUse = anthropicKey?.trim() || pwaGet('anthropic_key') || '';
   if (!keyToUse) return recipe;
   try {
-    const systemPrompt = `Translate the following recipe to ${targetLang === 'es' ? 'Spanish' : 'Russian'}.
-Return ONLY valid JSON with the same structure. Translate: title, description, healthBenefits, and all ingredient names and step text.
-Keep ingredient amounts and units unchanged. Preserve all other fields exactly.`;
+    const langName = targetLang === 'es' ? 'Spanish' : 'Russian';
+    const systemPrompt = `Translate the following recipe to ${langName}. Return ONLY valid JSON with the same structure. Translate: title, description, healthBenefits, and all ingredient names and step text. Keep ingredient amounts and units unchanged. Preserve all other fields exactly.`;
     const messages = [{role: 'user', content: `Translate this recipe:\n${JSON.stringify(recipe)}`}];
     const result = await anthropicCall({max_tokens: 6000, system: systemPrompt, messages});
     const m = result.match(/\{[\s\S]*\}/);
@@ -89,6 +88,31 @@ Keep ingredient amounts and units unchanged. Preserve all other fields exactly.`
     }
   } catch(e) { console.warn('Recipe translation failed:', e); }
   return recipe;
+};
+
+// Batch-translate up to batchSize recipes in one API call — much faster than one call per recipe
+const translateRecipesBatch = async (recipes, targetLang) => {
+  if (targetLang === 'en' || !recipes.length) return [];
+  const keyToUse = pwaGet('anthropic_key') || '';
+  if (!keyToUse) return recipes;
+  const langName = targetLang === 'es' ? 'Spanish' : 'Russian';
+  try {
+    const systemPrompt = `Translate the following recipes to ${langName}. Return ONLY a valid JSON array where each element has the same structure as the input. Translate: title, description, healthBenefits, and all ingredient names and step text. Keep ingredient amounts/units unchanged. Preserve all other fields exactly. Return the same number of recipes in the same order.`;
+    const messages = [{role: 'user', content: `Translate these ${recipes.length} recipes:\n${JSON.stringify(recipes)}`}];
+    const result = await anthropicCall({max_tokens: 8000, system: systemPrompt, messages});
+    const m = result.match(/\[[\s\S]*\]/);
+    if (m) {
+      const arr = JSON.parse(m[0]);
+      if (Array.isArray(arr) && arr.length === recipes.length) {
+        return arr.map((translated, i) => {
+          const final = {...recipes[i], ...translated, id: recipes[i].id};
+          lsSave(`mpm_recipe_translation_${recipes[i].id}_${targetLang}`, JSON.stringify(final));
+          return final;
+        });
+      }
+    }
+  } catch(e) { console.warn('Batch translation failed:', e); }
+  return recipes;
 };
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -1051,23 +1075,9 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
 function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap, language='en', onTranslated=null}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
-  const [translating, setTranslating] = useState(false);
   // Sync local state when translated prop arrives (title change = new translation)
   useEffect(() => { if (init.id === recipe.id && init.title !== recipe.title) setRecipe(init); }, [init.title]);
   useEffect(() => { if (init.id !== recipe.id) { setRecipe(init); setScale(init.servings||1); } }, [init.id]);
-
-  const handleTranslate = async () => {
-    if (translating || language === 'en') return;
-    setTranslating(true);
-    try {
-      const translated = await translateRecipe(recipe, language);
-      if (translated && translated.title !== recipe.title) {
-        setRecipe(translated);
-        if (onTranslated) onTranslated(translated);
-      }
-    } catch(e) {}
-    setTranslating(false);
-  };
   const [genIdx, setGenIdx] = useState(null);
   const [imgVer, setImgVer] = useState(0);
   const [timers, setTimers] = useState({});
@@ -1399,14 +1409,9 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
 
           {/* Actions */}
           <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-            {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ {t('btn.rate', language)}</button>}
-            {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>✏️ {t('btn.edit', language)}</button>}
-            {onMarkCooked && <button onClick={()=>{onMarkCooked(recipe);alert(t('msg.markedCooked', language));}} style={{...GB,flex:1,background:"rgba(90,173,142,0.2)",color:"#5aad8e"}}>🍳 {t('btn.markCooked', language)}</button>}
-            {language !== 'en' && (
-              <button onClick={handleTranslate} disabled={translating} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:translating?"var(--text-muted)":"#7ab0f0",opacity:translating?0.7:1}}>
-                {translating ? <span style={{animation:"spin 1s linear infinite",display:"inline-block",marginRight:4}}>⟳</span> : '🌐'} {translating?(language==='ru'?'Перевод…':language==='es'?'Traduciendo…':'Translating…'):(language==='ru'?'Перевести':'Translate')}
-              </button>
-            )}
+            {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>{t('btn.rate', language)}</button>}
+            {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>{t('btn.edit', language)}</button>}
+            {onMarkCooked && <button onClick={()=>{onMarkCooked(recipe);alert(t('msg.markedCooked', language));}} style={{...GB,flex:1,background:"rgba(90,173,142,0.2)",color:"#5aad8e"}}>{t('btn.markCooked', language)}</button>}
             <button onClick={()=>{
               const mins = parseInt(prompt("Remind me in how many minutes?","30"));
               if (!mins||isNaN(mins)) return;
@@ -1416,10 +1421,10 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                 catch(e) { alert("⏰ Time to start cooking: "+recipe.title); }
               }, mins*60*1000);
               alert("⏰ Reminder set for "+mins+" minutes from now!");
-            }} style={{...GB,flex:1,background:"rgba(192,96,144,0.15)",color:"#c06090"}}>⏰ Remind Me</button>
+            }} style={{...GB,flex:1,background:"rgba(192,96,144,0.15)",color:"#c06090"}}>{t('btn.remind',language)}</button>
             {recipe.sourceUrl && (
               <a href={recipe.sourceUrl} target="_blank" rel="noreferrer" style={{...GB,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6,background:"rgba(90,143,212,0.15)",border:"1px solid rgba(90,143,212,0.3)",color:"#5a8fd4",flex:1,justifyContent:"center"}}>
-                📺 Source →
+                {t('btn.source',language)}
               </a>
             )}
           </div>
@@ -4932,27 +4937,38 @@ function App() {
     setTranslatedRecipes(cached);
   }, [language]);
 
-  // Background-translate all recipes when language or API key changes
+  // Background-translate all recipes when language or API key changes (batch mode: 4 per call)
   useEffect(() => {
     const keyToUse = anthropicKey?.trim() || pwaGet('anthropic_key') || '';
     if (language === 'en' || !keyToUse || !hydrated || recipes.length === 0) return;
     let cancelled = false;
-    // Count how many need translation (not yet cached)
     const needTranslation = recipes.filter(r => !localStorage.getItem(`mpm_recipe_translation_${r.id}_${language}`));
     if (needTranslation.length > 0) setTranslatingCount(needTranslation.length);
     (async () => {
       let remaining = needTranslation.length;
-      for (const recipe of recipes) {
+      // First: load cached ones immediately
+      const cached: Record<string,any> = {};
+      recipes.forEach(r => {
+        const c = localStorage.getItem(`mpm_recipe_translation_${r.id}_${language}`);
+        if (c) try { cached[r.id] = JSON.parse(c); } catch(e) {}
+      });
+      if (Object.keys(cached).length > 0 && !cancelled) setTranslatedRecipes(p => ({...p, ...cached}));
+      // Then batch-translate uncached ones in groups of 4
+      const BATCH = 4;
+      for (let i = 0; i < needTranslation.length; i += BATCH) {
         if (cancelled) break;
-        const wasCached = !!localStorage.getItem(`mpm_recipe_translation_${recipe.id}_${language}`);
+        const batch = needTranslation.slice(i, i + BATCH);
         try {
-          const translated = await translateRecipe(recipe, language, keyToUse);
-          if (!cancelled && translated && translated.id === recipe.id) {
-            setTranslatedRecipes(p => ({...p, [recipe.id]: translated}));
-            if (!wasCached) { remaining--; setTranslatingCount(remaining); }
+          const translated = await translateRecipesBatch(batch, language);
+          if (!cancelled) {
+            const updates: Record<string,any> = {};
+            translated.forEach(r => { if (r && r.id) updates[r.id] = r; });
+            setTranslatedRecipes(p => ({...p, ...updates}));
+            remaining = Math.max(0, remaining - batch.length);
+            setTranslatingCount(remaining);
           }
         } catch(e) {}
-        if (!cancelled) await new Promise(res => setTimeout(res, 150));
+        if (!cancelled && i + BATCH < needTranslation.length) await new Promise(res => setTimeout(res, 500));
       }
       if (!cancelled) setTranslatingCount(0);
     })();
