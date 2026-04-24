@@ -1048,12 +1048,26 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
 }
 
 // ─── RECIPE DETAIL ────────────────────────────────────────────────────────────
-function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap, language='en'}) {
+function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, ratings, onEdit, onMarkCooked, onIngredientTap, language='en', onTranslated=null}) {
   const [recipe, setRecipe] = useState(init);
   const [scale, setScale] = useState(init.servings||1);
+  const [translating, setTranslating] = useState(false);
   // Sync local state when translated prop arrives (title change = new translation)
   useEffect(() => { if (init.id === recipe.id && init.title !== recipe.title) setRecipe(init); }, [init.title]);
   useEffect(() => { if (init.id !== recipe.id) { setRecipe(init); setScale(init.servings||1); } }, [init.id]);
+
+  const handleTranslate = async () => {
+    if (translating || language === 'en') return;
+    setTranslating(true);
+    try {
+      const translated = await translateRecipe(recipe, language);
+      if (translated && translated.title !== recipe.title) {
+        setRecipe(translated);
+        if (onTranslated) onTranslated(translated);
+      }
+    } catch(e) {}
+    setTranslating(false);
+  };
   const [genIdx, setGenIdx] = useState(null);
   const [imgVer, setImgVer] = useState(0);
   const [timers, setTimers] = useState({});
@@ -1388,6 +1402,11 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
             {onRate && <button onClick={()=>onRate(recipe)} style={{...GB,flex:1}}>⭐ {t('btn.rate', language)}</button>}
             {onEdit && <button onClick={onEdit} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:"#5a8fd4"}}>✏️ {t('btn.edit', language)}</button>}
             {onMarkCooked && <button onClick={()=>{onMarkCooked(recipe);alert(t('msg.markedCooked', language));}} style={{...GB,flex:1,background:"rgba(90,173,142,0.2)",color:"#5aad8e"}}>🍳 {t('btn.markCooked', language)}</button>}
+            {language !== 'en' && (
+              <button onClick={handleTranslate} disabled={translating} style={{...GB,flex:1,background:"rgba(90,143,212,0.15)",color:translating?"var(--text-muted)":"#7ab0f0",opacity:translating?0.7:1}}>
+                {translating ? <span style={{animation:"spin 1s linear infinite",display:"inline-block",marginRight:4}}>⟳</span> : '🌐'} {translating?(language==='ru'?'Перевод…':language==='es'?'Traduciendo…':'Translating…'):(language==='ru'?'Перевести':'Translate')}
+              </button>
+            )}
             <button onClick={()=>{
               const mins = parseInt(prompt("Remind me in how many minutes?","30"));
               if (!mins||isNaN(mins)) return;
@@ -5213,13 +5232,11 @@ function App() {
           {(['en','es','ru'] as const).map((lang,i,arr)=>{
             const next = arr[(i+1)%arr.length];
             if (lang !== language) return null;
-            const flags = {en:'🇺🇸',es:'🇪🇸',ru:'🇷🇺'};
             const labels = {en:'EN',es:'ES',ru:'RU'};
             return (
               <button key={lang} onClick={()=>setLanguage(next)} title="Change language"
-                style={{...GB,padding:"6px 10px",fontSize:13,fontWeight:700,flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
-                <span style={{fontSize:16}}>{flags[lang]}</span>
-                {!isMobile && <span style={{color:"var(--text)"}}>{labels[lang]}</span>}
+                style={{...GB,padding:"6px 10px",fontSize:13,fontWeight:700,flexShrink:0}}>
+                {labels[lang]}
               </button>
             );
           })}
@@ -5782,6 +5799,7 @@ function App() {
           onEdit={()=>setEditTarget(viewing)}
           onIngredientTap={name=>setWikiIngredient(name)}
           language={language}
+          onTranslated={translated=>{setViewing(translated);setTranslatedRecipes(p=>({...p,[translated.id]:translated}));}}
           onMarkCooked={r=>setCookLog(p=>[...p,{id:Date.now(),recipeId:r.id,recipeName:r.title,date:new Date().toISOString()}])}/>
       )}
       {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)}/>}
