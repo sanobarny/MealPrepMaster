@@ -2368,7 +2368,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
 }
 
 // ─── SHOPPING LIST ───────────────────────────────────────────────────────────
-function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget, pantry=[], language='en'}) {
+function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget, pantry=[], language='en', translatedRecipes={}}) {
   const [people, setPeople] = useState(1);
   const [weeks, setWeeks] = useState(1);
   const [checked, setChecked] = useState({});
@@ -2392,20 +2392,23 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
     return SECTIONS.find(s=>s.key!=="other"&&s.rx.test(n))?.key || "other";
   };
 
-  // Build list live from mealPlanItems
+  // Build list live from mealPlanItems, using translated ingredient names when available
   const autoList = useMemo(() => {
     const m = {};
     mealPlanItems.forEach(item=>{
       const recs = item.type==="combo" ? (item.recipes||[]) : [item.recipe].filter(Boolean);
       const scale = (item.portions||1) * people * weeks;
-      recs.forEach(r=>(r.ingredients||[]).forEach(ing=>{
-        const k = ing.name.toLowerCase();
-        if (m[k]) m[k].amount += (ing.amount||0)*scale;
-        else m[k] = {name:ing.name, amount:(ing.amount||0)*scale, unit:ing.unit||"", section:getSection(ing.name)};
-      }));
+      recs.forEach(r=>{
+        const tr = (r?.id && translatedRecipes[r.id]) ? translatedRecipes[r.id] : r;
+        (tr.ingredients||[]).forEach(ing=>{
+          const k = ing.name.toLowerCase();
+          if (m[k]) m[k].amount += (ing.amount||0)*scale;
+          else m[k] = {name:ing.name, amount:(ing.amount||0)*scale, unit:ing.unit||"", section:getSection(ing.name)};
+        });
+      });
     });
     return Object.values(m).sort((a,b)=>a.name.localeCompare(b.name));
-  }, [mealPlanItems, people, weeks]);
+  }, [mealPlanItems, people, weeks, translatedRecipes]);
 
   const allItems = [
     ...autoList,
@@ -2595,7 +2598,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
 }
 
 // ─── MEAL PLAN MANAGER ───────────────────────────────────────────────────────
-function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping, language='en'}) {
+function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping, language='en', translatedRecipes={}}) {
   const [tab, setTab] = useState("plan");
   const [people, setPeople] = useState(2);
   const [weeks, setWeeks] = useState(1);
@@ -2716,7 +2719,7 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
                           <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",borderRadius:10,overflow:"hidden",border:"1px solid rgba(255,255,255,0.06)"}}>
                             {item.recipe?.image && <img src={item.recipe.image} alt={item.name} style={{width:56,height:56,objectFit:"cover",flexShrink:0}}/>}
                             <div style={{flex:1,minWidth:0,padding:item.recipe?.image?"6px 0":"8px 12px"}}>
-                              <div style={{color:"#e2d9c8",fontWeight:600,fontSize:13}}>{item.name}</div>
+                              <div style={{color:"#e2d9c8",fontWeight:600,fontSize:13}}>{(item.recipe?.id && translatedRecipes[item.recipe.id]?.title) || item.name}</div>
                               <div style={{color:"#6a7a90",fontSize:11,marginTop:2}}>{item.portions} portion{item.portions!==1?"s":""}{item.nutrition&&item.nutrition.calories?" · "+item.nutrition.calories+"kcal":""}</div>
                             </div>
                             <button onClick={()=>setMealPlanItems(p=>p.filter(i=>i.id!==item.id))} style={{background:"rgba(200,60,60,0.12)",border:"1px solid rgba(200,60,60,0.2)",color:"#f88",borderRadius:7,cursor:"pointer",padding:"4px 9px",fontSize:12,marginRight:8}}>✕</button>
@@ -5688,9 +5691,9 @@ function App() {
 
           {sec==="mix-match" && <MixMatch recipes={recipes} onAddToMealPlan={item=>setMealPlanItems(p=>[...p,item])} onSaveAsRecipe={r=>setRecipes(p=>[...p,r])} language={language}/>}
 
-          {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")} language={language}/>}
+          {sec==="meal-plan" && <MealPlanManager recipes={recipes} mealPlanItems={mealPlanItems} setMealPlanItems={setMealPlanItems} onGoShopping={()=>setSec("shopping")} language={language} translatedRecipes={translatedRecipes}/>}
 
-          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null} pantry={pantry} language={language}/>}
+          {sec==="shopping" && <ShoppingList mealPlanItems={mealPlanItems} recipes={recipes} spends={shoppingSpends} onLogSpend={s=>setShoppingSpends(p=>[...p,s])} weeklyBudget={budgetMode?weeklyBudget:null} pantry={pantry} language={language} translatedRecipes={translatedRecipes}/>}
           {sec==="pantry" && <PantryManager pantry={pantry} setPantry={setPantry} recipes={recipes} language={language} onDeduct={updates=>setPantry(p=>p.map(item=>{const u=updates.find(x=>x.id===item.id);return u?{...item,amount:Math.max(0,item.amount-u.used)}:item;}))}/>}
 
           {sec==="gallery" && <PhotoGallery recipes={recipes} onView={setViewing} language={language}/>}
