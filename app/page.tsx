@@ -5456,6 +5456,14 @@ function App() {
           </div>
         )}
 
+        {/* Global translation progress banner */}
+        {translatingCount > 0 && (
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 16px",background:"rgba(90,173,142,0.12)",borderBottom:"1px solid rgba(90,173,142,0.25)",fontSize:12,color:"#5aad8e",flexShrink:0}}>
+            <span style={{display:"inline-block",animation:"spin 1s linear infinite",fontSize:14,lineHeight:1}}>⟳</span>
+            {language==='es' ? `Traduciendo ${translatingCount} receta${translatingCount!==1?'s':''}…` : language==='ru' ? `Перевод: осталось ${translatingCount} ${translatingCount===1?'рецепт':translatingCount<5?'рецепта':'рецептов'}…` : `Translating ${translatingCount} recipe${translatingCount!==1?'s':''}…`}
+          </div>
+        )}
+
         {/* Content */}
         <div style={{flex:1,overflowY:"auto",padding:isMobile?12:24,paddingBottom:isMobile?76:24,background:"var(--bg)"}}>
 
@@ -5639,12 +5647,6 @@ function App() {
               {language !== 'en' && !anthropicKey && !pwaGet('anthropic_key') && (
                 <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 14px",marginBottom:8,background:"rgba(240,128,128,0.1)",border:"1px solid rgba(240,128,128,0.3)",borderRadius:10,fontSize:12,color:"#f08080",cursor:"pointer"}} onClick={()=>setSettingsOpen(true)}>
                   ⚠ {language==='es'?'La traducción de recetas requiere una clave API de Anthropic. Toca ⚙️ para añadirla.':language==='ru'?'Для перевода рецептов нужен API-ключ Anthropic. Нажмите ⚙️ чтобы добавить.':'Recipe translation requires an Anthropic API key. Tap ⚙️ Settings to add it.'}
-                </div>
-              )}
-              {translatingCount > 0 && (
-                <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 14px",marginBottom:8,background:"rgba(90,173,142,0.08)",border:"1px solid rgba(90,173,142,0.2)",borderRadius:10,fontSize:12,color:"var(--text-sub)"}}>
-                  <span style={{display:"inline-block",animation:"spin 1s linear infinite",fontSize:14}}>⟳</span>
-                  {language==='es' ? `Traduciendo ${translatingCount} receta${translatingCount!==1?'s':''}…` : language==='ru' ? `Перевод: осталось ${translatingCount} ${translatingCount===1?'рецепт':translatingCount<5?'рецепта':'рецептов'}…` : `Translating ${translatingCount} recipe${translatingCount!==1?'s':''}…`}
                 </div>
               )}
 
