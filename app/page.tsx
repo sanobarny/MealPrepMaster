@@ -5517,6 +5517,7 @@ function App() {
                 const RESOURCES = [
                   {name:"EatingWell",        url:"https://www.eatingwell.com/recipes/",         emoji:"🥗", desc:"Healthy recipes for every diet"},
                   {name:"Skinnytaste",       url:"https://www.skinnytaste.com/recipes/",         emoji:"⚖️", desc:"Lightened-up comfort food"},
+                  {name:"Minimalist Baker",  url:"https://minimalistbaker.com/",                 emoji:"🌿", desc:"Simple recipes with 10 ingredients or less"},
                   {name:"Love & Lemons",     url:"https://www.loveandlemons.com/recipes/",       emoji:"🍋", desc:"Fresh vegetarian & vegan recipes"},
                   {name:"Cookie and Kate",   url:"https://cookieandkate.com/",                   emoji:"🌾", desc:"Whole foods, vegetarian cooking"},
                   {name:"Budget Bytes",      url:"https://www.budgetbytes.com/",                 emoji:"💰", desc:"Delicious meals on a budget"},
