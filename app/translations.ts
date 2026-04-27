@@ -620,6 +620,73 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'add.saveRecipe': '💾 Save Recipe',
     'add.verifying': 'Verifying completeness against source page…',
     'add.allVerified': 'All ingredients & steps verified against source page',
+
+    // Mix & Match extras
+    'mix.portionsPerPerson': 'Portions/person',
+    'mix.mealsPerDay': 'Meals/day',
+    'mix.noProtein': 'No protein recipes yet',
+    'mix.noGrain': 'No grain recipes yet',
+    'mix.noSide': 'No side recipes yet',
+    'mix.addToPlan': '📅 Add to Plan',
+    'mix.saved': '✓ Saved!',
+
+    // Optimizer extras
+    'opt.optimizing': '⏳ Optimizing...',
+    'opt.optimizeBtn': '⚡ Optimize Workflow',
+    'opt.tip1': 'Batch cook grains (rice, quinoa) all at once — they keep 5 days in the fridge.',
+    'opt.tip2': 'Use a sheet pan for proteins while stovetop handles veggies simultaneously.',
+    'opt.tip3': 'Pre-chop and store vegetables in airtight containers for 3–4 days.',
+
+    // Spin Wheel
+    'spin.title': '🎡 Spin the Wheel',
+    'spin.subtitle': "Can't decide what to cook? Let fate choose.",
+    'spin.spinning': 'Spinning…',
+    'spin.btn': '🎡 Spin!',
+    'spin.cookThis': 'Cook This →',
+
+    // Recipe Remix
+    'remix.title': '🔀 Recipe Remix',
+    'remix.subtitle': 'Pick two recipes and AI fuses them into a brand-new fusion dish.',
+    'remix.pickA': 'Pick Recipe A…',
+    'remix.pickB': 'Pick Recipe B…',
+    'remix.fusing': '🤖 Fusing…',
+    'remix.fuseBtn': '✨ Fuse Recipes',
+    'remix.saveBtn': '💾 Save as New Recipe',
+
+    // Ingredient Wiki
+    'wiki.loading': 'Looking up ingredient info…',
+    'wiki.howToPick': 'How to pick',
+    'wiki.storage': 'Storage & shelf life',
+    'wiki.substitutes': 'Substitutes',
+    'wiki.pairs': 'Pairs well with',
+    'wiki.chefTip': 'Chef tip',
+    'wiki.error': 'Could not load info.',
+
+    // Sidebar
+    'sidebar.recipesSaved': '{n} recipes saved',
+    'sidebar.aiEnabled': '✓ AI enabled',
+    'sidebar.noApiKey': '⚠ Click ⚙️ to add API key',
+
+    // Search
+    'search.placeholder': 'Search recipes or ingredients...',
+
+    // Shopping trip default
+    'shopping.tripDefault': 'Shopping trip',
+
+    // Day names
+    'day.monday': 'Monday',
+    'day.tuesday': 'Tuesday',
+    'day.wednesday': 'Wednesday',
+    'day.thursday': 'Thursday',
+    'day.friday': 'Friday',
+    'day.saturday': 'Saturday',
+    'day.sunday': 'Sunday',
+
+    // Dashboard tips
+    'dash.tip1': 'Start your rice cooker first — it frees up stove space.',
+    'dash.tip2': 'Chop all vegetables before turning on any heat.',
+    'dash.tip3': 'Use oven & stovetop simultaneously to halve your prep time.',
+    'dash.tip4': 'Batch cook proteins on Sundays for the whole week.',
   },
   es: {
     // Categories
@@ -1227,6 +1294,73 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'add.saveRecipe': '💾 Guardar Receta',
     'add.verifying': 'Verificando completitud contra la página fuente…',
     'add.allVerified': 'Todos los ingredientes y pasos verificados',
+
+    // Mix & Match extras
+    'mix.portionsPerPerson': 'Porciones/persona',
+    'mix.mealsPerDay': 'Comidas/día',
+    'mix.noProtein': 'Sin recetas de proteína aún',
+    'mix.noGrain': 'Sin recetas de cereal aún',
+    'mix.noSide': 'Sin acompañamientos aún',
+    'mix.addToPlan': '📅 Agregar al Plan',
+    'mix.saved': '✓ ¡Guardado!',
+
+    // Optimizer extras
+    'opt.optimizing': '⏳ Optimizando...',
+    'opt.optimizeBtn': '⚡ Optimizar Flujo',
+    'opt.tip1': 'Cocina granos (arroz, quinoa) todos a la vez — duran 5 días en el refrigerador.',
+    'opt.tip2': 'Usa una bandeja para proteínas mientras la estufa maneja las verduras.',
+    'opt.tip3': 'Pica y almacena verduras en recipientes herméticos por 3–4 días.',
+
+    // Spin Wheel
+    'spin.title': '🎡 Ruleta de Comida',
+    'spin.subtitle': '¿No sabes qué cocinar? ¡Deja que el azar decida!',
+    'spin.spinning': 'Girando…',
+    'spin.btn': '🎡 ¡Girar!',
+    'spin.cookThis': 'Cocinar esto →',
+
+    // Recipe Remix
+    'remix.title': '🔀 Fusión de Recetas',
+    'remix.subtitle': 'Elige dos recetas y la IA las fusiona en un nuevo plato.',
+    'remix.pickA': 'Elige la Receta A…',
+    'remix.pickB': 'Elige la Receta B…',
+    'remix.fusing': '🤖 Fusionando…',
+    'remix.fuseBtn': '✨ Fusionar Recetas',
+    'remix.saveBtn': '💾 Guardar como nueva receta',
+
+    // Ingredient Wiki
+    'wiki.loading': 'Buscando información del ingrediente…',
+    'wiki.howToPick': 'Cómo elegir',
+    'wiki.storage': 'Almacenamiento y vida útil',
+    'wiki.substitutes': 'Sustitutos',
+    'wiki.pairs': 'Combina bien con',
+    'wiki.chefTip': 'Consejo del chef',
+    'wiki.error': 'No se pudo cargar la información.',
+
+    // Sidebar
+    'sidebar.recipesSaved': '{n} recetas guardadas',
+    'sidebar.aiEnabled': '✓ IA activada',
+    'sidebar.noApiKey': '⚠ Toca ⚙️ para añadir clave API',
+
+    // Search
+    'search.placeholder': 'Buscar recetas o ingredientes...',
+
+    // Shopping trip default
+    'shopping.tripDefault': 'Compra en tienda',
+
+    // Day names
+    'day.monday': 'Lunes',
+    'day.tuesday': 'Martes',
+    'day.wednesday': 'Miércoles',
+    'day.thursday': 'Jueves',
+    'day.friday': 'Viernes',
+    'day.saturday': 'Sábado',
+    'day.sunday': 'Domingo',
+
+    // Dashboard tips
+    'dash.tip1': 'Empieza primero la arrocera — libera espacio en la estufa.',
+    'dash.tip2': 'Corta todas las verduras antes de encender el fuego.',
+    'dash.tip3': 'Usa el horno y la estufa al mismo tiempo para reducir el tiempo.',
+    'dash.tip4': 'Cocina proteínas en batch los domingos para toda la semana.',
   },
   ru: {
     // Categories
@@ -1834,6 +1968,73 @@ export const TRANSLATIONS: Record<Language, Record<string, string>> = {
     'add.saveRecipe': '💾 Сохранить рецепт',
     'add.verifying': 'Проверяю полноту данных…',
     'add.allVerified': 'Все ингредиенты и шаги проверены по источнику',
+
+    // Mix & Match extras
+    'mix.portionsPerPerson': 'Порций/чел.',
+    'mix.mealsPerDay': 'Блюд/день',
+    'mix.noProtein': 'Нет рецептов с белком',
+    'mix.noGrain': 'Нет рецептов с крупами',
+    'mix.noSide': 'Нет гарниров пока',
+    'mix.addToPlan': '📅 В план',
+    'mix.saved': '✓ Сохранено!',
+
+    // Optimizer extras
+    'opt.optimizing': '⏳ Оптимизирую...',
+    'opt.optimizeBtn': '⚡ Оптимизировать',
+    'opt.tip1': 'Готовьте крупы (рис, киноа) сразу все — хранятся 5 дней в холодильнике.',
+    'opt.tip2': 'Используйте духовку для белков, пока плита занята овощами.',
+    'opt.tip3': 'Нарежьте и храните овощи в герметичных контейнерах 3–4 дня.',
+
+    // Spin Wheel
+    'spin.title': '🎡 Колесо блюд',
+    'spin.subtitle': 'Не можете выбрать блюдо? Пусть решит случай!',
+    'spin.spinning': 'Вращается…',
+    'spin.btn': '🎡 Крутить!',
+    'spin.cookThis': 'Готовить →',
+
+    // Recipe Remix
+    'remix.title': '🔀 Ремикс рецептов',
+    'remix.subtitle': 'Выберите два рецепта — ИИ сольёт их в новое блюдо.',
+    'remix.pickA': 'Выберите рецепт A…',
+    'remix.pickB': 'Выберите рецепт B…',
+    'remix.fusing': '🤖 Сливаю…',
+    'remix.fuseBtn': '✨ Слить рецепты',
+    'remix.saveBtn': '💾 Сохранить как рецепт',
+
+    // Ingredient Wiki
+    'wiki.loading': 'Ищу информацию об ингредиенте…',
+    'wiki.howToPick': 'Как выбрать',
+    'wiki.storage': 'Хранение и срок',
+    'wiki.substitutes': 'Заменители',
+    'wiki.pairs': 'Сочетается с',
+    'wiki.chefTip': 'Совет шефа',
+    'wiki.error': 'Не удалось загрузить информацию.',
+
+    // Sidebar
+    'sidebar.recipesSaved': '{n} рецептов сохранено',
+    'sidebar.aiEnabled': '✓ ИИ включён',
+    'sidebar.noApiKey': '⚠ Нажмите ⚙️ для API-ключа',
+
+    // Search
+    'search.placeholder': 'Поиск рецептов или ингредиентов...',
+
+    // Shopping trip default
+    'shopping.tripDefault': 'Поход за покупками',
+
+    // Day names
+    'day.monday': 'Понедельник',
+    'day.tuesday': 'Вторник',
+    'day.wednesday': 'Среда',
+    'day.thursday': 'Четверг',
+    'day.friday': 'Пятница',
+    'day.saturday': 'Суббота',
+    'day.sunday': 'Воскресенье',
+
+    // Dashboard tips
+    'dash.tip1': 'Запускайте рисоварку первой — освобождает место на плите.',
+    'dash.tip2': 'Нарежьте все овощи перед включением огня.',
+    'dash.tip3': 'Используйте духовку и плиту одновременно — сэкономите время вдвое.',
+    'dash.tip4': 'Готовьте белки оптом по воскресеньям на всю неделю.',
   },
 };
 

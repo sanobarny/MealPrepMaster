@@ -96,17 +96,40 @@ const translateRecipesBatch = async (recipes, targetLang) => {
   const keyToUse = pwaGet('anthropic_key') || '';
   if (!keyToUse) return recipes;
   const langName = targetLang === 'es' ? 'Spanish' : 'Russian';
+  // Strip to only translatable fields to keep request small
+  const slim = recipes.map(r => ({
+    id: r.id,
+    title: r.title || '',
+    description: r.description || '',
+    healthBenefits: r.healthBenefits || '',
+    ingredients: (r.ingredients || []).map(i => ({name: i.name, section: i.section})),
+    steps: (r.steps || []).map(s => ({text: s.text})),
+  }));
   try {
-    const systemPrompt = `Translate the following recipes to ${langName}. Return ONLY a valid JSON array where each element has the same structure as the input. Translate: title, description, healthBenefits, and all ingredient names and step text. Keep ingredient amounts/units unchanged. Preserve all other fields exactly. Return the same number of recipes in the same order.`;
-    const messages = [{role: 'user', content: `Translate these ${recipes.length} recipes:\n${JSON.stringify(recipes)}`}];
-    const result = await anthropicCall({max_tokens: 8000, system: systemPrompt, messages});
+    const systemPrompt = `Translate the following recipes to ${langName}. Return ONLY a valid JSON array. Translate: title, description, healthBenefits, ingredient names, and step text. Keep all other fields unchanged. Return exactly the same number of objects in the same order.`;
+    const result = await anthropicCall({max_tokens: 6000, system: systemPrompt, messages: [{role: 'user', content: JSON.stringify(slim)}]});
     const m = result.match(/\[[\s\S]*\]/);
     if (m) {
       const arr = JSON.parse(m[0]);
       if (Array.isArray(arr) && arr.length === recipes.length) {
         return arr.map((translated, i) => {
-          const final = {...recipes[i], ...translated, id: recipes[i].id};
-          lsSave(`mpm_recipe_translation_${recipes[i].id}_${targetLang}`, JSON.stringify(final));
+          const orig = recipes[i];
+          // Merge translated text back into original structure
+          const mergedIngs = (orig.ingredients || []).map((ing, j) => ({
+            ...ing, name: translated.ingredients?.[j]?.name || ing.name
+          }));
+          const mergedSteps = (orig.steps || []).map((s, j) => ({
+            ...s, text: translated.steps?.[j]?.text || s.text
+          }));
+          const final = {
+            ...orig,
+            title: translated.title || orig.title,
+            description: translated.description || orig.description,
+            healthBenefits: translated.healthBenefits || orig.healthBenefits,
+            ingredients: mergedIngs,
+            steps: mergedSteps,
+          };
+          lsSave(`mpm_recipe_translation_${orig.id}_${targetLang}`, JSON.stringify(final));
           return final;
         });
       }
@@ -165,6 +188,7 @@ const HEALTH_COLORS = {"Anti-Inflammatory":"#e07a40","Blood Sugar Stable":"#5aad
 const ALL_TAG_COLORS = {...TAG_COLORS,...HEALTH_COLORS};
 const STEP_COLORS = ["#3a7d5e","#5a8fd4","#d4875a","#c06090","#6db85a","#b8a23e","#7b6cd4","#3eabb8"];
 const SPICE_LABELS = ["No Spice","Mild","Medium","Hot","Very Hot","Extreme 🔥"];
+const SPICE_KEYS = ['spice.none','spice.mild','spice.medium','spice.hot','spice.veryHot','spice.extreme'];
 const CUISINES = ["Italian","Mediterranean","Asian","Mexican","American","Middle Eastern","Indian","Japanese","Thai","Greek","French","Moroccan","Other"];
 const CUISINE_COLORS = {"Italian":"#e05a6a","Mediterranean":"#5a8fd4","Asian":"#d4875a","Mexican":"#6db85a","American":"#b8a23e","Middle Eastern":"#c06090","Indian":"#e07a40","Japanese":"#9b5aad","Thai":"#3eabb8","Greek":"#5aad8e","French":"#c8a8ff","Moroccan":"#ad8e5a","Other":"#8a9bb0"};
 
@@ -1020,7 +1044,7 @@ function SmartImage({recipe, style, regen=0, objectFit="cover"}) {
 }
 
 // ─── RECIPE CARD ─────────────────────────────────────────────────────────────
-function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
+function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing, language='en'}) {
   const total = recipe.totalTime || (recipe.prepTime||0) + (recipe.cookTime||0);
   const isHealth = (recipe.tags||[]).some(t => HEALTH_TAGS.includes(t));
   return (
@@ -1047,7 +1071,7 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing}) {
         <div style={{padding:"10px 12px 12px"}}>
           <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:7}}>
             {recipe.cuisine && <TagChip label={"🌍 "+recipe.cuisine} color={CUISINE_COLORS[recipe.cuisine]||"#888"}/>}
-            {(recipe.tags||[]).slice(0,2).map(t=><TagChip key={t} label={t} color={ALL_TAG_COLORS[t]||"#888"}/>)}
+            {(recipe.tags||[]).slice(0,2).map(tag=><TagChip key={tag} label={t(TAG_KEYS[tag]||tag,language)} color={ALL_TAG_COLORS[tag]||"#888"}/>)}
           </div>
           <NutriBadge n={recipe.nutrition}/>
           {costPerServing !== undefined && (
@@ -1229,7 +1253,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           {/* Tags */}
           <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:14}}>
             {(recipe.tags||[]).map(tag=><TagChip key={tag} label={t(TAG_KEYS[tag]||tag,language)} color={ALL_TAG_COLORS[tag]||"#888"}/>)}
-            {(recipe.allergens||[]).map(a=><TagChip key={a} label={"⚠ "+a} color="#c05050"/>)}
+            {(recipe.allergens||[]).map(a=>{const ak=t('allergen.'+a.toLowerCase(),language);return <TagChip key={a} label={"⚠ "+(ak.includes('.')?a:ak)} color="#c05050"/>;})}
           </div>
 
           {recipe.healthBenefits && <div style={{background:"rgba(58,125,94,0.1)",border:"1px solid rgba(58,125,94,0.25)",borderRadius:10,padding:"10px 14px",marginBottom:14,color:"#5aad8e",fontSize:13}}>💚 {recipe.healthBenefits}</div>}
@@ -1330,7 +1354,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
                 [t('label.servings',language), String(scale)],
                 [t('label.calories',language), Math.round(recipe.nutrition.calories*r)+"kcal"],
                 [t('label.equipment',language), (recipe.equipment||[]).join(", ")],
-                [t('label.spice',language), (recipe.spiceLevel||0)===0?t('label.none',language):"🌶".repeat(recipe.spiceLevel||0)+" "+SPICE_LABELS[recipe.spiceLevel||0]],
+                [t('label.spice',language), (recipe.spiceLevel||0)===0?t('label.none',language):"🌶".repeat(recipe.spiceLevel||0)+" "+t(SPICE_KEYS[recipe.spiceLevel||0],language)],
                 recipe.cuisine&&[t('label.cuisine',language), "🌍 "+recipe.cuisine]
               ] as [string,string][]).filter(Boolean).map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:13}}>
@@ -1682,7 +1706,7 @@ Use empty arrays if everything matches. Be thorough — list every discrepancy y
             {[0,1,2,3,4,5].map(lvl=>(
               <button key={lvl} onClick={()=>set("spiceLevel",lvl)}
                 style={{...GB,padding:"5px 10px",fontSize:12,background:(data.spiceLevel||0)===lvl?"var(--accent)":"var(--bg-card)",color:(data.spiceLevel||0)===lvl?"#fff":"var(--text-sub)",boxShadow:(data.spiceLevel||0)===lvl?"var(--nm-inset)":"var(--nm-raised-sm)"}}>
-                {lvl===0?"⚪ "+t('label.none',language):"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}
+                {lvl===0?"⚪ "+t('label.none',language):"🌶".repeat(lvl)+" "+t(SPICE_KEYS[lvl],language)}
               </button>
             ))}
           </div>
@@ -2243,7 +2267,7 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
       <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>{t('mix.subtitle',language)}</p>
 
       <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"14px 18px",marginBottom:18,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
-        {[["Portions/person",portions,setPortions,1,10],["Meals/day",mealsPerDay,setMealsPerDay,1,6]].map(([lbl,val,fn,mn,mx])=>(
+        {[[t('mix.portionsPerPerson',language),portions,setPortions,1,10],[t('mix.mealsPerDay',language),mealsPerDay,setMealsPerDay,1,6]].map(([lbl,val,fn,mn,mx])=>(
           <div key={lbl} style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{color:"#c8d0dc",fontSize:13,whiteSpace:"nowrap"}}>{lbl}</span>
             <button onClick={()=>fn(v=>Math.max(mn,v-1))} style={{...GB,padding:"3px 11px"}}>−</button>
@@ -2254,9 +2278,9 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
       </div>
 
       <div style={{display:"flex",gap:14,marginBottom:20,flexWrap:"wrap"}}>
-        <Slot label="Protein" key2="protein" options={proteins.length?proteins:recipes.slice(0,4)} fallback="No protein recipes yet"/>
-        <Slot label="Grain / Base" key2="grain" options={grains.length?grains:recipes.slice(0,4)} fallback="No grain recipes yet"/>
-        <Slot label="Side / Drink" key2="side" options={sides.length?sides:recipes.slice(0,4)} fallback="No side recipes yet"/>
+        <Slot label={t('mix.protein',language)} key2="protein" options={proteins.length?proteins:recipes.slice(0,4)} fallback={t('mix.noProtein',language)}/>
+        <Slot label={t('mix.grain',language)} key2="grain" options={grains.length?grains:recipes.slice(0,4)} fallback={t('mix.noGrain',language)}/>
+        <Slot label={t('mix.side',language)} key2="side" options={sides.length?sides:recipes.slice(0,4)} fallback={t('mix.noSide',language)}/>
       </div>
 
       {combined.length>0 && (
@@ -2279,7 +2303,7 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
             <input value={comboName} onChange={e=>setComboName(e.target.value)} placeholder={t('mix.namePlaceholder',language)}
               style={{...IS,flex:1,minWidth:160,fontSize:13,padding:"8px 12px"}}/>
             <button onClick={handleSave} style={{background:saved?"rgba(58,125,94,0.55)":"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:11,color:"#fff",padding:"10px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
-              {saved?"✓ Saved!":"📅 Add to Plan"}
+              {saved?t('mix.saved',language):t('mix.addToPlan',language)}
             </button>
             {onSaveAsRecipe && <button onClick={handleSaveAsRecipe} style={{...GB,whiteSpace:"nowrap"}}>{t('mix.saveRecipe',language)}</button>}
           </div>
@@ -2309,11 +2333,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
     setLoading(false);
   };
 
-  const PREP_TIPS = [
-    "Batch cook grains (rice, quinoa) all at once — they keep 5 days in the fridge.",
-    "Use a sheet pan for proteins while stovetop handles veggies simultaneously.",
-    "Pre-chop and store vegetables in airtight containers for 3-4 days.",
-  ];
+  const PREP_TIPS = [t('opt.tip1',language), t('opt.tip2',language), t('opt.tip3',language)];
 
   return (
     <div>
@@ -2335,7 +2355,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
 
       <button onClick={optimize} disabled={selected.length<2||loading}
         style={{background:selected.length>=2&&!loading?"linear-gradient(135deg,#5a8fd4,#3a5fa0)":"rgba(255,255,255,0.05)",border:"none",borderRadius:12,color:selected.length>=2&&!loading?"#fff":"#5a6a7a",padding:"12px 24px",fontWeight:700,fontSize:14,cursor:selected.length>=2&&!loading?"pointer":"not-allowed",fontFamily:"inherit",marginBottom:20}}>
-        {loading?"⏳ Optimizing...":"⚡ Optimize Workflow"}
+        {loading?t('opt.optimizing',language):t('opt.optimizeBtn',language)}
       </button>
 
       {result && (
@@ -2441,7 +2461,7 @@ function ShoppingList({mealPlanItems, recipes, spends, onLogSpend, weeklyBudget,
   const logSpend = () => {
     const amt = parseFloat(spendInput);
     if (!amt || isNaN(amt)) return;
-    onLogSpend?.({id:Date.now(), amount:amt, note:spendNote.trim()||"Shopping trip", date:new Date().toISOString()});
+    onLogSpend?.({id:Date.now(), amount:amt, note:spendNote.trim()||t('shopping.tripDefault',language), date:new Date().toISOString()});
     setSpendInput(""); setSpendNote(""); setShowSpendLog(false);
   };
 
@@ -2692,12 +2712,12 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
                 </div>
               </div>
               <div style={{flex:1,minWidth:130}}>
-                <div style={{color:"#8a9bb0",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Day</div>
+                <div style={{color:"#8a9bb0",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('planner.day',language)}</div>
                 <select value={addDay} onChange={e=>setAddDay(e.target.value)} style={IS}>
-                  {DAYS.map(d=><option key={d} value={d}>{d}</option>)}
+                  {DAYS.map(d=><option key={d} value={d}>{t('day.'+d.toLowerCase(),language)}</option>)}
                 </select>
               </div>
-              <button onClick={addItem} disabled={!addRec} style={{background:addRec?"linear-gradient(135deg,#3a7d5e,#5aad8e)":"rgba(255,255,255,0.05)",border:"none",borderRadius:10,color:addRec?"#fff":"#5a6a7a",padding:"11px 18px",fontWeight:700,fontSize:13,cursor:addRec?"pointer":"not-allowed",fontFamily:"inherit"}}>Add</button>
+              <button onClick={addItem} disabled={!addRec} style={{background:addRec?"linear-gradient(135deg,#3a7d5e,#5aad8e)":"rgba(255,255,255,0.05)",border:"none",borderRadius:10,color:addRec?"#fff":"#5a6a7a",padding:"11px 18px",fontWeight:700,fontSize:13,cursor:addRec?"pointer":"not-allowed",fontFamily:"inherit"}}>{t('planner.add2',language)}</button>
             </div>
           </div>
 
@@ -2711,7 +2731,7 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
                   return (
                     <div key={day} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,overflow:"hidden"}}>
                       <div style={{padding:"10px 16px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span style={{color:"#c8d0dc",fontWeight:700,fontSize:14}}>{day}</span>
+                        <span style={{color:"#c8d0dc",fontWeight:700,fontSize:14}}>{t('day.'+day.toLowerCase(),language)}</span>
                         {dayKcal>0 && <span style={{color:"#6a7a90",fontSize:12}}>{dayKcal} kcal</span>}
                       </div>
                       <div style={{padding:"10px 12px",display:"grid",gap:8}}>
@@ -2785,14 +2805,14 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
           )}
 
           {shoppingList.length===0
-            ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:38,marginBottom:10}}>🛒</div><div style={{fontSize:14,color:"#8a9bb0"}}>Add meals to your plan first</div></div>
+            ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:38,marginBottom:10}}>🛒</div><div style={{fontSize:14,color:"#8a9bb0"}}>{t('shopping.noItems',language)}</div></div>
             : bySection
               ? SECTION_INFO.map(sec=>{
                   const items = shoppingList.filter(item=>categorizeItem(item.name)===sec.key);
                   if (!items.length) return null;
                   return (
                     <div key={sec.key} style={{marginBottom:14}}>
-                      <div style={{color:sec.color,fontWeight:700,fontSize:13,marginBottom:8}}>{sec.icon} {sec.label}</div>
+                      <div style={{color:sec.color,fontWeight:700,fontSize:13,marginBottom:8}}>{sec.icon} {t('shopping.'+sec.key,language)||sec.label}</div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
                         {items.map((item,i)=>(
                           <div key={i} style={{display:"flex",justifyContent:"space-between",background:"rgba(255,255,255,0.04)",borderRadius:9,padding:"8px 12px",border:"1px solid "+sec.color+"25"}}>
@@ -3061,7 +3081,7 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, 
         : <div className="r-grid">
             {favRecipes.map(r=>(
               <RecipeCard key={r.id} recipe={dr(r)} onClick={()=>onView(dr(r))}
-                onFavorite={()=>setFavorites(p=>p.filter(f=>f.id!==r.id))} isFavorite={true}/>
+                onFavorite={()=>setFavorites(p=>p.filter(f=>f.id!==r.id))} isFavorite={true} language={language}/>
             ))}
           </div>
       }
@@ -3086,7 +3106,7 @@ function IngredientSearch({recipes, onView, language='en', translatedRecipes={}}
         results.length===0
           ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}>{t('ingSearch.noResults',language,{query})}</div>
           : <div className="r-grid">
-              {results.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>onView(dr(r))}/>)}
+              {results.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>onView(dr(r))} language={language}/>)}
             </div>
       )}
     </div>
@@ -4044,7 +4064,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
           {spiceDist.map(({lvl,count})=>(
             <div key={lvl} style={{marginBottom:9}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,fontSize:12}}>
-                <span style={{color:"var(--text-sub)"}}>{lvl===0?"⚪ No Spice":"🌶".repeat(lvl)+" "+SPICE_LABELS[lvl]}</span>
+                <span style={{color:"var(--text-sub)"}}>{lvl===0?"⚪ "+t('spice.none',language):"🌶".repeat(lvl)+" "+t(SPICE_KEYS[lvl],language)}</span>
                 <span style={{color:"var(--text-muted)"}}>{count}</span>
               </div>
               <Bar pct={totalRecipes?count/totalRecipes*100:0} color={lvl===0?"var(--text-muted)":"hsl("+(30-lvl*8)+",80%,"+(60-lvl*5)+"%)"}/>
@@ -4194,7 +4214,7 @@ function StatisticsPanel({recipes, mealPlanItems, ratings, favorites, shoppingSp
 
 // ─── WHAT CAN I COOK ──────────────────────────────────────────────────────────
 // ─── SPIN THE WHEEL ───────────────────────────────────────────────────────────
-function SpinWheelModal({recipes, onClose, onView}) {
+function SpinWheelModal({recipes, onClose, onView, language='en'}) {
   const [spinning, setSpinning] = useState(false);
   const [pick, setPick] = useState(null);
   const [angle, setAngle] = useState(0);
@@ -4216,8 +4236,8 @@ function SpinWheelModal({recipes, onClose, onView}) {
         <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
           <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
         </div>
-        <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 8px"}}>🎡 Spin the Wheel</h2>
-        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:28}}>Can't decide what to cook? Let fate choose.</p>
+        <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 8px"}}>{t('spin.title',language)}</h2>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:28}}>{t('spin.subtitle',language)}</p>
 
         {/* Wheel visual */}
         <div style={{position:"relative",width:200,height:200,margin:"0 auto 28px"}}>
@@ -4240,9 +4260,9 @@ function SpinWheelModal({recipes, onClose, onView}) {
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
           <button onClick={spin} disabled={spinning||!recipes.length}
             style={{background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"12px 32px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit",opacity:spinning?0.6:1}}>
-            {spinning?"Spinning…":"🎡 Spin!"}
+            {spinning?t('spin.spinning',language):t('spin.btn',language)}
           </button>
-          {pick&&!spinning&&<button onClick={()=>{onView(pick);onClose();}} style={{...GB,padding:"12px 20px",fontSize:14,fontWeight:700,color:"#5aad8e"}}>Cook This →</button>}
+          {pick&&!spinning&&<button onClick={()=>{onView(pick);onClose();}} style={{...GB,padding:"12px 20px",fontSize:14,fontWeight:700,color:"#5aad8e"}}>{t('spin.cookThis',language)}</button>}
         </div>
       </div>
     </div>
@@ -4250,7 +4270,7 @@ function SpinWheelModal({recipes, onClose, onView}) {
 }
 
 // ─── RECIPE REMIX ─────────────────────────────────────────────────────────────
-function RecipeRemixModal({recipes, onClose, onAdd}) {
+function RecipeRemixModal({recipes, onClose, onAdd, language='en'}) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
   const [loading, setLoading] = useState(false);
@@ -4279,24 +4299,24 @@ function RecipeRemixModal({recipes, onClose, onAdd}) {
     <div className="modal-wrap" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
       <div style={{background:"var(--bg-card)",borderRadius:20,maxWidth:540,width:"100%",maxHeight:"90vh",overflowY:"auto",padding:24,border:"1px solid var(--border)"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>🔀 Recipe Remix</h2>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{t('remix.title',language)}</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
         </div>
-        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:20}}>Pick two recipes and AI fuses them into a brand-new fusion dish.</p>
+        <p style={{color:"var(--text-muted)",fontSize:13,marginBottom:20}}>{t('remix.subtitle',language)}</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr auto 1fr",gap:10,alignItems:"center",marginBottom:16}}>
           <select value={a} onChange={e=>setA(e.target.value)} style={SS}>
-            <option value="">Pick Recipe A…</option>
+            <option value="">{t('remix.pickA',language)}</option>
             {recipes.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
           </select>
           <span style={{color:"var(--accent)",fontWeight:700,fontSize:18}}>+</span>
           <select value={b} onChange={e=>setB(e.target.value)} style={SS}>
-            <option value="">Pick Recipe B…</option>
+            <option value="">{t('remix.pickB',language)}</option>
             {recipes.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
           </select>
         </div>
         <button onClick={remix} disabled={!a||!b||loading||a===b}
           style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:14,fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",marginBottom:20,opacity:(!a||!b||loading||a===b)?0.5:1}}>
-          {loading?"🤖 Fusing…":"✨ Fuse Recipes"}
+          {loading?t('remix.fusing',language):t('remix.fuseBtn',language)}
         </button>
         {error&&<div style={{color:"#d45a5a",fontSize:13,marginBottom:12}}>{error}</div>}
         {result&&(
@@ -4304,12 +4324,12 @@ function RecipeRemixModal({recipes, onClose, onAdd}) {
             <div style={{color:"var(--text)",fontWeight:700,fontSize:18,marginBottom:6}}>{result.title}</div>
             <div style={{color:"var(--text-muted)",fontSize:13,marginBottom:12}}>{result.description}</div>
             <div style={{marginBottom:8}}>
-              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Ingredients</div>
+              <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>{t('label.ingredients',language)}</div>
               {(result.ingredients||[]).map((ing,i)=><div key={i} style={{color:"var(--text)",fontSize:13,marginBottom:2}}>• {ing.amount} {ing.unit} {ing.name}</div>)}
             </div>
             <button onClick={()=>{onAdd(result);onClose();}}
               style={{...GB,width:"100%",padding:12,fontWeight:700,color:"#5aad8e",border:"1px solid rgba(90,173,142,0.4)",marginTop:8}}>
-              💾 Save as New Recipe
+              {t('remix.saveBtn',language)}
             </button>
           </div>
         )}
@@ -4319,7 +4339,7 @@ function RecipeRemixModal({recipes, onClose, onAdd}) {
 }
 
 // ─── INGREDIENT WIKI ──────────────────────────────────────────────────────────
-function IngredientWikiModal({ingredient, onClose}) {
+function IngredientWikiModal({ingredient, onClose, language='en'}) {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   useEffect(()=>{
@@ -4351,14 +4371,14 @@ function IngredientWikiModal({ingredient, onClose}) {
           <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:0}}>{info?.emoji||"🌿"} {ingredient}</h2>
           <button onClick={onClose} style={{background:"none",border:"none",color:"var(--text-muted)",fontSize:22,cursor:"pointer"}}>×</button>
         </div>
-        {loading?<div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0"}}>Looking up ingredient info…</div>:(
+        {loading?<div style={{textAlign:"center",color:"var(--text-muted)",padding:"32px 0"}}>{t('wiki.loading',language)}</div>:(
           info ? <>
-            <Row icon="🛒" label="How to pick" value={info.select}/>
-            <Row icon="📦" label="Storage & shelf life" value={info.store}/>
-            <Row icon="🔄" label="Substitutes" value={info.sub}/>
-            <Row icon="🍽️" label="Pairs well with" value={info.pairs}/>
-            <Row icon="👨‍🍳" label="Chef tip" value={info.tip}/>
-          </> : <div style={{color:"var(--text-muted)",textAlign:"center",padding:"24px 0"}}>Could not load info.</div>
+            <Row icon="🛒" label={t('wiki.howToPick',language)} value={info.select}/>
+            <Row icon="📦" label={t('wiki.storage',language)} value={info.store}/>
+            <Row icon="🔄" label={t('wiki.substitutes',language)} value={info.sub}/>
+            <Row icon="🍽️" label={t('wiki.pairs',language)} value={info.pairs}/>
+            <Row icon="👨‍🍳" label={t('wiki.chefTip',language)} value={info.tip}/>
+          </> : <div style={{color:"var(--text-muted)",textAlign:"center",padding:"24px 0"}}>{t('wiki.error',language)}</div>
         )}
       </div>
     </div>
@@ -4943,7 +4963,7 @@ function App() {
     setTranslatedRecipes(cached);
   }, [language]);
 
-  // Background-translate all recipes when language or API key changes (batch mode: 4 per call)
+  // Background-translate all recipes when language or API key changes (batch mode: 2 per call)
   useEffect(() => {
     const keyToUse = anthropicKey?.trim() || pwaGet('anthropic_key') || '';
     if (language === 'en' || !keyToUse || !hydrated || recipes.length === 0) return;
@@ -4959,8 +4979,8 @@ function App() {
         if (c) try { cached[r.id] = JSON.parse(c); } catch(e) {}
       });
       if (Object.keys(cached).length > 0 && !cancelled) setTranslatedRecipes(p => ({...p, ...cached}));
-      // Then batch-translate uncached ones in groups of 4
-      const BATCH = 4;
+      // Batch-translate uncached ones in groups of 2 (keeps requests small to avoid truncation)
+      const BATCH = 2;
       for (let i = 0; i < needTranslation.length; i += BATCH) {
         if (cancelled) break;
         const batch = needTranslation.slice(i, i + BATCH);
@@ -4973,8 +4993,8 @@ function App() {
             remaining = Math.max(0, remaining - batch.length);
             setTranslatingCount(remaining);
           }
-        } catch(e) {}
-        if (!cancelled && i + BATCH < needTranslation.length) await new Promise(res => setTimeout(res, 500));
+        } catch(e) { console.warn('Translation batch error:', e); }
+        if (!cancelled && i + BATCH < needTranslation.length) await new Promise(res => setTimeout(res, 800));
       }
       if (!cancelled) setTranslatingCount(0);
     })();
@@ -5210,7 +5230,7 @@ function App() {
           <img src="/logo.svg" alt="MealPrepMaster" style={{width:38,height:38,flexShrink:0}}/>
           <div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"var(--accent)",whiteSpace:"nowrap",lineHeight:1.2}}>MealPrepMaster</div>
-            <div style={{color:"var(--text-muted)",fontSize:11,whiteSpace:"nowrap"}}>{recipes.length} recipes saved</div>
+            <div style={{color:"var(--text-muted)",fontSize:11,whiteSpace:"nowrap"}}>{t('sidebar.recipesSaved',language,{n:String(recipes.length)})}</div>
           </div>
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"0 8px"}}>
@@ -5232,7 +5252,7 @@ function App() {
         </div>
         <div style={{padding:"10px 16px",borderTop:"1px solid var(--border)",flexShrink:0}}>
           <div style={{color:"var(--text-muted)",fontSize:10,textAlign:"center"}}>
-            {anthropicKey ? <span style={{color:"var(--accent)"}}>✓ AI enabled</span> : <span style={{color:"#f08080"}}>⚠ Click ⚙️ to add API key</span>}
+            {anthropicKey ? <span style={{color:"var(--accent)"}}>{t('sidebar.aiEnabled',language)}</span> : <span style={{color:"#f08080"}}>{t('sidebar.noApiKey',language)}</span>}
           </div>
         </div>
       </div>
@@ -5242,7 +5262,7 @@ function App() {
         {/* Topbar */}
         <div style={{height:isMobile?52:56,background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",boxShadow:"0 4px 12px var(--shadow-dark)",display:"flex",alignItems:"center",padding:isMobile?"0 10px":"0 16px",gap:isMobile?8:12,flexShrink:0,position:"relative",zIndex:100}}>
           <button onClick={()=>setSidebar(s=>!s)} style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1,flexShrink:0}}>☰</button>
-          {!isMobile && <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes or ingredients..."
+          {!isMobile && <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('search.placeholder',language)}
             style={{...IS,flex:1,maxWidth:380,height:36,padding:"0 12px",fontSize:13}}/>}
           <div style={{flex:1}}/>
           {isMobile && <button onClick={()=>setSearchOpen(s=>!s)} style={{...GB,padding:"6px 10px",fontSize:16,lineHeight:1,background:searchOpen?"var(--nm-input-bg)":"var(--bg-card)"}} title="Search">🔍</button>}
@@ -5273,7 +5293,7 @@ function App() {
         {/* Mobile search bar (expandable) */}
         {isMobile && searchOpen && (
           <div style={{background:"var(--bg-sidebar)",padding:"8px 10px",borderBottom:"1px solid var(--border)"}}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes or ingredients..." autoFocus
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('search.placeholder',language)} autoFocus
               style={{...IS,height:36,padding:"0 12px",fontSize:14}}/>
           </div>
         )}
@@ -5421,7 +5441,7 @@ function App() {
               </div>
               {/* Tips Carousel */}
               {(() => {
-                const TIPS = ["Start your rice cooker first — it frees up stove space","Chop all vegetables before turning on any heat","Use oven & stovetop simultaneously to halve your prep time","Batch cook proteins on Sundays for the whole week"];
+                const TIPS = [t('dash.tip1',language),t('dash.tip2',language),t('dash.tip3',language),t('dash.tip4',language)];
                 return (
                   <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:14,padding:"16px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:12,borderLeft:"3px solid var(--accent)"}}>
                     <span style={{fontSize:22,flexShrink:0}}>💡</span>
@@ -5489,7 +5509,7 @@ function App() {
               <h3 style={{color:"var(--text)",fontSize:14,fontWeight:700,marginBottom:14}}>{t('dash.recentRecipes',language)}</h3>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:18,marginBottom:28}}>
                 {recipes.slice(-4).reverse().map(r=>(
-                  <RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)}/>
+                  <RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)} language={language}/>
                 ))}
               </div>
               {/* Recipe Resources */}
@@ -5683,7 +5703,7 @@ function App() {
                     {anyFilterActive && <button onClick={clearAllFilters} style={{...CB,color:"var(--accent)"}}>{t('dash.clearAll',language)}</button>}
                   </div>
                 : <div className="r-grid">
-                    {filtered.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined}/>)}
+                    {filtered.map(r=><RecipeCard key={r.id} recipe={dr(r)} onClick={()=>setViewing(dr(r))} onFavorite={toggleFav} isFavorite={isFav(r)} costPerServing={budgetMode?recipeEstCost(r):undefined} language={language}/>)}
                   </div>
               }
             </div>
@@ -5824,9 +5844,9 @@ function App() {
           onTranslated={translated=>{setViewing(translated);setTranslatedRecipes(p=>({...p,[translated.id]:translated}));}}
           onMarkCooked={r=>setCookLog(p=>[...p,{id:Date.now(),recipeId:r.id,recipeName:r.title,date:new Date().toISOString()}])}/>
       )}
-      {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)}/>}
-      {spinWheelOpen && <SpinWheelModal recipes={recipes} onClose={()=>setSpinWheelOpen(false)} onView={r=>{setViewing(r);setSpinWheelOpen(false);}}/>}
-      {remixOpen && <RecipeRemixModal recipes={recipes} onClose={()=>setRemixOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])}/>}
+      {wikiIngredient && <IngredientWikiModal ingredient={wikiIngredient} onClose={()=>setWikiIngredient(null)} language={language}/>}
+      {spinWheelOpen && <SpinWheelModal recipes={recipes} onClose={()=>setSpinWheelOpen(false)} onView={r=>{setViewing(r);setSpinWheelOpen(false);}} language={language}/>}
+      {remixOpen && <RecipeRemixModal recipes={recipes} onClose={()=>setRemixOpen(false)} onAdd={r=>setRecipes(p=>[...p,r])} language={language}/>}
       {addOpen && <SmartAddModal initialUrl={addInitialUrl} onClose={()=>{setAddOpen(false);setAddInitialUrl("");}} onAdd={r=>setRecipes(p=>[...p,r])} language={language}/>}
 
       {/* Comfort meal log modal */}
