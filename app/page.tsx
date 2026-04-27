@@ -806,18 +806,53 @@ async function exportRecipeToPDF(recipe, scale, lang='en') {
   setTimeout(() => URL.revokeObjectURL(url), 120000);
 }
 
-async function exportMealBookToPDF(recipes, title) {
+async function exportMealBookToPDF(recipes, title, lang='en') {
   const win = window.open("","_blank");
   if (!win) { alert("Please allow pop-ups for this site to export PDFs."); return; }
   const bookTitle = title || "My Recipe Book";
   const totalRecipes = recipes.length;
+  const tl = (key, rep?) => { let s = TRANSLATIONS[lang]?.[key] || TRANSLATIONS['en'][key] || key; if(rep) Object.entries(rep).forEach(([k,v])=>{s=s.replace(`{${k}}`,String(v));}); return s; };
 
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
+  const spinHtml = (msg) => `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Loading…</title>
   <style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:'Segoe UI',sans-serif;color:#888;flex-direction:column;gap:14px}
   .sp{width:40px;height:40px;border:4px solid #eee;border-top-color:#3a7d5e;border-radius:50%;animation:sp .8s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}</style></head>
-  <body><div class="sp"></div><div>Building your recipe book (${totalRecipes} recipes)…</div></body></html>`);
+  <body><div class="sp"></div><div>${msg}</div></body></html>`;
+
+  win.document.write(spinHtml(tl('pdf.building', {n: totalRecipes})));
   win.document.close();
+
+  // Batch-translate uncached recipes before generating
+  if (lang !== 'en') {
+    const needTranslation = recipes.filter(r => r?.id && !localStorage.getItem(`mpm_recipe_translation_${r.id}_${lang}`));
+    if (needTranslation.length > 0) {
+      win.document.open();
+      win.document.write(spinHtml(tl('pdf.translating', {n: needTranslation.length})));
+      win.document.close();
+      const BATCH = 2;
+      for (let i = 0; i < needTranslation.length; i += BATCH) {
+        const batch = needTranslation.slice(i, i + BATCH);
+        try { await translateRecipesBatch(batch, lang); } catch(e) {}
+        if (i + BATCH < needTranslation.length) await new Promise(res => setTimeout(res, 800));
+        const remaining = Math.max(0, needTranslation.length - i - BATCH);
+        if (remaining > 0) {
+          win.document.open();
+          win.document.write(spinHtml(tl('pdf.translating', {n: remaining})));
+          win.document.close();
+        }
+      }
+      // Reload translated versions from cache
+      recipes = recipes.map(r => {
+        if (!r?.id) return r;
+        const cached = localStorage.getItem(`mpm_recipe_translation_${r.id}_${lang}`);
+        if (cached) try { return JSON.parse(cached); } catch(e) {}
+        return r;
+      });
+      win.document.open();
+      win.document.write(spinHtml(tl('pdf.building', {n: totalRecipes})));
+      win.document.close();
+    }
+  }
 
   // Pre-fetch all images
   const recipeData = await Promise.all(recipes.map(async rec => {
@@ -836,8 +871,8 @@ async function exportMealBookToPDF(recipes, title) {
   const tocHtml = `
     <div style="page-break-after:always;padding:48px 40px">
       <div style="border-bottom:2px solid #2d5a3d;padding-bottom:16px;margin-bottom:32px">
-        <div style="color:#2d5a3d;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">Contents</div>
-        <h2 style="font-family:Georgia,serif;font-size:28px;margin:0;color:#1a1a1a">Table of Contents</h2>
+        <div style="color:#2d5a3d;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">${tl('pdf.contents')}</div>
+        <h2 style="font-family:Georgia,serif;font-size:28px;margin:0;color:#1a1a1a">${tl('pdf.tableOfContents')}</h2>
       </div>
       ${[...catOrder,...Object.keys(grouped).filter(c=>!catOrder.includes(c))].filter(c=>grouped[c]).map(cat=>`
         <div style="margin-bottom:20px">
@@ -896,7 +931,7 @@ async function exportMealBookToPDF(recipes, title) {
         <!-- Nutrition row -->
         ${(nutrition.calories||nutrition.protein) ? `
         <div style="display:flex;gap:0;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden;margin-bottom:18px">
-          ${[["Calories",nutrition.calories||0,"kcal","#e05a6a"],["Protein",nutrition.protein||0,"g","#5aad8e"],["Carbs",nutrition.carbs||0,"g","#5a8fd4"],["Fat",nutrition.fat||0,"g","#d4875a"]].map(([l,v,u,c])=>`
+          ${[[tl('label.calories'),nutrition.calories||0,"kcal","#e05a6a"],[tl('label.protein'),nutrition.protein||0,"g","#5aad8e"],[tl('label.carbs'),nutrition.carbs||0,"g","#5a8fd4"],[tl('label.fat'),nutrition.fat||0,"g","#d4875a"]].map(([l,v,u,c])=>`
             <div style="flex:1;text-align:center;padding:10px 6px;border-right:1px solid #e8e8e8">
               <div style="font-size:18px;font-weight:700;color:${c}">${Math.round(v)}${u}</div>
               <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px">${l}</div>
@@ -907,8 +942,8 @@ async function exportMealBookToPDF(recipes, title) {
         <div style="display:grid;grid-template-columns:2fr 3fr;gap:22px">
           <!-- Ingredients -->
           <div>
-            <div style="font-family:Georgia,serif;font-size:15px;font-weight:700;color:#1a1a1a;border-bottom:2px solid #2d5a3d;padding-bottom:5px;margin-bottom:10px">Ingredients</div>
-            <div style="font-size:11px;color:#666;margin-bottom:10px">${r.servings||1} serving${(r.servings||1)!==1?"s":""}</div>
+            <div style="font-family:Georgia,serif;font-size:15px;font-weight:700;color:#1a1a1a;border-bottom:2px solid #2d5a3d;padding-bottom:5px;margin-bottom:10px">${tl('pdf.ingredients')}</div>
+            <div style="font-size:11px;color:#666;margin-bottom:10px">${(r.servings||1)===1?tl('pdf.servingsLabel',{n:1}):tl('pdf.servingsPluralLabel',{n:r.servings||1})}</div>
             ${(r.ingredients||[]).map((ing,i)=>`
               <div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid #f0f0f0">
                 ${ingB64s[i] ? `<img src="${ingB64s[i]}" style="width:28px;height:28px;border-radius:5px;object-fit:cover;flex-shrink:0;print-color-adjust:exact;-webkit-print-color-adjust:exact"/>` : `<span style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${getItemEmoji(ing.name)}</span>`}
@@ -919,7 +954,7 @@ async function exportMealBookToPDF(recipes, title) {
 
           <!-- Steps -->
           <div>
-            <div style="font-family:Georgia,serif;font-size:15px;font-weight:700;color:#1a1a1a;border-bottom:2px solid #2d5a3d;padding-bottom:5px;margin-bottom:10px">Instructions</div>
+            <div style="font-family:Georgia,serif;font-size:15px;font-weight:700;color:#1a1a1a;border-bottom:2px solid #2d5a3d;padding-bottom:5px;margin-bottom:10px">${tl('pdf.instructions')}</div>
             ${(r.steps||[]).map((step,i)=>{
               const imgs = stepImgB64s[i].filter(Boolean);
               const col = STEP_COLORS_PDF[i % STEP_COLORS_PDF.length];
@@ -968,11 +1003,11 @@ async function exportMealBookToPDF(recipes, title) {
     <!-- emblem -->
     <div style="width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:32px;backdrop-filter:blur(4px)">🥗</div>
     <!-- title -->
-    <div style="color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:14px;font-family:'Segoe UI',sans-serif">Recipe Collection</div>
+    <div style="color:rgba(255,255,255,0.5);font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-bottom:14px;font-family:'Segoe UI',sans-serif">${tl('pdf.collection')}</div>
     <h1 style="font-family:Georgia,serif;font-size:42px;color:#fff;margin:0 0 10px;text-align:center;line-height:1.2;font-weight:700">${bookTitle}</h1>
     <div style="width:60px;height:2px;background:rgba(255,255,255,0.3);margin:18px auto 22px"></div>
-    <div style="color:rgba(255,255,255,0.65);font-size:16px;margin-bottom:6px;font-family:'Segoe UI',sans-serif">${totalRecipes} hand-picked recipes</div>
-    <div style="color:rgba(255,255,255,0.4);font-size:13px;font-family:'Segoe UI',sans-serif">Created ${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"})}</div>
+    <div style="color:rgba(255,255,255,0.65);font-size:16px;margin-bottom:6px;font-family:'Segoe UI',sans-serif">${tl('pdf.handPicked',{n:totalRecipes})}</div>
+    <div style="color:rgba(255,255,255,0.4);font-size:13px;font-family:'Segoe UI',sans-serif">${tl('pdf.created')} ${new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='es'?'es-ES':'en-US',{year:"numeric",month:"long",day:"numeric"})}</div>
     <!-- bottom bar -->
     <div style="position:absolute;bottom:0;left:0;right:0;height:5px;background:linear-gradient(90deg,#5aad8e,#3a7d5e,#5a8fd4)"></div>
   </div>
@@ -985,7 +1020,7 @@ async function exportMealBookToPDF(recipes, title) {
 
   <!-- PRINT BUTTON (hidden when printing) -->
   <div style="text-align:center;padding:32px">
-    <button onclick="window.print()" style="background:#2d5a3d;color:#fff;border:none;border-radius:10px;padding:14px 32px;font-size:15px;cursor:pointer;font-family:'Segoe UI',sans-serif;font-weight:700;letter-spacing:.5px">🖨 Print / Save as PDF</button>
+    <button onclick="window.print()" style="background:#2d5a3d;color:#fff;border:none;border-radius:10px;padding:14px 32px;font-size:15px;cursor:pointer;font-family:'Segoe UI',sans-serif;font-weight:700;letter-spacing:.5px">${tl('pdf.printSave')}</button>
   </div>
   </body></html>`;
 
@@ -3069,7 +3104,7 @@ function FavoritesView({favorites, recipes, setFavorites, onView, onExportBook, 
           <p style={{color:"#8a9bb0",fontSize:13,margin:0}}>{favRecipes.length} saved recipes</p>
         </div>
         {favRecipes.length>0 && (
-          <button onClick={()=>exportMealBookToPDF(favRecipes.map(dr),"My Favorite Recipes")} style={{...GB}}>📚 Export Cookbook PDF</button>
+          <button onClick={()=>exportMealBookToPDF(favRecipes.map(dr),"My Favorite Recipes",language)} style={{...GB}}>📚 Export Cookbook PDF</button>
         )}
       </div>
       {favRecipes.length===0
@@ -5573,7 +5608,7 @@ function App() {
                     style={{...CB,fontSize:12,padding:"5px 12px",background:budgetMode?"rgba(90,173,142,0.18)":"var(--bg-card)",color:budgetMode?"#5aad8e":"var(--text-sub)",boxShadow:budgetMode?"var(--nm-inset)":"var(--nm-raised-sm)",border:budgetMode?"1px solid rgba(90,173,142,0.3)":"none"}}>
                     {budgetMode?t('dash.budgetOn',language):t('dash.budgetOff',language)}
                   </button>
-                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes.map(dr),"My Recipe Book")} style={{...CB,fontSize:12,padding:"6px 13px"}}>{t('dash.exportBook',language)}</button>}
+                  {recipes.length > 0 && <button onClick={()=>exportMealBookToPDF(recipes.map(dr),"My Recipe Book",language)} style={{...CB,fontSize:12,padding:"6px 13px"}}>{t('dash.exportBook',language)}</button>}
                   {recipes.length > 0 && <button onClick={()=>setAuditOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#ffd580"}}>{t('dash.auditRecipes',language)}</button>}
                   <button onClick={()=>setWhatCanICookOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#5aad8e"}}>{t('pantry.whatCanICook',language)}</button>
                   <button onClick={()=>setSpinWheelOpen(true)} style={{...CB,fontSize:12,padding:"6px 13px",color:"#c06090"}}>{t('dash.spin',language)}</button>
