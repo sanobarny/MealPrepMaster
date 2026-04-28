@@ -66,25 +66,44 @@ const getDifficultyLabel = (key, lang = 'en') => {
   return t(keys[key], lang);
 };
 
+// Merge a slim cached translation (text-only) back into the original recipe (which has images etc.)
+const mergeTranslation = (original, cached) => ({
+  ...original,
+  title: cached.title || original.title,
+  description: cached.description || original.description,
+  healthBenefits: cached.healthBenefits || original.healthBenefits,
+  ingredients: (original.ingredients || []).map((ing, j) => ({
+    ...ing, name: cached.ingredients?.[j]?.name || ing.name,
+  })),
+  steps: (original.steps || []).map((s, j) => ({
+    ...s, text: cached.steps?.[j]?.text || s.text,
+  })),
+});
+
 const translateRecipe = async (recipe, targetLang, anthropicKey?) => {
   if (targetLang === 'en' || !recipe) return recipe;
   const cacheKey = `mpm_recipe_translation_${recipe.id}_${targetLang}`;
   const cached = localStorage.getItem(cacheKey);
-  if (cached) try { return JSON.parse(cached); } catch(e) {}
+  if (cached) try { return mergeTranslation(recipe, JSON.parse(cached)); } catch(e) {}
   // pwaGet is defined later in the file but safe to call at runtime (TDZ only applies at parse time)
   const keyToUse = anthropicKey?.trim() || pwaGet('anthropic_key') || '';
   if (!keyToUse) return recipe;
   try {
     const langName = targetLang === 'es' ? 'Spanish' : 'Russian';
-    const systemPrompt = `Translate the following recipe to ${langName}. Return ONLY valid JSON with the same structure. Translate: title, description, healthBenefits, and all ingredient names and step text. Keep ingredient amounts and units unchanged. Preserve all other fields exactly.`;
-    const messages = [{role: 'user', content: `Translate this recipe:\n${JSON.stringify(recipe)}`}];
-    const result = await anthropicCall({max_tokens: 6000, system: systemPrompt, messages});
+    const systemPrompt = `Translate the following recipe to ${langName}. Return ONLY valid JSON. Translate: title, description, healthBenefits, ingredient names, and step text. Return exactly: {title, description, healthBenefits, ingredients:[{name}], steps:[{text}]}`;
+    const slim = {
+      title: recipe.title || '', description: recipe.description || '',
+      healthBenefits: recipe.healthBenefits || '',
+      ingredients: (recipe.ingredients || []).map(i => ({name: i.name})),
+      steps: (recipe.steps || []).map(s => ({text: s.text})),
+    };
+    const result = await anthropicCall({max_tokens: 4000, system: systemPrompt, messages: [{role: 'user', content: JSON.stringify(slim)}]});
     const m = result.match(/\{[\s\S]*\}/);
     if (m) {
       const translated = JSON.parse(m[0]);
-      const final = {...recipe, ...translated, id: recipe.id};
-      lsSave(cacheKey, JSON.stringify(final));
-      return final;
+      // Save only text fields — no images — to stay well within localStorage quota
+      lsSave(cacheKey, JSON.stringify({id: recipe.id, ...translated}));
+      return mergeTranslation(recipe, translated);
     }
   } catch(e) { console.warn('Recipe translation failed:', e); }
   return recipe;
@@ -107,30 +126,24 @@ const translateRecipesBatch = async (recipes, targetLang) => {
   }));
   try {
     const systemPrompt = `Translate the following recipes to ${langName}. Return ONLY a valid JSON array. Translate: title, description, healthBenefits, ingredient names, and step text. Keep all other fields unchanged. Return exactly the same number of objects in the same order.`;
-    const result = await anthropicCall({max_tokens: 6000, system: systemPrompt, messages: [{role: 'user', content: JSON.stringify(slim)}]});
+    const result = await anthropicCall({max_tokens: 8000, system: systemPrompt, messages: [{role: 'user', content: JSON.stringify(slim)}]});
     const m = result.match(/\[[\s\S]*\]/);
     if (m) {
       const arr = JSON.parse(m[0]);
       if (Array.isArray(arr) && arr.length === recipes.length) {
         return arr.map((translated, i) => {
           const orig = recipes[i];
-          // Merge translated text back into original structure
-          const mergedIngs = (orig.ingredients || []).map((ing, j) => ({
-            ...ing, name: translated.ingredients?.[j]?.name || ing.name
-          }));
-          const mergedSteps = (orig.steps || []).map((s, j) => ({
-            ...s, text: translated.steps?.[j]?.text || s.text
-          }));
-          const final = {
-            ...orig,
+          // Save only text fields to localStorage — base64 images would overflow quota
+          lsSave(`mpm_recipe_translation_${orig.id}_${targetLang}`, JSON.stringify({
+            id: orig.id,
             title: translated.title || orig.title,
             description: translated.description || orig.description,
             healthBenefits: translated.healthBenefits || orig.healthBenefits,
-            ingredients: mergedIngs,
-            steps: mergedSteps,
-          };
-          lsSave(`mpm_recipe_translation_${orig.id}_${targetLang}`, JSON.stringify(final));
-          return final;
+            ingredients: (orig.ingredients || []).map((ing, j) => ({name: translated.ingredients?.[j]?.name || ing.name, section: ing.section})),
+            steps: (orig.steps || []).map((s, j) => ({text: translated.steps?.[j]?.text || s.text})),
+          }));
+          // Return full merged recipe (with images) for immediate use in state
+          return mergeTranslation(orig, translated);
         });
       }
     }
@@ -841,11 +854,11 @@ async function exportMealBookToPDF(recipes, title, lang='en') {
           win.document.close();
         }
       }
-      // Reload translated versions from cache
+      // Reload translated versions from cache (merging slim text cache with original images)
       recipes = recipes.map(r => {
         if (!r?.id) return r;
         const cached = localStorage.getItem(`mpm_recipe_translation_${r.id}_${lang}`);
-        if (cached) try { return JSON.parse(cached); } catch(e) {}
+        if (cached) try { return mergeTranslation(r, JSON.parse(cached)); } catch(e) {}
         return r;
       });
       win.document.open();
@@ -1089,13 +1102,13 @@ function RecipeCard({recipe, onClick, onFavorite, isFavorite, costPerServing, la
       <div onClick={()=>onClick(recipe)}>
         <div style={{position:"relative",height:180}}>
           <SmartImage recipe={recipe} style={{width:"100%",height:"100%"}}/>
-          <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(13,15,23,.96) 0%,transparent 52%)"}}/>
-          <span style={{position:"absolute",top:9,left:9,background:"rgba(13,15,23,.85)",color:"#ffd580",fontSize:10,padding:"3px 8px",borderRadius:8,fontWeight:700}}>
+          <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,.92) 0%,rgba(0,0,0,.45) 40%,transparent 65%)"}}/>
+          <span style={{position:"absolute",top:9,left:9,background:"rgba(0,0,0,.75)",color:"#ffd580",fontSize:10,padding:"3px 8px",borderRadius:8,fontWeight:700}}>
             {(CATEGORIES.find(c=>c.id===recipe.category)||{}).icon} {recipe.category}
           </span>
-          {total > 0 && <span style={{position:"absolute",top:9,right:9,background:"rgba(13,15,23,.85)",color:"#5aad8e",fontSize:11,padding:"3px 9px",borderRadius:8,fontWeight:700}}>{total}min</span>}
+          {total > 0 && <span style={{position:"absolute",top:9,right:9,background:"rgba(0,0,0,.75)",color:"#5aad8e",fontSize:11,padding:"3px 9px",borderRadius:8,fontWeight:700}}>{total}min</span>}
           <div style={{position:"absolute",bottom:10,left:12,right:12}}>
-            <div style={{color:"#fff",fontWeight:700,fontSize:14,fontFamily:"'Playfair Display',serif",lineHeight:1.3}}>{recipe.title}</div>
+            <div style={{color:"#fff",fontWeight:700,fontSize:14,fontFamily:"'Playfair Display',serif",lineHeight:1.3,textShadow:"0 1px 4px rgba(0,0,0,0.9),0 2px 8px rgba(0,0,0,0.7)"}}>{recipe.title}</div>
           </div>
           {recipe.sourceUrl && (
             <span style={{position:"absolute",bottom:10,right:10,background:"rgba(13,15,23,.85)",color:"#a0c0f0",fontSize:10,padding:"2px 7px",borderRadius:7,fontWeight:700}}>
@@ -4993,7 +5006,7 @@ function App() {
     recipes.forEach(r => {
       const key = `mpm_recipe_translation_${r.id}_${language}`;
       const c = localStorage.getItem(key);
-      if (c) { try { cached[r.id] = JSON.parse(c); } catch {} }
+      if (c) { try { cached[r.id] = mergeTranslation(r, JSON.parse(c)); } catch {} }
     });
     setTranslatedRecipes(cached);
   }, [language]);
@@ -5007,11 +5020,11 @@ function App() {
     if (needTranslation.length > 0) setTranslatingCount(needTranslation.length);
     (async () => {
       let remaining = needTranslation.length;
-      // First: load cached ones immediately
+      // First: load cached ones immediately (merging slim text cache back with original images)
       const cached: Record<string,any> = {};
       recipes.forEach(r => {
         const c = localStorage.getItem(`mpm_recipe_translation_${r.id}_${language}`);
-        if (c) try { cached[r.id] = JSON.parse(c); } catch(e) {}
+        if (c) try { cached[r.id] = mergeTranslation(r, JSON.parse(c)); } catch(e) {}
       });
       if (Object.keys(cached).length > 0 && !cancelled) setTranslatedRecipes(p => ({...p, ...cached}));
       // Batch-translate uncached ones in groups of 2 (keeps requests small to avoid truncation)
