@@ -3530,22 +3530,31 @@ function CookMode({recipe, onClose, language='en'}) {
           </div>
 
           {/* Steps overview */}
-          <div>
-            <div style={{color:"var(--text-sub)",fontWeight:700,fontSize:12,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>📋 {t('cook.steps',language).replace('{count}',steps.length).replace('{time}',recipe.totalTime||0)}</div>
+          <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,overflow:"hidden"}}>
+            <div style={{padding:"12px 14px 8px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:16}}>📋</span>
+              <span style={{color:"var(--text)",fontWeight:700,fontSize:13}}>{t('cook.steps',language).replace('{count}',steps.length).replace('{time}',recipe.totalTime||0)}</span>
+              {recipe.totalTime&&<span style={{marginLeft:"auto",background:"rgba(90,173,142,0.15)",color:"var(--accent)",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>~{recipe.totalTime} min total</span>}
+            </div>
             {steps.map((s,i)=>(
-              <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
-                <div style={{width:22,height:22,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</div>
-                <span style={{color:"var(--text-sub)",fontSize:12,flex:1,lineHeight:1.4}}>{s.text.slice(0,70)}{s.text.length>70?"…":""}</span>
-                {s.timeMin&&<span style={{color:"var(--text-muted)",fontSize:11,flexShrink:0}}>{s.timeMin}m</span>}
+              <div key={i} style={{display:"flex",gap:12,padding:"11px 14px",borderBottom:i<steps.length-1?"1px solid var(--border)":"none",alignItems:"flex-start"}}>
+                <div style={{width:26,height:26,borderRadius:"50%",background:STEP_COLORS[i%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,flexShrink:0,marginTop:1,boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>{i+1}</div>
+                <span style={{color:"var(--text-sub)",fontSize:12,flex:1,lineHeight:1.5}}>{s.text.slice(0,80)}{s.text.length>80?"…":""}</span>
+                {s.timeMin&&<span style={{background:"var(--nm-input-bg)",color:"var(--text-muted)",borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:700,flexShrink:0,marginTop:2}}>⏱ {s.timeMin}m</span>}
               </div>
             ))}
           </div>
         </div>
 
         {/* Start cooking button */}
-        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 20px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)"}}>
-          <button onClick={()=>{unlockAudio();setPhase("cook");}} style={{width:"100%",background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:14,color:"#fff",padding:"16px",fontWeight:800,fontSize:17,cursor:"pointer",fontFamily:"inherit"}}>
-            {t('cook.startCooking',language)}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 18px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{flex:1}}>
+            <div style={{color:"var(--text-sub)",fontSize:12,fontWeight:600}}>{steps.length} steps · ~{recipe.totalTime||0} min</div>
+            {doneCount>0 && <div style={{color:"var(--accent)",fontSize:11,marginTop:1}}>✓ {doneCount}/{totalAllTasks.length} prep tasks done</div>}
+          </div>
+          <button onClick={()=>{unlockAudio();setPhase("cook");}}
+            style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:14,color:"#fff",padding:"15px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 16px rgba(58,125,94,0.4)",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            <span style={{fontSize:20}}>🍳</span> {t('cook.startCooking',language)}
           </button>
         </div>
       </div>
@@ -3553,182 +3562,345 @@ function CookMode({recipe, onClose, language='en'}) {
   }
 
   // ── COOK PHASE ──────────────────────────────────────────────────────────────
-  const progress = (step/(steps.length-1||1))*100;
-  return (
-    <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:2000,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-      {/* Header */}
-      <div style={{padding:"12px 18px",background:"var(--bg-sidebar)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
-        <button onClick={()=>setPhase("prep")} style={{...GB,padding:"5px 10px",fontSize:12}}>← {t('cook.prepPhase',language)}</button>
-        <div style={{flex:1,textAlign:"center",minWidth:0}}>
-          <div style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{recipe.title}</div>
-        </div>
-        <div style={{color:"var(--text-muted)",fontSize:12,fontWeight:700,flexShrink:0}}>{t('cook.step',language).replace('{n}',step+1).replace('{total}',steps.length)}</div>
-        <button onClick={()=>setAfMode(m=>!m)}
-          style={{...GB,padding:"5px 10px",fontSize:12,background:afMode?"rgba(255,160,50,0.18)":"var(--bg-card)",color:afMode?"#f5a623":"var(--text-sub)",border:afMode?"1px solid rgba(255,160,50,0.5)":"none",borderRadius:10,fontWeight:afMode?700:400,flexShrink:0}}>
-          🌬️ {afMode?"AF ON":"AF"}
-        </button>
-        <button onClick={()=>setShowEatAt(v=>!v)}
-          style={{...GB,padding:"5px 10px",fontSize:12,background:eatAt?"rgba(90,143,212,0.18)":"var(--bg-card)",color:eatAt?"#5a8fd4":"var(--text-sub)",border:eatAt?"1px solid rgba(90,143,212,0.5)":"none",borderRadius:10,flexShrink:0}}>
-          🍽 {eatAt||"Eat at"}
-        </button>
-        <button onClick={()=>setVoiceOn(v=>!v)}
-          style={{...GB,padding:"5px 10px",fontSize:12,background:voiceOn?"rgba(90,173,142,0.18)":"var(--bg-card)",color:voiceOn?"#5aad8e":"var(--text-sub)",border:voiceOn?"1px solid rgba(90,173,142,0.5)":"none",borderRadius:10,flexShrink:0}}
-          title="Read steps aloud">
-          {voiceOn?"🔊":"🔇"}
-        </button>
-        <button onClick={onClose} style={{...GB,padding:"5px 10px",fontSize:13}}>✕</button>
-      </div>
-      {/* Progress bar */}
-      <div style={{height:4,background:"var(--border)"}}><div style={{height:"100%",width:progress+"%",background:"var(--accent)",transition:"width .4s"}}/></div>
+  const progress = (step / (steps.length - 1 || 1)) * 100;
+  const pct = Math.round((step + 1) / steps.length * 100);
 
-      {/* Eat-at scheduler */}
+  // Detect heat level from current step text
+  const heatHint = (() => {
+    const txt = (afMode && afStep ? afStep.text : current.text || '').toLowerCase();
+    if (/high heat|sear|deep.?fry|very hot/.test(txt))   return {label:'High Heat',    range:'210–230°C', color:'#e05050', bars:4};
+    if (/medium.high|sauté|saute|stir.?fry/.test(txt))   return {label:'Medium High',  range:'180–210°C', color:'#f5a623', bars:3};
+    if (/\bmedium\b/.test(txt))                           return {label:'Medium Heat',  range:'150–180°C', color:'#ffd580', bars:2};
+    if (/low heat|simmer|gentle|warm/.test(txt))         return {label:'Low / Simmer', range:'100–140°C', color:'#5a8fd4', bars:1};
+    return null;
+  })();
+
+  // Map step index → cooking stage label
+  const STAGE_LABELS = ['Prepare','Cook','Simmer','Serve'];
+  const stageIdx = Math.min(3, Math.floor(step / steps.length * 4));
+
+  // Timer for current step
+  const cmTimeMin = afMode && afStep?.timeMin ? afStep.timeMin : current.timeMin;
+  const cmTimer   = stepTimers[step] || {remaining: (cmTimeMin||0)*60, running: false};
+  const cmRunning = cmTimer.running;
+  const cmDone    = cmTimer.remaining === 0 && !!cmTimeMin;
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:2000,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+
+      {/* ── TOP BAR ── */}
+      <div style={{padding:'9px 12px',background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:7,flexShrink:0,flexWrap:'wrap'}}>
+        <button onClick={()=>setPhase('prep')} style={{...GB,padding:'5px 10px',fontSize:12}}>← {t('cook.prepPhase',language)}</button>
+        <div style={{flex:1,textAlign:'center',minWidth:0,overflow:'hidden'}}>
+          <div style={{color:'var(--text)',fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{recipe.title}</div>
+        </div>
+        <button onClick={()=>setAfMode(m=>!m)}
+          style={{...GB,padding:'5px 8px',fontSize:11,background:afMode?'rgba(255,160,50,0.18)':'var(--bg-card)',color:afMode?'#f5a623':'var(--text-sub)',border:afMode?'1px solid rgba(255,160,50,0.5)':'none',fontWeight:afMode?700:400}}
+          title="Air Fryer mode">🌬️</button>
+        <button onClick={()=>setShowEatAt(v=>!v)}
+          style={{...GB,padding:'5px 8px',fontSize:12,background:eatAt?'rgba(90,143,212,0.18)':'var(--bg-card)',color:eatAt?'#5a8fd4':'var(--text-sub)',border:eatAt?'1px solid rgba(90,143,212,0.5)':'none'}}
+          title="Eat-at scheduler">🍽</button>
+        <button onClick={()=>setVoiceOn(v=>!v)}
+          style={{...GB,padding:'5px 8px',fontSize:12,background:voiceOn?'rgba(90,173,142,0.18)':'var(--bg-card)',color:voiceOn?'#5aad8e':'var(--text-sub)',border:voiceOn?'1px solid rgba(90,173,142,0.5)':'none'}}
+          title="Voice narration">{voiceOn?'🔊':'🔇'}</button>
+        <button onClick={onClose} style={{...GB,padding:'5px 10px',fontSize:13}}>✕</button>
+      </div>
+
+      {/* Eat-at panel */}
       {showEatAt && (
-        <div style={{background:"rgba(90,143,212,0.08)",borderBottom:"1px solid rgba(90,143,212,0.2)",padding:"10px 18px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-          <span style={{color:"#5a8fd4",fontSize:13,fontWeight:700}}>{t('cook.eatAtLabel',language)}</span>
-          <input type="time" value={eatAt} onChange={e=>setEatAt(e.target.value)}
-            style={{...IS,width:120,height:32,padding:"0 8px",fontSize:14,fontWeight:700,color:"#5a8fd4"}}/>
-          {eatAt&&<button onClick={()=>{setEatAt("");setShowEatAt(false);}} style={{...GB,padding:"4px 10px",fontSize:12,color:"var(--text-muted)"}}>{t('cook.clear',language)}</button>}
-          {eatAt&&<span style={{color:"var(--text-muted)",fontSize:12}}>Step 1 starts at {eatAtSchedule[0]?.startLabel}</span>}
+        <div style={{background:'rgba(90,143,212,0.08)',borderBottom:'1px solid rgba(90,143,212,0.2)',padding:'8px 14px',display:'flex',alignItems:'center',gap:10,flexShrink:0,flexWrap:'wrap'}}>
+          <span style={{color:'#5a8fd4',fontSize:13,fontWeight:700}}>{t('cook.eatAtLabel',language)}</span>
+          <input type="time" value={eatAt} onChange={e=>setEatAt(e.target.value)} style={{...IS,width:110,height:30,padding:'0 8px',fontSize:13,fontWeight:700,color:'#5a8fd4'}}/>
+          {eatAt && <button onClick={()=>{setEatAt('');setShowEatAt(false);}} style={{...GB,padding:'3px 8px',fontSize:11,color:'var(--text-muted)'}}>{t('cook.clear',language)}</button>}
+          {eatAt && <span style={{color:'var(--text-muted)',fontSize:11}}>Step 1 at {eatAtSchedule[0]?.startLabel}</span>}
         </div>
       )}
 
-      {/* Step content */}
-      <div style={{flex:1,overflowY:"auto",padding:"20px 16px 100px",maxWidth:640,margin:"0 auto",width:"100%"}}>
-        {/* Step images */}
-        {getStepImages(current).length > 0 && (
-          <div style={{marginBottom:20}}>
-            {getStepImages(current).length === 1
-              ? <div style={{borderRadius:16,overflow:"hidden",boxShadow:"var(--nm-raised)",background:"#0d0f17",textAlign:"center"}}>
-                  <img src={getStepImages(current)[0]} alt="" style={{maxWidth:"100%",maxHeight:380,width:"auto",height:"auto",display:"inline-block",verticalAlign:"bottom"}}/>
+      {/* ── STAGE FLOW + PROGRESS ── */}
+      <div style={{background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',padding:'8px 16px 10px',flexShrink:0}}>
+        {/* Stage pills */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:9}}>
+          {STAGE_LABELS.map((s,i)=>(
+            <div key={s} style={{display:'flex',alignItems:'center'}}>
+              <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:20,
+                background: i===stageIdx?'var(--accent)': i<stageIdx?'rgba(90,173,142,0.12)':'transparent',
+                transition:'all .3s'}}>
+                <div style={{width:17,height:17,borderRadius:'50%',flexShrink:0,
+                  background: i<stageIdx?'#5aad8e': i===stageIdx?'rgba(255,255,255,0.9)':'var(--nm-input-bg)',
+                  color: i<stageIdx?'#fff': i===stageIdx?'var(--accent)':'var(--text-muted)',
+                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:800}}>
+                  {i<stageIdx?'✓':i+1}
                 </div>
-              : <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
-                  {getStepImages(current).map((img,idx)=>(
-                    <div key={idx} style={{borderRadius:12,overflow:"hidden",flexShrink:0,boxShadow:"var(--nm-raised-sm)",background:"#0d0f17",textAlign:"center"}}>
-                      <img src={img} alt="" style={{maxWidth:280,maxHeight:220,width:"auto",height:"auto",display:"inline-block",verticalAlign:"bottom"}}/>
-                    </div>
-                  ))}
+                <span style={{fontSize:11,fontWeight:i===stageIdx?700:400,whiteSpace:'nowrap',
+                  color: i===stageIdx?'#fff': i<stageIdx?'var(--accent)':'var(--text-muted)'}}>
+                  {s}
+                </span>
+              </div>
+              {i<3 && <div style={{width:16,height:1.5,background:i<stageIdx?'var(--accent)':'var(--border)',flexShrink:0}}/>}
+            </div>
+          ))}
+        </div>
+        {/* Progress bar */}
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{flex:1,height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
+            <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,var(--accent2),var(--accent))',borderRadius:3,transition:'width .4s'}}/>
+          </div>
+          <span style={{color:'var(--accent)',fontWeight:700,fontSize:11,minWidth:32,textAlign:'right'}}>{pct}%</span>
+        </div>
+      </div>
+
+      {/* ── BODY: step list + detail ── */}
+      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
+
+        {/* LEFT – Steps sidebar */}
+        <div style={{width:190,flexShrink:0,borderRight:'1px solid var(--border)',overflowY:'auto',background:'var(--bg-sidebar)'}}>
+          {steps.map((s,i)=>{
+            const done   = i < step;
+            const active = i === step;
+            const bgTimer = stepTimers[i];
+            const bgRunning = bgTimer?.running && bgTimer.remaining > 0;
+            return (
+              <div key={i} onClick={()=>setStep(i)}
+                style={{display:'flex',alignItems:'flex-start',gap:9,padding:'10px 10px',
+                  background: active?'rgba(58,125,94,0.13)':'transparent',
+                  borderLeft: active?'3px solid var(--accent)':'3px solid transparent',
+                  borderBottom:'1px solid var(--border)',cursor:'pointer',transition:'background .15s'}}>
+                {/* Circle */}
+                <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,marginTop:1,
+                  background: done?'#5aad8e': active?'var(--accent)':'var(--nm-input-bg)',
+                  color: done||active?'#fff':'var(--text-muted)',
+                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,
+                  boxShadow: active?'0 0 0 3px rgba(90,173,142,0.28)':'var(--nm-raised-sm)'}}>
+                  {done?'✓':i+1}
                 </div>
-            }
-          </div>
-        )}
-
-        {/* Air Fryer mode banner */}
-        {afMode && (
-          <div style={{background:"rgba(255,160,50,0.1)",border:"1px solid rgba(255,160,50,0.35)",borderRadius:14,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:10}}>
-            <span style={{fontSize:22,flexShrink:0}}>🌬️</span>
-            <div>
-              <div style={{color:"#f5a623",fontWeight:700,fontSize:13,marginBottom:3}}>Air Fryer Mode</div>
-              <div style={{color:"var(--text-sub)",fontSize:12,lineHeight:1.5}}>Temp reduced by 25°F / 15°C · Cook time reduced ~25% · Preheat air fryer 3–5 min first · Check food 2–3 min early</div>
-            </div>
-          </div>
-        )}
-
-        {/* Step card */}
-        <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:20,padding:"24px",marginBottom:18,textAlign:"center"}}>
-          <div style={{width:48,height:48,borderRadius:"50%",background:STEP_COLORS[step%STEP_COLORS.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:22,margin:"0 auto 16px"}}>{step+1}</div>
-          <p style={{color:"var(--text)",fontSize:20,lineHeight:1.7,margin:0,fontFamily:"'Playfair Display',serif"}}>{afMode&&afStep ? afStep.text : current.text}</p>
-          {afMode && afStep?.changed && (
-            <div style={{marginTop:10,padding:"6px 12px",background:"rgba(255,160,50,0.12)",borderRadius:8,display:"inline-block",fontSize:12,color:"#f5a623"}}>
-              🌬️ Converted for air fryer
-            </div>
-          )}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color: active?'var(--accent)': done?'var(--text-muted)':'var(--text)',
+                    fontSize:11,lineHeight:1.35,fontWeight:active?700:400,
+                    overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',
+                    textDecoration:done?'line-through':'none',textDecorationColor:'var(--text-muted)'}}>
+                    {s.text}
+                  </div>
+                  <div style={{display:'flex',gap:5,marginTop:3,flexWrap:'wrap'}}>
+                    {s.timeMin && <span style={{fontSize:9,fontWeight:600,color:bgRunning?'#ffd580':'var(--text-muted)'}}>
+                      {bgRunning ? '⏱ '+fmtTime(bgTimer.remaining) : '⏱ '+s.timeMin+'m'}
+                    </span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Background timers strip */}
-        {Object.entries(stepTimers).filter(([k,t])=>parseInt(k)!==step&&t.running&&t.remaining>0).length>0&&(
-          <div style={{background:"rgba(255,213,128,0.08)",border:"1px solid rgba(255,213,128,0.25)",borderRadius:10,padding:"8px 12px",marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{color:"#ffd580",fontSize:11,fontWeight:700,flexShrink:0}}>⏱ Running:</span>
-            {Object.entries(stepTimers).filter(([k,t])=>parseInt(k)!==step&&t.running&&t.remaining>0).map(([k,t])=>(
-              <span key={k} style={{background:"rgba(255,213,128,0.15)",borderRadius:20,padding:"2px 10px",fontSize:12,color:"#ffd580",fontWeight:700,cursor:"pointer"}} onClick={()=>setStep(parseInt(k))}>
-                Step {parseInt(k)+1} · {fmtTime(t.remaining)}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* RIGHT – Current step detail */}
+        <div style={{flex:1,overflowY:'auto',padding:'16px 16px 100px'}}>
 
-        {/* Timer */}
-        {(afMode ? afStep?.timeMin : current.timeMin) ? (()=>{
-          const timeMin = afMode && afStep?.timeMin ? afStep.timeMin : current.timeMin;
-          const st = stepTimers[step] || {remaining: timeMin*60, running: false};
-          const isRunning = st.running;
-          const isDone = st.remaining === 0;
-          return (
-            <div style={{background:"var(--bg-card)",boxShadow:"var(--nm-raised)",borderRadius:16,padding:"18px 24px",textAlign:"center",marginBottom:18}}>
-              <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:4,textTransform:"uppercase",letterSpacing:.8}}>
-                ⏱ {t('cook.timerLabel',language)}{afMode&&afStep?.timeMin&&afStep.timeMin!==current.timeMin?<span style={{color:"#f5a623",marginLeft:6,fontWeight:700}}>🌬️ {timeMin}m (was {current.timeMin}m)</span>:""}
-                {eatAtSchedule[step] && <span style={{color:"#5a8fd4",marginLeft:8,fontWeight:700,fontSize:10}}>▶ Start {eatAtSchedule[step].startLabel}</span>}
+          {/* Step images */}
+          {getStepImages(current).length > 0 && (
+            <div style={{marginBottom:16}}>
+              {getStepImages(current).length === 1
+                ? <div style={{borderRadius:16,overflow:'hidden',boxShadow:'var(--nm-raised)',textAlign:'center',background:'var(--nm-input-bg)',maxHeight:260}}>
+                    <img src={getStepImages(current)[0]} alt="" style={{maxWidth:'100%',maxHeight:260,width:'auto',height:'auto',display:'inline-block',verticalAlign:'bottom'}}/>
+                  </div>
+                : <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+                    {getStepImages(current).map((img,idx)=>(
+                      <div key={idx} style={{borderRadius:12,overflow:'hidden',flexShrink:0,boxShadow:'var(--nm-raised-sm)',textAlign:'center',background:'var(--nm-input-bg)'}}>
+                        <img src={img} alt="" style={{maxWidth:240,maxHeight:180,width:'auto',height:'auto',display:'inline-block',verticalAlign:'bottom'}}/>
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
+          )}
+
+          {/* Air fryer banner */}
+          {afMode && (
+            <div style={{background:'rgba(255,160,50,0.1)',border:'1px solid rgba(255,160,50,0.35)',borderRadius:14,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'flex-start',gap:10}}>
+              <span style={{fontSize:20,flexShrink:0}}>🌬️</span>
+              <div>
+                <div style={{color:'#f5a623',fontWeight:700,fontSize:12,marginBottom:2}}>Air Fryer Mode</div>
+                <div style={{color:'var(--text-sub)',fontSize:11,lineHeight:1.5}}>Temp −25°F/15°C · Time −25% · Preheat 3–5 min · Check 2–3 min early</div>
               </div>
-              <div style={{color:isDone?"#5aad8e":isRunning?"var(--accent)":"var(--text)",fontWeight:800,fontSize:52,fontVariantNumeric:"tabular-nums",marginBottom:14,lineHeight:1}}>{fmtTime(st.remaining)}</div>
-              <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-                <button onClick={()=>{unlockAudio();setStepTimers(t=>({...t,[step]:{...t[step],running:!isRunning}}));}}
-                  style={{background:isRunning?"rgba(200,60,60,0.2)":"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:isRunning?"#f08080":"#fff",padding:"10px 28px",fontWeight:700,fontSize:15,cursor:"pointer",fontFamily:"inherit",boxShadow:"var(--nm-raised-sm)"}}>
-                  {isDone?t('cook.doneTimer',language):isRunning?t('cook.pauseTimer',language):t('cook.startTimer',language)}
+            </div>
+          )}
+
+          {/* ── MAIN STEP CARD ── */}
+          <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:22,padding:'22px 18px 24px',marginBottom:14,textAlign:'center'}}>
+            <div style={{width:54,height:54,borderRadius:'50%',
+              background:STEP_COLORS[step%STEP_COLORS.length],
+              color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
+              fontWeight:800,fontSize:24,margin:'0 auto 8px',
+              boxShadow:'0 6px 20px rgba(0,0,0,0.2)'}}>
+              {step+1}
+            </div>
+            <div style={{color:'var(--text-muted)',fontSize:11,letterSpacing:1.2,textTransform:'uppercase',marginBottom:14,fontWeight:600}}>
+              Step {step+1} of {steps.length}
+              {eatAtSchedule[step] && <span style={{color:'#5a8fd4',marginLeft:8,fontSize:10}}>▶ {eatAtSchedule[step].startLabel}</span>}
+            </div>
+            <p style={{color:'var(--text)',fontSize:17,lineHeight:1.75,margin:0,fontFamily:"'Playfair Display',serif"}}>
+              {afMode && afStep ? afStep.text : current.text}
+            </p>
+            {afMode && afStep?.changed && (
+              <div style={{marginTop:10,padding:'5px 12px',background:'rgba(255,160,50,0.12)',borderRadius:8,display:'inline-block',fontSize:11,color:'#f5a623'}}>
+                🌬️ Converted for air fryer
+              </div>
+            )}
+          </div>
+
+          {/* ── HEAT LEVEL CARD ── */}
+          {heatHint && (
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised-sm)',borderRadius:16,padding:'13px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:13}}>
+              <div style={{width:42,height:42,borderRadius:12,background:heatHint.color+'22',border:'1.5px solid '+heatHint.color+'55',
+                display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>🌡️</div>
+              <div style={{flex:1}}>
+                <div style={{color:heatHint.color,fontWeight:700,fontSize:14}}>{heatHint.label}</div>
+                <div style={{color:'var(--text-muted)',fontSize:11,marginTop:1}}>Ideal: {heatHint.range}</div>
+              </div>
+              {/* Heat bar indicators */}
+              <div style={{display:'flex',gap:3,alignItems:'flex-end'}}>
+                {[1,2,3,4].map(lvl=>(
+                  <div key={lvl} style={{width:6,height:6+lvl*4,borderRadius:3,transition:'background .3s',
+                    background: lvl<=heatHint.bars ? heatHint.color : 'var(--border)'}}/>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Background timers strip */}
+          {Object.entries(stepTimers).filter(([k,tmr])=>parseInt(k)!==step&&tmr.running&&tmr.remaining>0).length>0 && (
+            <div style={{background:'rgba(255,213,128,0.08)',border:'1px solid rgba(255,213,128,0.25)',borderRadius:10,padding:'8px 12px',marginBottom:12,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+              <span style={{color:'#ffd580',fontSize:11,fontWeight:700,flexShrink:0}}>⏱ Also running:</span>
+              {Object.entries(stepTimers).filter(([k,tmr])=>parseInt(k)!==step&&tmr.running&&tmr.remaining>0).map(([k,tmr])=>(
+                <span key={k} onClick={()=>setStep(parseInt(k))}
+                  style={{background:'rgba(255,213,128,0.15)',borderRadius:20,padding:'2px 10px',fontSize:12,color:'#ffd580',fontWeight:700,cursor:'pointer'}}>
+                  Step {parseInt(k)+1} · {fmtTime(tmr.remaining)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* ── TIMER CARD ── */}
+          {cmTimeMin ? (
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'18px 20px 20px',marginBottom:14}}>
+              {/* Timer header */}
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                <div style={{width:36,height:36,borderRadius:10,background:'rgba(90,173,142,0.15)',border:'1.5px solid rgba(90,173,142,0.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>⏱</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:700,fontSize:13}}>{t('cook.timerLabel',language)}</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>
+                    {cmTimeMin} min
+                    {afMode&&afStep?.timeMin&&afStep.timeMin!==current.timeMin && <span style={{color:'#f5a623',marginLeft:5}}>🌬️ was {current.timeMin}m</span>}
+                  </div>
+                </div>
+                {eatAtSchedule[step] && <span style={{marginLeft:'auto',color:'#5a8fd4',fontSize:11,fontWeight:700}}>▶ {eatAtSchedule[step].startLabel}</span>}
+              </div>
+              {/* Big countdown */}
+              <div style={{textAlign:'center',fontFamily:'monospace',fontWeight:800,lineHeight:1,marginBottom:14,
+                fontSize:60,letterSpacing:3,
+                color: cmDone?'#5aad8e': cmRunning?'var(--accent)':'var(--text)',
+                textShadow: cmRunning?'0 0 32px rgba(90,173,142,0.45)':'none',
+                transition:'color .3s'}}>
+                {fmtTime(cmTimer.remaining)}
+              </div>
+              {/* Depletion bar */}
+              <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden',marginBottom:16}}>
+                <div style={{height:'100%',borderRadius:3,transition:'width .5s',
+                  width: cmTimeMin ? ((1 - cmTimer.remaining/(cmTimeMin*60))*100)+'%' : '0%',
+                  background: cmDone?'#5aad8e':'linear-gradient(90deg,var(--accent2),var(--accent))'}}/>
+              </div>
+              {/* Controls */}
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>{unlockAudio();setStepTimers(t=>({...t,[step]:{...t[step]||{remaining:cmTimeMin*60},running:!cmRunning}}));}}
+                  style={{flex:2,background:cmRunning?'rgba(200,60,60,0.15)':'linear-gradient(135deg,var(--accent2),var(--accent))',
+                    border:'none',borderRadius:14,color:cmRunning?'#f08080':'#fff',
+                    padding:'13px',fontWeight:800,fontSize:16,cursor:'pointer',fontFamily:'inherit',
+                    boxShadow:cmRunning?'none':'var(--nm-raised-sm)'}}>
+                  {cmDone ? '✓ '+t('cook.doneTimer',language) : cmRunning ? '⏸ '+t('cook.pauseTimer',language) : '▶ '+t('cook.startTimer',language)}
                 </button>
-                <button onClick={()=>setStepTimers(t=>({...t,[step]:{remaining:timeMin*60,running:false}}))} style={{...GB,padding:"10px 16px",fontSize:16}}>↺</button>
+                <button onClick={()=>setStepTimers(t=>({...t,[step]:{remaining:cmTimeMin*60,running:false}}))}
+                  style={{...GB,padding:'13px 16px',fontSize:18}}>↺</button>
               </div>
-              {/* Alarm sound picker */}
-              <div style={{marginTop:14,borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <div style={{color:"var(--text-muted)",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>🔊 {t('cook.alarmSound',language)}</div>
-                <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center"}}>
+              {/* Alarm sounds */}
+              <div style={{marginTop:14,paddingTop:12,borderTop:'1px solid var(--border)'}}>
+                <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:.6,marginBottom:8,textAlign:'center'}}>🔊 {t('cook.alarmSound',language)}</div>
+                <div style={{display:'flex',gap:5,flexWrap:'wrap',justifyContent:'center'}}>
                   {ALARM_SOUNDS.map(s=>(
-                    <button key={s.key} onClick={()=>{ setAlarmSound(s.key); if(s.key!=="none") playAlarmSound(s.key); }}
-                      style={{...GB,padding:"6px 11px",fontSize:12,background:alarmSound===s.key?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",border:alarmSound===s.key?"1px solid rgba(90,173,142,0.5)":"1px solid transparent",color:alarmSound===s.key?"#5aad8e":"var(--text-muted)",fontWeight:alarmSound===s.key?700:400,borderRadius:20}}>
+                    <button key={s.key} onClick={()=>{setAlarmSound(s.key);if(s.key!=='none')playAlarmSound(s.key);}}
+                      style={{...GB,padding:'5px 10px',fontSize:11,borderRadius:20,
+                        background:alarmSound===s.key?'rgba(90,173,142,0.2)':'var(--nm-input-bg)',
+                        border:alarmSound===s.key?'1px solid rgba(90,173,142,0.5)':'1px solid transparent',
+                        color:alarmSound===s.key?'#5aad8e':'var(--text-muted)',fontWeight:alarmSound===s.key?700:400}}>
                       {s.emoji} {s.label}
                     </button>
                   ))}
                 </div>
-                <div style={{color:"var(--text-muted)",fontSize:10,marginTop:6,textAlign:"center"}}>{t('cook.alarmHint',language)}</div>
+                <div style={{color:'var(--text-muted)',fontSize:10,marginTop:5,textAlign:'center'}}>{t('cook.alarmHint',language)}</div>
               </div>
             </div>
-          );
-        })() : null}
+          ) : null}
 
-        {/* Ingredients used in this step */}
-        {stepIngredients.length>0 && (
-          <div style={{marginBottom:18}}>
-            <div style={{color:"var(--text-sub)",fontSize:12,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:.8}}>🥗 {t('cook.ingForStep',language)}</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {stepIngredients.map((ing,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:7,background:"var(--bg-card)",boxShadow:"var(--nm-raised-sm)",borderRadius:10,padding:"6px 10px"}}>
-                  {ing.image
-                    ? <img src={ing.image} alt={ing.name} style={{width:28,height:28,borderRadius:6,objectFit:"cover"}}/>
-                    : <span style={{fontSize:20}}>{getItemEmoji(ing.name)}</span>
-                  }
-                  <div>
-                    <div style={{color:"var(--text)",fontSize:12,fontWeight:600}}>{ing.name}</div>
-                    <div style={{color:"var(--accent)",fontSize:11}}>{ing.amount} {ing.unit}</div>
+          {/* ── INGREDIENTS FOR THIS STEP ── */}
+          {stepIngredients.length > 0 && (
+            <div style={{marginBottom:14}}>
+              <div style={{color:'var(--text-sub)',fontSize:11,fontWeight:700,marginBottom:9,textTransform:'uppercase',letterSpacing:.8}}>🥗 {t('cook.ingForStep',language)}</div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                {stepIngredients.map((ing,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:7,background:'var(--bg-card)',boxShadow:'var(--nm-raised-sm)',borderRadius:10,padding:'6px 10px'}}>
+                    {ing.image
+                      ? <img src={ing.image} alt={ing.name} style={{width:28,height:28,borderRadius:6,objectFit:'cover'}}/>
+                      : <span style={{fontSize:18}}>{getItemEmoji(ing.name)}</span>
+                    }
+                    <div>
+                      <div style={{color:'var(--text)',fontSize:12,fontWeight:600}}>{ing.name}</div>
+                      <div style={{color:'var(--accent)',fontSize:11}}>{ing.amount} {ing.unit}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* All-ingredients strip */}
+          <div>
+            <div style={{color:'var(--text-muted)',fontSize:11,marginBottom:6}}>{t('cook.allIngStrip',language)}</div>
+            <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+              {(recipe.ingredients||[]).map((ing,i)=>{
+                const used = stepIngredients.some(si=>si.name===ing.name);
+                return (
+                  <span key={i} style={{background:used?'rgba(90,173,142,0.2)':'var(--nm-input-bg)',
+                    border:used?'1px solid rgba(90,173,142,0.4)':'1px solid transparent',
+                    borderRadius:20,padding:'3px 10px',fontSize:11,color:used?'#5aad8e':'var(--text-muted)'}}>
+                    {getItemEmoji(ing.name)} {ing.name}
+                  </span>
+                );
+              })}
             </div>
           </div>
-        )}
 
-        {/* All ingredients mini-strip */}
-        <div style={{marginBottom:8}}>
-          <div style={{color:"var(--text-muted)",fontSize:11,marginBottom:6}}>{t('cook.allIngStrip',language)}</div>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {(recipe.ingredients||[]).map((ing,i)=>{
-              const used = stepIngredients.some(s=>s.name===ing.name);
-              return (
-                <span key={i} style={{background:used?"rgba(90,173,142,0.2)":"var(--nm-input-bg)",border:used?"1px solid rgba(90,173,142,0.4)":"1px solid transparent",borderRadius:20,padding:"3px 10px",fontSize:11,color:used?"#5aad8e":"var(--text-muted)"}}>
-                  {getItemEmoji(ing.name)} {ing.name}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+        </div>{/* end right panel */}
+      </div>{/* end body */}
 
-      {/* Nav buttons */}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 18px",background:"var(--bg-sidebar)",borderTop:"1px solid var(--border)",display:"flex",gap:10}}>
+      {/* ── BOTTOM NAVIGATION ── */}
+      <div style={{flexShrink:0,padding:'11px 14px',background:'var(--bg-sidebar)',borderTop:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10}}>
         <button onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0}
-          style={{...GB,flex:1,padding:"13px",fontSize:15,opacity:step===0?.35:1}}>{t('cook.back',language)}</button>
-        {step<steps.length-1
-          ? <button onClick={()=>setStep(s=>s+1)} style={{flex:2,background:"linear-gradient(135deg,var(--accent2),var(--accent))",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>{t('cook.nextStep',language)}</button>
-          : <button onClick={onClose} style={{flex:2,background:"linear-gradient(135deg,#3a7d5e,#5aad8e)",border:"none",borderRadius:12,color:"#fff",padding:"13px",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"inherit"}}>{t('cook.finished',language)}</button>
+          style={{...GB,flex:1,padding:'12px',fontSize:14,opacity:step===0?.3:1}}>
+          ← {t('cook.back',language)}
+        </button>
+        <div style={{textAlign:'center',minWidth:52,flexShrink:0}}>
+          <div style={{color:'var(--accent)',fontWeight:800,fontSize:14,lineHeight:1}}>{step+1}/{steps.length}</div>
+          <div style={{color:'var(--text-muted)',fontSize:9,marginTop:2,textTransform:'uppercase',letterSpacing:.5}}>steps</div>
+        </div>
+        {step < steps.length-1
+          ? <button onClick={()=>setStep(s=>s+1)}
+              style={{flex:2,background:'linear-gradient(135deg,var(--accent2),var(--accent))',border:'none',borderRadius:12,color:'#fff',padding:'12px',fontWeight:800,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
+              {t('cook.nextStep',language)} →
+            </button>
+          : <button onClick={onClose}
+              style={{flex:2,background:'linear-gradient(135deg,#2d7a40,#6dbe6a)',border:'none',borderRadius:12,color:'#fff',padding:'12px',fontWeight:800,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
+              🎉 {t('cook.finished',language)}
+            </button>
         }
       </div>
+
     </div>
   );
 }
