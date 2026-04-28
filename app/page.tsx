@@ -2291,16 +2291,16 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
 
   const Slot = ({label,key2,options,fallback}) => (
     <div style={{flex:1,minWidth:160}}>
-      <div style={{color:"#8a9bb0",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8,textTransform:"uppercase"}}>{label}</div>
+      <div style={{color:"var(--text-sub)",fontSize:10,fontWeight:700,letterSpacing:1,marginBottom:8,textTransform:"uppercase"}}>{label}</div>
       {!options.length
-        ? <div style={{color:"#5a6a7a",fontSize:12,padding:12,background:"rgba(255,255,255,0.03)",borderRadius:10,textAlign:"center",border:"1px dashed rgba(255,255,255,0.08)"}}>{fallback}</div>
+        ? <div style={{color:"var(--text-muted)",fontSize:12,padding:12,background:"var(--nm-input-bg)",borderRadius:10,textAlign:"center",border:"1px dashed var(--border)"}}>{fallback}</div>
         : options.map(r=>(
           <button key={r.id} onClick={()=>setSel(s=>({...s,[key2]:(s[key2]&&s[key2].id===r.id)?null:r}))}
-            style={{width:"100%",background:(sel[key2]&&sel[key2].id===r.id)?"rgba(58,125,94,0.2)":"rgba(255,255,255,0.03)",border:"1px solid "+((sel[key2]&&sel[key2].id===r.id)?"#3a7d5e":"rgba(255,255,255,0.07)"),borderRadius:10,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:9,marginBottom:5,fontFamily:"inherit"}}>
+            style={{width:"100%",background:(sel[key2]&&sel[key2].id===r.id)?"rgba(58,125,94,0.2)":"var(--nm-input-bg)",border:"1px solid "+((sel[key2]&&sel[key2].id===r.id)?"#3a7d5e":"var(--border)"),borderRadius:10,padding:"8px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:9,marginBottom:5,fontFamily:"inherit"}}>
             <SmartImage recipe={r} style={{width:36,height:36,borderRadius:7,flexShrink:0}}/>
             <div style={{textAlign:"left",flex:1,minWidth:0}}>
-              <div style={{color:"#e2d9c8",fontSize:12,fontWeight:600,lineHeight:1.3}}>{r.title}</div>
-              <div style={{color:"#6a7a90",fontSize:11}}>{r.nutrition.calories}kcal · {r.totalTime||(r.prepTime||0)+(r.cookTime||0)}min</div>
+              <div style={{color:"var(--text)",fontSize:12,fontWeight:600,lineHeight:1.3}}>{r.title}</div>
+              <div style={{color:"var(--text-muted)",fontSize:11}}>{r.nutrition.calories}kcal · {r.totalTime||(r.prepTime||0)+(r.cookTime||0)}min</div>
             </div>
             {sel[key2]&&sel[key2].id===r.id&&<span style={{color:"#5aad8e"}}>✓</span>}
           </button>
@@ -2311,15 +2311,15 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
 
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('mix.title',language)}</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:18}}>{t('mix.subtitle',language)}</p>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:4}}>{t('mix.title',language)}</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:18}}>{t('mix.subtitle',language)}</p>
 
-      <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"14px 18px",marginBottom:18,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{background:"var(--nm-input-bg)",border:"1px solid var(--border)",borderRadius:14,padding:"14px 18px",marginBottom:18,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
         {[[t('mix.portionsPerPerson',language),portions,setPortions,1,10],[t('mix.mealsPerDay',language),mealsPerDay,setMealsPerDay,1,6]].map(([lbl,val,fn,mn,mx])=>(
           <div key={lbl} style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{color:"#c8d0dc",fontSize:13,whiteSpace:"nowrap"}}>{lbl}</span>
+            <span style={{color:"var(--text-sub)",fontSize:13,whiteSpace:"nowrap"}}>{lbl}</span>
             <button onClick={()=>fn(v=>Math.max(mn,v-1))} style={{...GB,padding:"3px 11px"}}>−</button>
-            <span style={{color:"#fff",fontWeight:700,fontSize:20,minWidth:24,textAlign:"center"}}>{val}</span>
+            <span style={{color:"var(--text)",fontWeight:700,fontSize:20,minWidth:24,textAlign:"center"}}>{val}</span>
             <button onClick={()=>fn(v=>Math.min(mx,v+1))} style={{...GB,padding:"3px 11px"}}>+</button>
           </div>
         ))}
@@ -2338,11 +2338,11 @@ function MixMatch({recipes, onAddToMealPlan, onSaveAsRecipe, language='en'}) {
             {combined.map(r=><span key={r.id} style={{background:"rgba(58,125,94,0.2)",color:"#5aad8e",border:"1px solid rgba(58,125,94,0.38)",borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:600}}>{r.title}</span>)}
           </div>
           <div style={{marginBottom:10}}>
-            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.perServing',language,{n:String(portions)})}</div>
+            <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.perServing',language,{n:String(portions)})}</div>
             <NutriBadge n={totN}/>
           </div>
           {mealsPerDay>1 && <div style={{marginBottom:12}}>
-            <div style={{color:"#8a9bb0",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.dailyTotal',language,{n:String(mealsPerDay)})}</div>
+            <div style={{color:"var(--text-sub)",fontSize:11,fontWeight:700,marginBottom:5}}>{t('mix.dailyTotal',language,{n:String(mealsPerDay)})}</div>
             <NutriBadge n={dailyN}/>
           </div>}
           {totTime>0 && <div style={{color:"#5a8fd4",fontSize:12,marginBottom:14}}>⏱ ~{totTime}min cook time</div>}
@@ -2385,24 +2385,24 @@ function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
 
   return (
     <div>
-      <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('opt.title',language)}</h2>
-      <p style={{color:"#8a9bb0",fontSize:13,marginBottom:20}}>{t('opt.subtitle',language)}</p>
+      <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",marginBottom:6}}>{t('opt.title',language)}</h2>
+      <p style={{color:"var(--text-sub)",fontSize:13,marginBottom:20}}>{t('opt.subtitle',language)}</p>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10,marginBottom:20}}>
         {recipes.map(r=>(
           <button key={r.id} onClick={()=>toggle(r.id)}
-            style={{background:selected.includes(r.id)?"rgba(58,125,94,0.2)":"rgba(255,255,255,0.03)",border:"1px solid "+(selected.includes(r.id)?"#3a7d5e":"rgba(255,255,255,0.08)"),borderRadius:12,padding:"10px 14px",cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10}}>
+            style={{background:selected.includes(r.id)?"rgba(58,125,94,0.2)":"var(--nm-input-bg)",border:"1px solid "+(selected.includes(r.id)?"#3a7d5e":"var(--border)"),borderRadius:12,padding:"10px 14px",cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:18}}>{selected.includes(r.id)?"✅":"⬜"}</span>
             <div>
-              <div style={{color:"#e2d9c8",fontWeight:600,fontSize:13}}>{r.title}</div>
-              <div style={{color:"#6a7a90",fontSize:11,marginTop:2}}>{r.totalTime||((r.prepTime||0)+(r.cookTime||0))}min</div>
+              <div style={{color:"var(--text)",fontWeight:600,fontSize:13}}>{r.title}</div>
+              <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{r.totalTime||((r.prepTime||0)+(r.cookTime||0))}min</div>
             </div>
           </button>
         ))}
       </div>
 
       <button onClick={optimize} disabled={selected.length<2||loading}
-        style={{background:selected.length>=2&&!loading?"linear-gradient(135deg,#5a8fd4,#3a5fa0)":"rgba(255,255,255,0.05)",border:"none",borderRadius:12,color:selected.length>=2&&!loading?"#fff":"#5a6a7a",padding:"12px 24px",fontWeight:700,fontSize:14,cursor:selected.length>=2&&!loading?"pointer":"not-allowed",fontFamily:"inherit",marginBottom:20}}>
+        style={{background:selected.length>=2&&!loading?"linear-gradient(135deg,#5a8fd4,#3a5fa0)":"var(--nm-input-bg)",border:"none",borderRadius:12,color:selected.length>=2&&!loading?"#fff":"var(--text-muted)",padding:"12px 24px",fontWeight:700,fontSize:14,cursor:selected.length>=2&&!loading?"pointer":"not-allowed",fontFamily:"inherit",marginBottom:20}}>
         {loading?t('opt.optimizing',language):t('opt.optimizeBtn',language)}
       </button>
 
@@ -2413,7 +2413,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
             const isParallel = line.includes("[PARALLEL]");
             return (
               <div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
-                <div style={{color:"#e2d9c8",fontSize:13,lineHeight:1.5,flex:1,background:isParallel?"rgba(90,143,212,0.12)":"transparent",borderRadius:isParallel?7:0,padding:isParallel?"4px 8px":"0",border:isParallel?"1px solid rgba(90,143,212,0.3)":"none"}}>
+                <div style={{color:"var(--text)",fontSize:13,lineHeight:1.5,flex:1,background:isParallel?"rgba(90,143,212,0.12)":"transparent",borderRadius:isParallel?7:0,padding:isParallel?"4px 8px":"0",border:isParallel?"1px solid rgba(90,143,212,0.3)":"none"}}>
                   {line}
                 </div>
               </div>
@@ -2427,7 +2427,7 @@ function MealPrepOptimizer({recipes, onAddToMealPlan, language='en'}) {
         {PREP_TIPS.map((tip,i)=>(
           <div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
             <span style={{color:"#5aad8e",flexShrink:0}}>•</span>
-            <div style={{color:"#c8d0dc",fontSize:13,lineHeight:1.5}}>{tip}</div>
+            <div style={{color:"var(--text-sub)",fontSize:13,lineHeight:1.5}}>{tip}</div>
           </div>
         ))}
       </div>
@@ -2730,8 +2730,8 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div>
-          <h2 style={{color:"#fff",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>{t('nav.mealPlan',language)}</h2>
-          <p style={{color:"#8a9bb0",fontSize:13,margin:0}}>{mealPlanItems.length} {t('planner.subtitle',language).replace('{count}',mealPlanItems.length).split(' ').slice(1).join(' ')}</p>
+          <h2 style={{color:"var(--text)",fontFamily:"'Playfair Display',serif",margin:"0 0 4px"}}>{t('nav.mealPlan',language)}</h2>
+          <p style={{color:"var(--text-sub)",fontSize:13,margin:0}}>{mealPlanItems.length} {t('planner.subtitle',language).replace('{count}',mealPlanItems.length).split(' ').slice(1).join(' ')}</p>
         </div>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>setTab("plan")} style={{...GB,background:tab==="plan"?"rgba(58,125,94,0.22)":"var(--bg-card)",color:tab==="plan"?"var(--accent)":"var(--text-sub)",borderRadius:20,padding:"7px 18px",fontSize:13}}>📅 {t('planner.weeklyPlan',language)}</button>
@@ -2741,54 +2741,54 @@ function MealPlanManager({recipes, mealPlanItems, setMealPlanItems, onGoShopping
 
       {tab==="plan" && (
         <div>
-          <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:16,marginBottom:18}}>
-            <div style={{color:"#c8d0dc",fontWeight:600,fontSize:14,marginBottom:12}}>➕ Add recipe to plan</div>
+          <div style={{background:"var(--nm-input-bg)",border:"1px solid var(--border)",borderRadius:14,padding:16,marginBottom:18}}>
+            <div style={{color:"var(--text-sub)",fontWeight:600,fontSize:14,marginBottom:12}}>➕ Add recipe to plan</div>
             <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
               <div style={{flex:2,minWidth:160}}>
-                <div style={{color:"#8a9bb0",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Recipe</div>
+                <div style={{color:"var(--text-sub)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Recipe</div>
                 <select value={(addRec&&addRec.id)||""} onChange={e=>{const r=recipes.find(x=>x.id===+e.target.value);setAddRec(r||null);}} style={IS}>
                   <option value="">— Select —</option>
                   {recipes.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
                 </select>
               </div>
               <div>
-                <div style={{color:"#8a9bb0",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Portions</div>
+                <div style={{color:"var(--text-sub)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>Portions</div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <button onClick={()=>setAddPortions(v=>Math.max(1,v-1))} style={{...GB,padding:"5px 10px"}}>−</button>
-                  <span style={{color:"#fff",fontWeight:700,minWidth:20,textAlign:"center"}}>{addPortions}</span>
+                  <span style={{color:"var(--text)",fontWeight:700,minWidth:20,textAlign:"center"}}>{addPortions}</span>
                   <button onClick={()=>setAddPortions(v=>v+1)} style={{...GB,padding:"5px 10px"}}>+</button>
                 </div>
               </div>
               <div style={{flex:1,minWidth:130}}>
-                <div style={{color:"#8a9bb0",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('planner.day',language)}</div>
+                <div style={{color:"var(--text-sub)",fontSize:10,fontWeight:700,marginBottom:4,textTransform:"uppercase"}}>{t('planner.day',language)}</div>
                 <select value={addDay} onChange={e=>setAddDay(e.target.value)} style={IS}>
                   {DAYS.map(d=><option key={d} value={d}>{t('day.'+d.toLowerCase(),language)}</option>)}
                 </select>
               </div>
-              <button onClick={addItem} disabled={!addRec} style={{background:addRec?"linear-gradient(135deg,#3a7d5e,#5aad8e)":"rgba(255,255,255,0.05)",border:"none",borderRadius:10,color:addRec?"#fff":"#5a6a7a",padding:"11px 18px",fontWeight:700,fontSize:13,cursor:addRec?"pointer":"not-allowed",fontFamily:"inherit"}}>{t('planner.add2',language)}</button>
+              <button onClick={addItem} disabled={!addRec} style={{background:addRec?"linear-gradient(135deg,#3a7d5e,#5aad8e)":"var(--nm-input-bg)",border:"none",borderRadius:10,color:addRec?"#fff":"var(--text-muted)",padding:"11px 18px",fontWeight:700,fontSize:13,cursor:addRec?"pointer":"not-allowed",fontFamily:"inherit"}}>{t('planner.add2',language)}</button>
             </div>
           </div>
 
           {mealPlanItems.length===0
-            ? <div style={{textAlign:"center",padding:"48px 0",color:"#5a6a7a"}}><div style={{fontSize:42,marginBottom:10}}>📅</div><div style={{fontSize:15,color:"#8a9bb0"}}>{t('planner.noMeals',language)}</div></div>
+            ? <div style={{textAlign:"center",padding:"48px 0",color:"var(--text-muted)"}}><div style={{fontSize:42,marginBottom:10}}>📅</div><div style={{fontSize:15,color:"var(--text-sub)"}}>{t('planner.noMeals',language)}</div></div>
             : <div style={{display:"grid",gap:10}}>
                 {DAYS.map(day=>{
                   const items = mealPlanItems.filter(i=>i.day===day);
                   if (!items.length) return null;
                   const dayKcal = items.reduce((a,i)=>a+((i.nutrition&&i.nutrition.calories)||0),0);
                   return (
-                    <div key={day} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,overflow:"hidden"}}>
-                      <div style={{padding:"10px 16px",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span style={{color:"#c8d0dc",fontWeight:700,fontSize:14}}>{t('day.'+day.toLowerCase(),language)}</span>
-                        {dayKcal>0 && <span style={{color:"#6a7a90",fontSize:12}}>{dayKcal} kcal</span>}
+                    <div key={day} style={{background:"var(--nm-input-bg)",border:"1px solid var(--border)",borderRadius:14,overflow:"hidden"}}>
+                      <div style={{padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span style={{color:"var(--text)",fontWeight:700,fontSize:14}}>{t('day.'+day.toLowerCase(),language)}</span>
+                        {dayKcal>0 && <span style={{color:"var(--text-muted)",fontSize:12}}>{dayKcal} kcal</span>}
                       </div>
                       <div style={{padding:"10px 12px",display:"grid",gap:8}}>
                         {items.map(item=>(
-                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",borderRadius:10,overflow:"hidden",border:"1px solid rgba(255,255,255,0.06)"}}>
+                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:10,background:"var(--bg-card)",borderRadius:10,overflow:"hidden",border:"1px solid var(--border)"}}>
                             {item.recipe?.image && <img src={item.recipe.image} alt={item.name} style={{width:56,height:56,objectFit:"cover",flexShrink:0}}/>}
                             <div style={{flex:1,minWidth:0,padding:item.recipe?.image?"6px 0":"8px 12px"}}>
-                              <div style={{color:"#e2d9c8",fontWeight:600,fontSize:13}}>{(item.recipe?.id && translatedRecipes[item.recipe.id]?.title) || item.name}</div>
-                              <div style={{color:"#6a7a90",fontSize:11,marginTop:2}}>{item.portions} portion{item.portions!==1?"s":""}{item.nutrition&&item.nutrition.calories?" · "+item.nutrition.calories+"kcal":""}</div>
+                              <div style={{color:"var(--text)",fontWeight:600,fontSize:13}}>{(item.recipe?.id && translatedRecipes[item.recipe.id]?.title) || item.name}</div>
+                              <div style={{color:"var(--text-muted)",fontSize:11,marginTop:2}}>{item.portions} portion{item.portions!==1?"s":""}{item.nutrition&&item.nutrition.calories?" · "+item.nutrition.calories+"kcal":""}</div>
                             </div>
                             <button onClick={()=>setMealPlanItems(p=>p.filter(i=>i.id!==item.id))} style={{background:"rgba(200,60,60,0.12)",border:"1px solid rgba(200,60,60,0.2)",color:"#f88",borderRadius:7,cursor:"pointer",padding:"4px 9px",fontSize:12,marginRight:8}}>✕</button>
                           </div>
