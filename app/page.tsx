@@ -1505,7 +1505,7 @@ function RecipeDetail({recipe:init, onClose, onFavorite, isFavorite, onRate, rat
           </div>
         </div>
       </div>
-      {cookMode && <CookMode recipe={recipe} onClose={()=>setCookMode(false)} language={language}/>}
+      {cookMode && <CookMode recipe={recipe} onClose={()=>setCookMode(false)} onMarkCooked={onMarkCooked} language={language}/>}
     </div>
   );
 }
@@ -3318,7 +3318,7 @@ function playAlarmSound(type) {
   } catch(e) { console.warn("Audio playback failed", e); }
 }
 
-function CookMode({recipe, onClose, language='en'}) {
+function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
   const [phase, setPhase] = useState("prep"); // "prep" | "cook"
   const [step, setStep] = useState(0);
   const [prepGuide, setPrepGuide] = useState(()=>buildStaticPrepGuide(recipe));
@@ -3326,6 +3326,8 @@ function CookMode({recipe, onClose, language='en'}) {
   const [checked, setChecked] = useState({});
   const [stepTimers, setStepTimers] = useState({}); // { stepIdx: {remaining:secs, running:bool} }
   const prevTimersRef = useRef({});
+  const sidebarRef = useRef(null);
+  const stepRowRefs = useRef({});
   const [afMode, setAfMode] = useState(false); // air fryer conversion mode
   const [alarmSound, setAlarmSound] = useState(()=>{ try{return localStorage.getItem("cookAlarm")||"bell";}catch(e){return "bell";} });
   const alarmSoundRef = useRef(alarmSound);
@@ -3436,6 +3438,12 @@ function CookMode({recipe, onClose, language='en'}) {
 
   // Cancel speech on unmount
   useEffect(()=>()=>{ try{window.speechSynthesis?.cancel();}catch(e){} },[]);
+
+  // Auto-scroll sidebar to keep active step visible
+  useEffect(()=>{
+    const row = stepRowRefs.current[step];
+    if (row && sidebarRef.current) row.scrollIntoView({block:'nearest',behavior:'smooth'});
+  },[step]);
 
   const fmtTime = s => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
@@ -3653,14 +3661,14 @@ function CookMode({recipe, onClose, language='en'}) {
       <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
 
         {/* LEFT – Steps sidebar */}
-        <div style={{width:190,flexShrink:0,borderRight:'1px solid var(--border)',overflowY:'auto',background:'var(--bg-sidebar)'}}>
+        <div ref={sidebarRef} style={{width:190,flexShrink:0,borderRight:'1px solid var(--border)',overflowY:'auto',background:'var(--bg-sidebar)'}}>
           {steps.map((s,i)=>{
             const done   = i < step;
             const active = i === step;
             const bgTimer = stepTimers[i];
             const bgRunning = bgTimer?.running && bgTimer.remaining > 0;
             return (
-              <div key={i} onClick={()=>setStep(i)}
+              <div key={i} ref={el=>{ stepRowRefs.current[i]=el; }} onClick={()=>setStep(i)}
                 style={{display:'flex',alignItems:'flex-start',gap:9,padding:'10px 10px',
                   background: active?'rgba(58,125,94,0.13)':'transparent',
                   borderLeft: active?'3px solid var(--accent)':'3px solid transparent',
@@ -3894,7 +3902,7 @@ function CookMode({recipe, onClose, language='en'}) {
               style={{flex:2,background:'linear-gradient(135deg,var(--accent2),var(--accent))',border:'none',borderRadius:12,color:'#fff',padding:'12px',fontWeight:800,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
               {t('cook.nextStep',language)} →
             </button>
-          : <button onClick={onClose}
+          : <button onClick={()=>{ onMarkCooked?.(recipe); onClose(); }}
               style={{flex:2,background:'linear-gradient(135deg,#2d7a40,#6dbe6a)',border:'none',borderRadius:12,color:'#fff',padding:'12px',fontWeight:800,fontSize:15,cursor:'pointer',fontFamily:'inherit'}}>
               🎉 {t('cook.finished',language)}
             </button>
