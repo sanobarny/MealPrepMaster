@@ -3368,6 +3368,53 @@ function RatingModal({recipe, existing, onSave, onClose, language='en'}) {
   );
 }
 
+// ─── COOK MODE HELPERS ───────────────────────────────────────────────────────
+// Parse a temperature value from step text → {c, f, label}
+const parseStepTemp = (text) => {
+  const t = text || '';
+  const mC = t.match(/(\d{2,3})\s*°?\s*C\b/i);
+  const mF = t.match(/(\d{2,3})\s*°?\s*F\b/i);
+  if (mC) {
+    const c = parseInt(mC[1]);
+    const f = Math.round(c * 9/5 + 32);
+    const label = c >= 230 ? 'High Heat' : c >= 190 ? 'Medium High' : c >= 160 ? 'Medium' : 'Low / Simmer';
+    return { c, f, label };
+  }
+  if (mF) {
+    const f = parseInt(mF[1]);
+    const c = Math.round((f - 32) * 5/9);
+    const label = f >= 450 ? 'High Heat' : f >= 375 ? 'Medium High' : f >= 325 ? 'Medium' : 'Low / Simmer';
+    return { c, f, label };
+  }
+  return null;
+};
+
+// Detect primary appliance from step text
+const detectStepAppliance = (text) => {
+  const t = (text || '').toLowerCase();
+  if (/air\s?fry|air fryer/.test(t)) return 'airfryer';
+  if (/\boven\b|bake|roast/.test(t)) return 'oven';
+  if (/rice cooker/.test(t)) return 'ricecooker';
+  if (/instant pot|pressure cook/.test(t)) return 'instantpot';
+  if (/\bblend|blender|puree|smoothie/.test(t)) return 'blender';
+  if (/\bmicrowave\b/.test(t)) return 'microwave';
+  if (/\bstove|skillet|pan|sauté|saute|sear|fry|simmer|boil/.test(t)) return 'stove';
+  return null;
+};
+
+// Detect cutting / prep techniques from step text
+const detectTechniques = (text) => {
+  const t = (text || '').toLowerCase();
+  const out = [];
+  if (/\bdice\b/.test(t)) out.push('Dice');
+  if (/\bslice\b/.test(t)) out.push('Slice');
+  if (/\bjulienne\b/.test(t)) out.push('Julienne');
+  if (/\bchop\b/.test(t)) out.push('Chop');
+  if (/\bmince\b/.test(t)) out.push('Mince');
+  if (/\bgrate\b|\bshred\b/.test(t)) out.push('Grate');
+  return out;
+};
+
 // ─── COOK MODE ───────────────────────────────────────────────────────────────
 // Build a static prep guide from recipe data (no AI needed)
 function buildStaticPrepGuide(recipe) {
@@ -3501,6 +3548,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
   const [eatAt, setEatAt] = useState("");
   const [showEatAt, setShowEatAt] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
+  const [cookCardMode, setCookCardMode] = useState({});
   const steps = recipe.steps||[];
   const current = steps[step]||{};
   const afStep = afMode ? convertStepForAirFryer(current.text||"", current.timeMin) : null;
@@ -3611,6 +3659,9 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
     const row = stepRowRefs.current[step];
     if (row && sidebarRef.current) row.scrollIntoView({block:'nearest',behavior:'smooth'});
   },[step]);
+
+  // Reset appliance card mode selections when step changes
+  useEffect(()=>{ setCookCardMode({}); },[step]);
 
   const fmtTime = s => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
@@ -3759,6 +3810,12 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
   const cmTimer   = stepTimers[step] || {remaining: (cmTimeMin||0)*60, running: false};
   const cmRunning = cmTimer.running;
   const cmDone    = cmTimer.remaining === 0 && !!cmTimeMin;
+
+  // Appliance context for current step
+  const stepText = afMode && afStep ? afStep.text : current.text || '';
+  const stepAppliance = detectStepAppliance(stepText);
+  const stepTemp = parseStepTemp(stepText);
+  const stepTechniques = detectTechniques(stepText);
 
   return (
     <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:2000,display:'flex',flexDirection:'column',overflow:'hidden'}}>
@@ -3921,21 +3978,227 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
             )}
           </div>
 
-          {/* ── HEAT LEVEL CARD ── */}
-          {heatHint && (
-            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised-sm)',borderRadius:16,padding:'13px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:13}}>
-              <div style={{width:42,height:42,borderRadius:12,background:heatHint.color+'22',border:'1.5px solid '+heatHint.color+'55',
-                display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>🌡️</div>
-              <div style={{flex:1}}>
-                <div style={{color:heatHint.color,fontWeight:700,fontSize:14}}>{heatHint.label}</div>
-                <div style={{color:'var(--text-muted)',fontSize:11,marginTop:1}}>Ideal: {heatHint.range}</div>
+          {/* ── APPLIANCE CONTEXT CARDS ── */}
+
+          {/* STOVE CARD */}
+          {(stepAppliance==='stove'||(!stepAppliance&&heatHint)) && (
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                <div style={{fontSize:36,lineHeight:1}}>🔥</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Stove &amp; Flame</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Let's Cook</div>
+                </div>
               </div>
-              {/* Heat bar indicators */}
-              <div style={{display:'flex',gap:3,alignItems:'flex-end'}}>
-                {[1,2,3,4].map(lvl=>(
-                  <div key={lvl} style={{width:6,height:6+lvl*4,borderRadius:3,transition:'background .3s',
-                    background: lvl<=heatHint.bars ? heatHint.color : 'var(--border)'}}/>
-                ))}
+              <div style={{display:'flex',gap:8}}>
+                {[{key:'low',label:'Low',emoji:'🔵',color:'#5a8fd4',bars:1},{key:'med',label:'Medium',emoji:'🟡',color:'#ffd580',bars:2},{key:'medhigh',label:'Med High',emoji:'🟠',color:'#f5a623',bars:3},{key:'high',label:'High',emoji:'🔴',color:'#e05050',bars:4}].map(lv=>{
+                  const activeBars=cookCardMode.stove!=null?cookCardMode.stove:(heatHint?heatHint.bars:2);
+                  const isActive=lv.bars===activeBars;
+                  return (<button key={lv.key} onClick={()=>setCookCardMode(m=>({...m,stove:lv.bars}))}
+                    style={{flex:1,border:isActive?'1.5px solid '+lv.color+'88':'1.5px solid transparent',borderRadius:14,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',transition:'all .2s',
+                      background:isActive?lv.color+'33':'var(--nm-input-bg)',
+                      boxShadow:isActive?'0 0 12px '+lv.color+'44':'none'}}>
+                    <div style={{fontSize:18,marginBottom:3}}>{lv.emoji}</div>
+                    <div style={{fontSize:10,fontWeight:700,color:isActive?lv.color:'var(--text-muted)',letterSpacing:.3}}>{lv.label}</div>
+                  </button>);
+                })}
+              </div>
+              <div style={{display:'flex',gap:5,alignItems:'flex-end',justifyContent:'center',marginTop:12,height:34}}>
+                {[3,5,7,9,7,5,3].map((h,i)=>{
+                  const ab=cookCardMode.stove!=null?cookCardMode.stove:(heatHint?heatHint.bars:2);
+                  const lit=(i+1)/7<=ab/4+0.15;
+                  const fc=ab>=4?'#e05050':ab===3?'#f5a623':ab===2?'#ffd580':'#5a8fd4';
+                  return <div key={i} style={{width:10,borderRadius:5,transition:'all .3s',height:h*3+'px',background:lit?fc:'var(--border)'}}/>;
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* OVEN TEMPERATURE CARD */}
+          {stepAppliance==='oven' && (
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+                <div style={{fontSize:32}}>🌡️</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Temperature Control</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Oven</div>
+                </div>
+              </div>
+              <div style={{display:'flex',justifyContent:'center',flexDirection:'column',alignItems:'center',gap:6}}>
+                <div style={{position:'relative',width:130,height:72}}>
+                  <svg width="130" height="72" viewBox="0 0 130 72" style={{overflow:'visible'}}>
+                    <path d="M 10 68 A 55 55 0 0 1 120 68" fill="none" stroke="var(--border)" strokeWidth="10" strokeLinecap="round"/>
+                    <path d="M 10 68 A 55 55 0 0 1 120 68" fill="none"
+                      stroke={stepTemp?(stepTemp.c>=220?'#e05050':stepTemp.c>=180?'#f5a623':stepTemp.c>=150?'#ffd580':'#5a8fd4'):'#ffd580'}
+                      strokeWidth="10" strokeLinecap="round"
+                      strokeDasharray={`${Math.min(172,(stepTemp?(stepTemp.c/280):0.5)*172)} 172`}
+                      style={{transition:'stroke-dasharray .5s'}}/>
+                  </svg>
+                  <div style={{position:'absolute',bottom:2,left:'50%',transform:'translateX(-50%)',textAlign:'center',lineHeight:1.1}}>
+                    <div style={{fontWeight:900,fontSize:22,fontFamily:'monospace',
+                      color:stepTemp?(stepTemp.c>=220?'#e05050':stepTemp.c>=180?'#f5a623':stepTemp.c>=150?'#ffd580':'#5a8fd4'):'#ffd580'}}>
+                      {stepTemp?stepTemp.c+'°C':'—'}
+                    </div>
+                    {stepTemp&&<div style={{color:'var(--text-muted)',fontSize:11}}>{stepTemp.f}°F</div>}
+                  </div>
+                </div>
+                <div style={{color:'var(--text-sub)',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:.8}}>
+                  {stepTemp?stepTemp.label:heatHint?heatHint.label:'Preheat'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CHOPPING BOARD CARD */}
+          {stepTechniques.length>0&&!stepAppliance&&!heatHint&&(
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                <div style={{fontSize:32}}>🔪</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Chopping Board</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Prep Technique</div>
+                </div>
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
+                {['Dice','Slice','Julienne','Chop','Mince','Grate'].map(tech=>{
+                  const active=stepTechniques.includes(tech);
+                  return (<div key={tech} style={{padding:'7px 14px',borderRadius:20,fontSize:12,fontWeight:700,
+                    background:active?'rgba(90,173,142,0.2)':'var(--nm-input-bg)',
+                    border:active?'1.5px solid rgba(90,173,142,0.6)':'1.5px solid transparent',
+                    color:active?'#5aad8e':'var(--text-muted)',
+                    boxShadow:active?'0 0 10px rgba(90,173,142,0.3)':'none'}}>{tech}</div>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* BLENDER CARD */}
+          {stepAppliance==='blender'&&(
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                <div style={{fontSize:32}}>🫙</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Blender</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Speed Setting</div>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:7}}>
+                {['Low','Medium','High','Pulse'].map(s=>{
+                  const isActive=(cookCardMode.blender||'Medium')===s;
+                  return (<button key={s} onClick={()=>setCookCardMode(m=>({...m,blender:s}))}
+                    style={{flex:1,border:isActive?'1.5px solid rgba(90,143,212,0.6)':'1.5px solid transparent',borderRadius:12,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:11,fontWeight:700,transition:'all .2s',
+                      background:isActive?'rgba(90,143,212,0.22)':'var(--nm-input-bg)',
+                      color:isActive?'#5a8fd4':'var(--text-muted)',
+                      boxShadow:isActive?'0 0 10px rgba(90,143,212,0.3)':'none'}}>{s}</button>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* MICROWAVE CARD */}
+          {stepAppliance==='microwave'&&(
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                <div style={{fontSize:32}}>📡</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Microwave</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Power Level</div>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                {['Low','Medium','High'].map(p=>{
+                  const isActive=(cookCardMode.microwave||'High')===p;
+                  const color=p==='High'?'#e05050':p==='Medium'?'#f5a623':'#5a8fd4';
+                  return (<button key={p} onClick={()=>setCookCardMode(m=>({...m,microwave:p}))}
+                    style={{flex:1,border:isActive?'1.5px solid '+color+'88':'1.5px solid transparent',borderRadius:14,padding:'12px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,transition:'all .2s',
+                      background:isActive?color+'22':'var(--nm-input-bg)',
+                      color:isActive?color:'var(--text-muted)',
+                      boxShadow:isActive?'0 0 12px '+color+'44':'none'}}>{p}</button>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* AIR FRYER CARD */}
+          {stepAppliance==='airfryer'&&!afMode&&(
+            <div style={{background:'rgba(255,160,50,0.08)',border:'1px solid rgba(255,160,50,0.3)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                <div style={{fontSize:32}}>🌬️</div>
+                <div>
+                  <div style={{color:'#f5a623',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Air Fryer</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Cook Mode</div>
+                </div>
+                <button onClick={()=>setAfMode(true)}
+                  style={{marginLeft:'auto',...GB,padding:'5px 10px',fontSize:11,color:'#f5a623',border:'1px solid rgba(255,160,50,0.4)',fontWeight:700}}>
+                  Switch to AF
+                </button>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                {['Bake','Broil','Convection'].map(m=>{
+                  const isActive=(cookCardMode.airfryer||'Convection')===m;
+                  return (<button key={m} onClick={()=>setCookCardMode(cm=>({...cm,airfryer:m}))}
+                    style={{flex:1,border:isActive?'1.5px solid rgba(255,160,50,0.6)':'1.5px solid transparent',borderRadius:14,padding:'12px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,transition:'all .2s',
+                      background:isActive?'rgba(255,160,50,0.22)':'var(--nm-input-bg)',
+                      color:isActive?'#f5a623':'var(--text-muted)',
+                      boxShadow:isActive?'0 0 12px rgba(255,160,50,0.4)':'none'}}>{m}</button>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* RICE COOKER CARD */}
+          {stepAppliance==='ricecooker'&&(
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                <div style={{fontSize:32}}>🍚</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Rice Cooker</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Cook Mode</div>
+                </div>
+              </div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                {['White Rice','Brown Rice','Porridge','Timer'].map(m=>{
+                  const isActive=(cookCardMode.ricecooker||'White Rice')===m;
+                  return (<button key={m} onClick={()=>setCookCardMode(cm=>({...cm,ricecooker:m}))}
+                    style={{borderRadius:20,padding:'8px 14px',cursor:'pointer',fontFamily:'inherit',fontSize:11,fontWeight:700,transition:'all .2s',
+                      border:isActive?'1.5px solid rgba(90,173,142,0.6)':'1.5px solid transparent',
+                      background:isActive?'rgba(90,173,142,0.2)':'var(--nm-input-bg)',
+                      color:isActive?'#5aad8e':'var(--text-muted)',
+                      boxShadow:isActive?'0 0 10px rgba(90,173,142,0.3)':'none'}}>{m}</button>);
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* INSTANT POT CARD */}
+          {stepAppliance==='instantpot'&&(
+            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
+                <div style={{fontSize:32}}>⚡</div>
+                <div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Instant Pot</div>
+                  <div style={{color:'var(--text-muted)',fontSize:11}}>Pressure Setting</div>
+                </div>
+              </div>
+              <div style={{display:'flex',gap:7,marginBottom:10}}>
+                {['Pressure Cook','Slow Cook','Sauté'].map(m=>{
+                  const isActive=(cookCardMode.instantpot_mode||'Pressure Cook')===m;
+                  return (<button key={m} onClick={()=>setCookCardMode(cm=>({...cm,instantpot_mode:m}))}
+                    style={{flex:1,border:isActive?'1.5px solid rgba(224,80,80,0.6)':'1.5px solid transparent',borderRadius:14,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:10,fontWeight:700,transition:'all .2s',
+                      background:isActive?'rgba(224,80,80,0.2)':'var(--nm-input-bg)',
+                      color:isActive?'#e05050':'var(--text-muted)',
+                      boxShadow:isActive?'0 0 10px rgba(224,80,80,0.3)':'none'}}>{m}</button>);
+                })}
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                {['Low','High'].map(lv=>{
+                  const isActive=(cookCardMode.instantpot_level||'High')===lv;
+                  return (<button key={lv} onClick={()=>setCookCardMode(cm=>({...cm,instantpot_level:lv}))}
+                    style={{flex:1,border:isActive?'1.5px solid rgba(245,166,35,0.6)':'1.5px solid transparent',borderRadius:14,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,transition:'all .2s',
+                      background:isActive?'rgba(245,166,35,0.2)':'var(--nm-input-bg)',
+                      color:isActive?'#f5a623':'var(--text-muted)',
+                      boxShadow:isActive?'0 0 10px rgba(245,166,35,0.3)':'none'}}>{lv==='High'?'🔴 High':'🔵 Low'}</button>);
+                })}
               </div>
             </div>
           )}
