@@ -3981,52 +3981,122 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {/* ── APPLIANCE CONTEXT CARDS ── */}
 
           {/* STOVE CARD */}
-          {(stepAppliance==='stove'||(!stepAppliance&&heatHint)) && (
-            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
-              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <svg width="36" height="40" viewBox="0 0 36 40" fill="none">
-                  <path d="M18 2C14 8 9 15 9 22C9 28.627 13.1 33 18 33C22.9 33 27 28.627 27 22C27 15 22 8 18 2Z" fill="url(#fg1)"/>
-                  <path d="M18 15C16 18 14 21 14 24C14 26.761 15.791 29 18 29C20.209 29 22 26.761 22 24C22 21 20 18 18 15Z" fill="url(#fg2)"/>
-                  <defs>
-                    <linearGradient id="fg1" x1="18" y1="2" x2="18" y2="33" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stopColor="#FFD580"/>
-                      <stop offset="55%" stopColor="#F5A623"/>
-                      <stop offset="100%" stopColor="#E05050"/>
-                    </linearGradient>
-                    <linearGradient id="fg2" x1="18" y1="15" x2="18" y2="29" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stopColor="#FFFDE7" stopOpacity="0.95"/>
-                      <stop offset="100%" stopColor="#FFD580" stopOpacity="0.5"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div>
-                  <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Stove &amp; Flame</div>
-                  <div style={{color:'var(--text-muted)',fontSize:11}}>Let's Cook</div>
+          {(stepAppliance==='stove'||(!stepAppliance&&heatHint)) && (() => {
+            const ab = cookCardMode.stove != null ? cookCardMode.stove : (heatHint ? heatHint.bars : 2);
+            const FLAMES = [
+              null,
+              {grad:'radial-gradient(circle at center,#ffb36b 0%,#ffb36b55 45%,transparent 70%)',scale:0.78,opacity:0.65,blur:8, glow:'0 0 18px #ffb36b55'},
+              {grad:'radial-gradient(circle at center,#ff7a3c 0%,#ff7a3c66 45%,transparent 70%)',scale:1.0, opacity:0.85,blur:10,glow:'0 0 28px #ff7a3c77'},
+              {grad:'radial-gradient(circle at center,#ff5500 0%,#ff7a3c 40%,transparent 70%)',  scale:1.1, opacity:0.92,blur:11,glow:'0 0 34px #ff550088'},
+              {grad:'radial-gradient(circle at center,#a8d8ff 0%,#4da6ff 35%,transparent 68%)',  scale:1.2, opacity:1,   blur:13,glow:'0 0 42px #4da6ffaa'},
+            ];
+            const f = FLAMES[ab] || FLAMES[1];
+            const isHigh = ab === 4;
+            return (
+              <>
+                <style>{`
+                  @keyframes burnerFlicker {
+                    0%,100% { transform:scale(1.2); filter:blur(13px) brightness(1); }
+                    33%     { transform:scale(1.28); filter:blur(15px) brightness(1.2); }
+                    66%     { transform:scale(1.17); filter:blur(12px) brightness(0.95); }
+                  }
+                `}</style>
+                <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
+                  {/* Header */}
+                  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+                    <svg width="36" height="40" viewBox="0 0 36 40" fill="none">
+                      <path d="M18 2C14 8 9 15 9 22C9 28.627 13.1 33 18 33C22.9 33 27 28.627 27 22C27 15 22 8 18 2Z" fill="url(#fg1n)"/>
+                      <path d="M18 15C16 18 14 21 14 24C14 26.761 15.791 29 18 29C20.209 29 22 26.761 22 24C22 21 20 18 18 15Z" fill="url(#fg2n)"/>
+                      <defs>
+                        <linearGradient id="fg1n" x1="18" y1="2" x2="18" y2="33" gradientUnits="userSpaceOnUse">
+                          <stop offset="0%" stopColor="#FFD580"/>
+                          <stop offset="55%" stopColor="#F5A623"/>
+                          <stop offset="100%" stopColor="#E05050"/>
+                        </linearGradient>
+                        <linearGradient id="fg2n" x1="18" y1="15" x2="18" y2="29" gradientUnits="userSpaceOnUse">
+                          <stop offset="0%" stopColor="#FFFDE7" stopOpacity="0.95"/>
+                          <stop offset="100%" stopColor="#FFD580" stopOpacity="0.5"/>
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div>
+                      <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Stove &amp; Flame</div>
+                      <div style={{color:'var(--text-muted)',fontSize:11}}>Let's Cook</div>
+                    </div>
+                  </div>
+
+                  {/* NEOMORPHIC BURNER RING */}
+                  <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
+                    <div style={{
+                      width:140,height:140,borderRadius:'50%',position:'relative',
+                      background:'var(--bg)',
+                      boxShadow: f.glow+', 8px 8px 18px rgba(0,0,0,0.18), -8px -8px 18px rgba(255,255,255,0.65)',
+                      transition:'box-shadow 0.5s ease'
+                    }}>
+                      {/* Flame glow layer */}
+                      <div style={{
+                        position:'absolute',inset:18,borderRadius:'50%',
+                        background:f.grad,
+                        opacity:f.opacity,
+                        filter:`blur(${f.blur}px)`,
+                        transform:`scale(${isHigh ? 1 : f.scale})`,
+                        animation:isHigh ? 'burnerFlicker 0.18s infinite' : 'none',
+                        transition:isHigh ? 'none' : 'all 0.45s ease'
+                      }}/>
+                      {/* Outer ring groove */}
+                      <div style={{
+                        position:'absolute',inset:8,borderRadius:'50%',
+                        boxShadow:'inset 4px 4px 10px rgba(0,0,0,0.22), inset -4px -4px 10px rgba(255,255,255,0.14)',
+                        background:'transparent'
+                      }}/>
+                      {/* Inner metal ring */}
+                      <div style={{
+                        position:'absolute',inset:'30%',borderRadius:'50%',
+                        boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.28), inset -3px -3px 7px rgba(255,255,255,0.12)',
+                        background:'transparent'
+                      }}/>
+                      {/* Center knob */}
+                      <div style={{
+                        position:'absolute',top:'50%',left:'50%',
+                        width:12,height:12,borderRadius:'50%',
+                        transform:'translate(-50%,-50%)',
+                        background:'var(--bg-sidebar)',
+                        boxShadow:'inset 1px 1px 3px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2)'
+                      }}/>
+                    </div>
+                  </div>
+
+                  {/* Heat level buttons */}
+                  <div style={{display:'flex',gap:7}}>
+                    {[
+                      {key:'low',    label:'Low',     color:'#5a8fd4',bars:1},
+                      {key:'med',    label:'Medium',  color:'#f5c842',bars:2},
+                      {key:'medhigh',label:'Med High',color:'#f5a623',bars:3},
+                      {key:'high',   label:'High',    color:'#4da6ff',bars:4},
+                    ].map(lv=>{
+                      const isActive=lv.bars===ab;
+                      return (
+                        <button key={lv.key} onClick={()=>setCookCardMode(m=>({...m,stove:lv.bars}))}
+                          style={{flex:1,border:'none',borderRadius:14,padding:'11px 4px',
+                            cursor:'pointer',fontFamily:'inherit',transition:'all .25s',
+                            background:isActive?lv.color+'2a':'var(--nm-input-bg)',
+                            boxShadow:isActive?'var(--nm-raised-sm)':'none'}}>
+                          <div style={{
+                            width:15,height:15,borderRadius:'50%',margin:'0 auto 5px',
+                            background:lv.bars===4?'radial-gradient(circle,#a8d8ff,#4da6ff)':lv.color,
+                            boxShadow:isActive?'0 2px 8px '+lv.color+'bb':'none',
+                            transition:'box-shadow .25s'
+                          }}/>
+                          <div style={{fontSize:10,fontWeight:700,letterSpacing:.3,
+                            color:isActive?lv.color:'var(--text-muted)'}}>{lv.label}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-              <div style={{display:'flex',gap:8}}>
-                {[{key:'low',label:'Low',color:'#5a8fd4',bars:1},{key:'med',label:'Medium',color:'#f5c842',bars:2},{key:'medhigh',label:'Med High',color:'#f5a623',bars:3},{key:'high',label:'High',color:'#e05050',bars:4}].map(lv=>{
-                  const activeBars=cookCardMode.stove!=null?cookCardMode.stove:(heatHint?heatHint.bars:2);
-                  const isActive=lv.bars===activeBars;
-                  return (<button key={lv.key} onClick={()=>setCookCardMode(m=>({...m,stove:lv.bars}))}
-                    style={{flex:1,border:'none',borderRadius:14,padding:'12px 6px',cursor:'pointer',fontFamily:'inherit',transition:'all .2s',
-                      background:isActive?lv.color+'28':'var(--nm-input-bg)'}}>
-                    <div style={{width:16,height:16,borderRadius:'50%',background:lv.color,margin:'0 auto 6px',
-                      boxShadow:isActive?'0 2px 8px '+lv.color+'99':'none',transition:'box-shadow .2s'}}/>
-                    <div style={{fontSize:10,fontWeight:700,color:isActive?lv.color:'var(--text-muted)',letterSpacing:.3}}>{lv.label}</div>
-                  </button>);
-                })}
-              </div>
-              <div style={{display:'flex',gap:5,alignItems:'flex-end',justifyContent:'center',marginTop:12,height:34}}>
-                {[3,5,7,9,7,5,3].map((h,i)=>{
-                  const ab=cookCardMode.stove!=null?cookCardMode.stove:(heatHint?heatHint.bars:2);
-                  const lit=(i+1)/7<=ab/4+0.15;
-                  const fc=ab>=4?'#e05050':ab===3?'#f5a623':ab===2?'#f5c842':'#5a8fd4';
-                  return <div key={i} style={{width:10,borderRadius:5,transition:'all .3s',height:h*3+'px',background:lit?fc:'var(--border)'}}/>;
-                })}
-              </div>
-            </div>
-          )}
+              </>
+            );
+          })()}
 
           {/* OVEN TEMPERATURE CARD */}
           {stepAppliance==='oven' && (
