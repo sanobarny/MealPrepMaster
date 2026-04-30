@@ -4078,31 +4078,50 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
 
                   {/* NEOMORPHIC BURNER RING */}
                   <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
-                    <div style={{
-                      width:isMobile?112:140,height:isMobile?112:140,borderRadius:'50%',position:'relative',
-                      background:'var(--bg)',
-                      boxShadow: f.glow+', 8px 8px 18px rgba(0,0,0,0.18), -8px -8px 18px rgba(255,255,255,0.65)',
-                      transition:'box-shadow 0.5s ease'
-                    }}>
-                      <div style={{
-                        position:'absolute',inset:18,borderRadius:'50%',
-                        background:f.grad,
-                        opacity:f.opacity,
-                        filter:`blur(${f.blur}px)`,
-                        transform:`scale(${isHigh ? 1 : f.scale})`,
-                        animation:isHigh ? 'burnerFlicker 0.18s infinite' : 'none',
-                        transition:isHigh ? 'none' : 'all 0.45s ease'
-                      }}/>
-                      <div style={{position:'absolute',inset:8,borderRadius:'50%',
-                        boxShadow:'inset 4px 4px 10px rgba(0,0,0,0.22), inset -4px -4px 10px rgba(255,255,255,0.14)',
-                        background:'transparent'}}/>
-                      <div style={{position:'absolute',inset:'30%',borderRadius:'50%',
-                        boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.28), inset -3px -3px 7px rgba(255,255,255,0.12)',
-                        background:'transparent'}}/>
-                      <div style={{position:'absolute',top:'50%',left:'50%',width:12,height:12,borderRadius:'50%',
-                        transform:'translate(-50%,-50%)',background:'var(--bg-sidebar)',
-                        boxShadow:'inset 1px 1px 3px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2)'}}/>
-                    </div>
+                    {(()=>{
+                      const sz = isMobile?112:140;
+                      const half = sz/2;
+                      const segH = isMobile?14:18;
+                      const segR = half - segH - 4;
+                      return (
+                        <div style={{
+                          width:sz,height:sz,borderRadius:'50%',position:'relative',
+                          background:'var(--bg)',
+                          boxShadow: f.glow+', 8px 8px 18px rgba(0,0,0,0.18), -8px -8px 18px rgba(255,255,255,0.65)',
+                          transition:'box-shadow 0.5s ease'
+                        }}>
+                          {Array.from({length:20}).map((_,i)=>(
+                            <div key={i} style={{
+                              position:'absolute',
+                              width:5,height:segH,
+                              top:0,left:'50%',marginLeft:-2.5,
+                              transformOrigin:`50% ${half}px`,
+                              transform:`rotate(${i*18}deg) translateY(-${segR}px)`,
+                              borderRadius:'50%',
+                              background:fc,
+                              opacity:f.opacity * (0.55 + 0.45*Math.abs(Math.sin(i*0.8+ab))),
+                              transition:'opacity .4s, background .4s',
+                              animation:isHigh?`burnerFlicker ${0.15+i*0.01}s ${i*0.008}s infinite`:'none'
+                            }}/>
+                          ))}
+                          <div style={{
+                            position:'absolute',inset:sz*0.22,borderRadius:'50%',
+                            background:`radial-gradient(circle,${fc}44 0%,transparent 70%)`,
+                            filter:'blur(6px)',
+                            transition:'background .4s'
+                          }}/>
+                          <div style={{position:'absolute',inset:8,borderRadius:'50%',
+                            boxShadow:'inset 4px 4px 10px rgba(0,0,0,0.22), inset -4px -4px 10px rgba(255,255,255,0.14)',
+                            background:'transparent'}}/>
+                          <div style={{position:'absolute',inset:'30%',borderRadius:'50%',
+                            boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.28), inset -3px -3px 7px rgba(255,255,255,0.12)',
+                            background:'transparent'}}/>
+                          <div style={{position:'absolute',top:'50%',left:'50%',width:12,height:12,borderRadius:'50%',
+                            transform:'translate(-50%,-50%)',background:'var(--bg-sidebar)',
+                            boxShadow:'inset 1px 1px 3px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2)'}}/>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Read-only heat level track */}
@@ -4143,53 +4162,30 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                 </div>
               </div>
               {(()=>{
+                const CIRC = 283;
                 const tc = cookCardMode.tempC != null ? cookCardMode.tempC : (stepTemp ? stepTemp.c : 180);
                 const tf = Math.round(tc*9/5+32);
                 const tlabel = tc>=230?'High Heat':tc>=190?'Medium High':tc>=160?'Medium':'Low / Simmer';
                 const tcolor = tc>=230?'#e05050':tc>=190?'#f5a623':tc>=160?'#ffd580':'#5a8fd4';
-                const angle = -135 + ((tc-100)/(280-100))*270;
+                const arcFill = ((tc-100)/180)*CIRC;
+                const offset = CIRC - arcFill;
                 return (
                   <div style={{textAlign:'center'}}>
-                    {/* Rotating knob */}
-                    <div style={{width:110,height:110,borderRadius:'50%',margin:'0 auto 14px',position:'relative',
-                      background:'var(--bg)',
-                      boxShadow:`0 0 20px ${tcolor}55, 8px 8px 18px rgba(0,0,0,0.18), -8px -8px 18px rgba(255,255,255,0.65)`,
-                      transition:'box-shadow .4s'}}>
-                      {/* Tick marks */}
-                      {Array.from({length:9}).map((_,i)=>{
-                        const a = -135 + i*270/8;
-                        const r = 46;
-                        const x = 55 + r*Math.cos(a*Math.PI/180);
-                        const y = 55 + r*Math.sin(a*Math.PI/180);
-                        return <div key={i} style={{position:'absolute',width:3,height:i===0||i===8?8:5,
-                          background:i<=Math.round((tc-100)/(280-100)*8)?tcolor:'var(--border)',
-                          borderRadius:2,left:x,top:y,transform:`translate(-50%,-50%) rotate(${a+90}deg)`,
-                          transition:'background .3s'}}/>;
-                      })}
-                      {/* Needle */}
-                      <div style={{
-                        position:'absolute',top:14,left:'50%',
-                        width:4,height:36,
-                        background:`linear-gradient(to bottom,${tcolor},${tcolor}88)`,
-                        borderRadius:'2px 2px 0 0',
-                        transformOrigin:'bottom center',
-                        transform:`translateX(-50%) rotate(${angle}deg)`,
-                        transition:'transform .35s ease,background .4s',
-                        boxShadow:`0 0 8px ${tcolor}88`
-                      }}/>
-                      {/* Center cap */}
-                      <div style={{position:'absolute',top:'50%',left:'50%',width:22,height:22,borderRadius:'50%',
-                        transform:'translate(-50%,-50%)',
-                        background:'var(--bg-sidebar)',
-                        boxShadow:'inset 2px 2px 5px rgba(0,0,0,0.3),inset -2px -2px 5px rgba(255,255,255,0.1)'}}>
-                        <div style={{position:'absolute',top:'50%',left:'50%',width:6,height:6,borderRadius:'50%',
-                          transform:'translate(-50%,-50%)',background:tcolor,
-                          boxShadow:`0 0 6px ${tcolor}99`}}/>
+                    {/* SVG arc dial */}
+                    <div style={{position:'relative',width:120,height:120,margin:'0 auto 12px'}}>
+                      <svg width="120" height="120" style={{transform:'rotate(-90deg)'}}>
+                        <circle cx="60" cy="60" r="45" strokeWidth="9" fill="none" stroke="var(--border)"/>
+                        <circle cx="60" cy="60" r="45" strokeWidth="9" fill="none"
+                          stroke={tcolor} strokeLinecap="round"
+                          strokeDasharray={CIRC} strokeDashoffset={offset}
+                          style={{transition:'stroke-dashoffset .4s ease,stroke .4s'}}/>
+                      </svg>
+                      <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',textAlign:'center',lineHeight:1.2}}>
+                        <div style={{color:tcolor,fontWeight:900,fontSize:20,fontFamily:'monospace',transition:'color .4s'}}>{tc}°C</div>
+                        <div style={{color:'var(--text-muted)',fontSize:10}}>{tf}°F</div>
                       </div>
                     </div>
-                    {/* Temp display */}
-                    <div style={{color:tcolor,fontWeight:800,fontSize:26,fontFamily:'monospace',lineHeight:1,marginBottom:2,transition:'color .4s'}}>{tc}°C</div>
-                    <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:12}}>{tf}°F · <span style={{fontWeight:700,color:tcolor}}>{tlabel}</span></div>
+                    <div style={{color:tcolor,fontWeight:700,fontSize:11,marginBottom:12,textTransform:'uppercase',letterSpacing:.8,transition:'color .4s'}}>{tlabel}</div>
                     {/* Slider */}
                     <input type="range" min="100" max="280" step="5" value={tc}
                       className="nm-range nm-range-orange"
@@ -4291,17 +4287,26 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Power Level</div>
                 </div>
               </div>
-              <div style={{display:'flex',gap:10}}>
-                {['Low','Medium','High'].map(p=>{
-                  const isActive=(cookCardMode.microwave||'High')===p;
-                  const color=p==='High'?'#e05050':p==='Medium'?'#f5a623':'#5a8fd4';
-                  return (<button key={p} onClick={()=>setCookCardMode(m=>({...m,microwave:p}))}
-                    style={{flex:1,border:isActive?'1.5px solid '+color+'88':'1.5px solid transparent',borderRadius:14,padding:'12px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,transition:'all .2s',
-                      background:isActive?color+'22':'var(--nm-input-bg)',
-                      color:isActive?color:'var(--text-muted)',
-                      boxShadow:isActive?'0 0 12px '+color+'44':'none'}}>{p}</button>);
-                })}
-              </div>
+              {(()=>{
+                const pw = cookCardMode.microPower!=null?cookCardMode.microPower:60;
+                const pwColor = pw>=80?'#e05050':pw>=50?'#f5a623':'#5a8fd4';
+                return (
+                  <div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:8}}>
+                      <span style={{color:'var(--text)',fontWeight:700,fontSize:14}}>Power: {pw}%</span>
+                      <span style={{color:pwColor,fontWeight:700,fontSize:11}}>{pw>=80?'High':pw>=50?'Medium':'Low'}</span>
+                    </div>
+                    <input type="range" min="0" max="100" step="10" value={pw}
+                      className="nm-range"
+                      onChange={e=>setCookCardMode(m=>({...m,microPower:parseInt(e.target.value)}))}
+                      style={{background:`linear-gradient(to right,${pwColor} 0%,${pwColor} ${pw}%,var(--border) ${pw}%,var(--border) 100%)`}}
+                    />
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:9,color:'var(--text-muted)'}}>
+                      <span>0%</span><span>50%</span><span>100%</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -4327,16 +4332,35 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                   Switch to AF
                 </button>
               </div>
-              <div style={{display:'flex',gap:10}}>
+              <div style={{display:'flex',gap:7,marginBottom:14}}>
                 {['Bake','Broil','Convection'].map(m=>{
                   const isActive=(cookCardMode.airfryer||'Convection')===m;
                   return (<button key={m} onClick={()=>setCookCardMode(cm=>({...cm,airfryer:m}))}
-                    style={{flex:1,border:isActive?'1.5px solid rgba(255,160,50,0.6)':'1.5px solid transparent',borderRadius:14,padding:'12px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,transition:'all .2s',
+                    style={{flex:1,border:isActive?'1.5px solid rgba(255,160,50,0.6)':'1.5px solid transparent',borderRadius:14,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,transition:'all .2s',
                       background:isActive?'rgba(255,160,50,0.22)':'var(--nm-input-bg)',
                       color:isActive?'#f5a623':'var(--text-muted)',
                       boxShadow:isActive?'0 0 12px rgba(255,160,50,0.4)':'none'}}>{m}</button>);
                 })}
               </div>
+              {(()=>{
+                const aft = cookCardMode.afTemp!=null?cookCardMode.afTemp:180;
+                return (
+                  <div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:7}}>
+                      <span style={{color:'var(--text)',fontWeight:700,fontSize:14}}>{aft}°C</span>
+                      <span style={{color:'#f5a623',fontWeight:700,fontSize:11}}>{Math.round(aft*9/5+32)}°F</span>
+                    </div>
+                    <input type="range" min="50" max="200" step="5" value={aft}
+                      className="nm-range nm-range-orange"
+                      onChange={e=>setCookCardMode(m=>({...m,afTemp:parseInt(e.target.value)}))}
+                      style={{background:`linear-gradient(to right,#f5a623 0%,#f5a623 ${(aft-50)/150*100}%,var(--border) ${(aft-50)/150*100}%,var(--border) 100%)`}}
+                    />
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:9,color:'var(--text-muted)'}}>
+                      <span>50°C</span><span>125°C</span><span>200°C</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -4418,7 +4442,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                       boxShadow:isActive?'0 0 10px rgba(224,80,80,0.3)':'none'}}>{m}</button>);
                 })}
               </div>
-              <div style={{display:'flex',gap:10}}>
+              <div style={{display:'flex',gap:10,marginBottom:14}}>
                 {['Low','High'].map(lv=>{
                   const isActive=(cookCardMode.instantpot_level||'High')===lv;
                   return (<button key={lv} onClick={()=>setCookCardMode(cm=>({...cm,instantpot_level:lv}))}
@@ -4428,6 +4452,25 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                       boxShadow:isActive?'0 0 10px rgba(245,166,35,0.3)':'none'}}>{lv}</button>);
                 })}
               </div>
+              {(()=>{
+                const pt = cookCardMode.pressureTime!=null?cookCardMode.pressureTime:15;
+                return (
+                  <div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:7}}>
+                      <span style={{color:'var(--text)',fontWeight:700,fontSize:13}}>Cook Time</span>
+                      <span style={{color:'#f5a623',fontWeight:800,fontSize:15}}>{pt} min</span>
+                    </div>
+                    <input type="range" min="0" max="60" step="5" value={pt}
+                      className="nm-range nm-range-orange"
+                      onChange={e=>setCookCardMode(m=>({...m,pressureTime:parseInt(e.target.value)}))}
+                      style={{background:`linear-gradient(to right,#f5a623 0%,#f5a623 ${pt/60*100}%,var(--border) ${pt/60*100}%,var(--border) 100%)`}}
+                    />
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:9,color:'var(--text-muted)'}}>
+                      <span>0m</span><span>30m</span><span>60m</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
