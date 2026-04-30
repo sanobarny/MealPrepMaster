@@ -4025,7 +4025,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
 
           {/* STOVE CARD */}
           {(stepAppliance==='stove'||(!stepAppliance&&heatHint)) && (() => {
-            const ab = cookCardMode.stove != null ? cookCardMode.stove : (heatHint ? heatHint.bars : 2);
+            const ab = heatHint ? heatHint.bars : 2;
             const FLAMES = [
               null,
               {grad:'radial-gradient(circle at center,#ffb36b 0%,#ffb36b55 45%,transparent 70%)',scale:0.78,opacity:0.65,blur:8, glow:'0 0 18px #ffb36b55'},
@@ -4035,6 +4035,10 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
             ];
             const f = FLAMES[ab] || FLAMES[1];
             const isHigh = ab === 4;
+            const heatColors = ['','#5a8fd4','#f5c842','#f5a623','#4da6ff'];
+            const heatLabels = ['','Low','Medium','Med High','High'];
+            const heatRanges = ['','100–140°C','150–180°C','180–210°C','210–230°C'];
+            const fc = heatColors[ab];
             return (
               <>
                 <style>{`
@@ -4062,9 +4066,13 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                         </linearGradient>
                       </defs>
                     </svg>
-                    <div>
+                    <div style={{flex:1}}>
                       <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Stove &amp; Flame</div>
                       <div style={{color:'var(--text-muted)',fontSize:11}}>Let's Cook</div>
+                    </div>
+                    {/* Read-only badge */}
+                    <div style={{background:fc+'22',border:'1px solid '+fc+'66',borderRadius:20,padding:'4px 10px',flexShrink:0}}>
+                      <span style={{color:fc,fontWeight:800,fontSize:12}}>{heatLabels[ab]}</span>
                     </div>
                   </div>
 
@@ -4076,7 +4084,6 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                       boxShadow: f.glow+', 8px 8px 18px rgba(0,0,0,0.18), -8px -8px 18px rgba(255,255,255,0.65)',
                       transition:'box-shadow 0.5s ease'
                     }}>
-                      {/* Flame glow layer */}
                       <div style={{
                         position:'absolute',inset:18,borderRadius:'50%',
                         background:f.grad,
@@ -4086,42 +4093,29 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                         animation:isHigh ? 'burnerFlicker 0.18s infinite' : 'none',
                         transition:isHigh ? 'none' : 'all 0.45s ease'
                       }}/>
-                      {/* Outer ring groove */}
-                      <div style={{
-                        position:'absolute',inset:8,borderRadius:'50%',
+                      <div style={{position:'absolute',inset:8,borderRadius:'50%',
                         boxShadow:'inset 4px 4px 10px rgba(0,0,0,0.22), inset -4px -4px 10px rgba(255,255,255,0.14)',
-                        background:'transparent'
-                      }}/>
-                      {/* Inner metal ring */}
-                      <div style={{
-                        position:'absolute',inset:'30%',borderRadius:'50%',
+                        background:'transparent'}}/>
+                      <div style={{position:'absolute',inset:'30%',borderRadius:'50%',
                         boxShadow:'inset 3px 3px 7px rgba(0,0,0,0.28), inset -3px -3px 7px rgba(255,255,255,0.12)',
-                        background:'transparent'
-                      }}/>
-                      {/* Center knob */}
-                      <div style={{
-                        position:'absolute',top:'50%',left:'50%',
-                        width:12,height:12,borderRadius:'50%',
-                        transform:'translate(-50%,-50%)',
-                        background:'var(--bg-sidebar)',
-                        boxShadow:'inset 1px 1px 3px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2)'
-                      }}/>
+                        background:'transparent'}}/>
+                      <div style={{position:'absolute',top:'50%',left:'50%',width:12,height:12,borderRadius:'50%',
+                        transform:'translate(-50%,-50%)',background:'var(--bg-sidebar)',
+                        boxShadow:'inset 1px 1px 3px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.2)'}}/>
                     </div>
                   </div>
 
-                  {/* Heat slider */}
+                  {/* Read-only heat level track */}
                   <div style={{padding:'0 4px'}}>
-                    <input type="range" min="1" max="4" step="1" value={ab}
-                      className={`nm-range ${ab>=4?'nm-range':'nm-range-orange'}`}
-                      onChange={e=>setCookCardMode(m=>({...m,stove:parseInt(e.target.value)}))}
-                      style={{background:`linear-gradient(to right,${ab>=4?'#4da6ff':ab===3?'#f5a623':ab===2?'#f5c842':'#5a8fd4'} 0%,${ab>=4?'#4da6ff':ab===3?'#f5a623':ab===2?'#f5c842':'#5a8fd4'} ${(ab-1)/3*100}%,var(--border) ${(ab-1)/3*100}%,var(--border) 100%)`}}
-                    />
-                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5}}>
-                      {['Low','Medium','Med High','High'].map((l,i)=>(
-                        <span key={l} style={{fontSize:9,fontWeight:ab===i+1?700:400,
-                          color:ab===i+1?(i===0?'#5a8fd4':i===1?'#f5c842':i===2?'#f5a623':'#4da6ff'):'var(--text-muted)',
-                          letterSpacing:.2}}>{l}</span>
+                    <div style={{display:'flex',gap:5,marginBottom:6}}>
+                      {[1,2,3,4].map(lvl=>(
+                        <div key={lvl} style={{flex:1,height:6,borderRadius:3,transition:'background .4s',
+                          background:lvl<=ab?fc:'var(--border)'}}/>
                       ))}
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:10,color:'var(--text-muted)'}}>Ideal range</span>
+                      <span style={{fontSize:11,fontWeight:700,color:fc}}>{heatRanges[ab]}</span>
                     </div>
                   </div>
                 </div>
