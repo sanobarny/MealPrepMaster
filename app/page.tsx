@@ -3549,6 +3549,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
   const [showEatAt, setShowEatAt] = useState(false);
   const [voiceOn, setVoiceOn] = useState(false);
   const [cookCardMode, setCookCardMode] = useState({});
+  const [isMobile, setIsMobile] = useState(false);
   const steps = recipe.steps||[];
   const current = steps[step]||{};
   const afStep = afMode ? convertStepForAirFryer(current.text||"", current.timeMin) : null;
@@ -3662,6 +3663,14 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
 
   // Reset appliance card mode selections when step changes
   useEffect(()=>{ setCookCardMode({}); },[step]);
+
+  // Detect mobile viewport
+  useEffect(()=>{
+    const check=()=>setIsMobile(window.innerWidth<640);
+    check();
+    window.addEventListener('resize',check);
+    return()=>window.removeEventListener('resize',check);
+  },[]);
 
   const fmtTime = s => {
     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
@@ -3821,7 +3830,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
     <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:2000,display:'flex',flexDirection:'column',overflow:'hidden'}}>
 
       {/* ── TOP BAR ── */}
-      <div style={{padding:'9px 12px',background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:7,flexShrink:0,flexWrap:'wrap'}}>
+      <div style={{padding:isMobile?'7px 8px':'9px 12px',background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:isMobile?4:7,flexShrink:0,flexWrap:'nowrap',overflowX:'auto'}}>
         <button onClick={()=>setPhase('prep')} style={{...GB,padding:'5px 10px',fontSize:12}}>← {t('cook.prepPhase',language)}</button>
         <div style={{flex:1,textAlign:'center',minWidth:0,overflow:'hidden'}}>
           <div style={{color:'var(--text)',fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{recipe.title}</div>
@@ -3849,9 +3858,9 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
       )}
 
       {/* ── STAGE FLOW + PROGRESS ── */}
-      <div style={{background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',padding:'8px 16px 10px',flexShrink:0}}>
-        {/* Stage pills */}
-        <div style={{display:'flex',alignItems:'center',justifyContent:'center',marginBottom:9}}>
+      <div style={{background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',padding:isMobile?'6px 12px 8px':'8px 16px 10px',flexShrink:0}}>
+        {/* Stage pills — hidden on mobile */}
+        <div style={{display:isMobile?'none':'flex',alignItems:'center',justifyContent:'center',marginBottom:9}}>
           {STAGE_LABELS.map((s,i)=>(
             <div key={s} style={{display:'flex',alignItems:'center'}}>
               <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:20,
@@ -3882,49 +3891,74 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
       </div>
 
       {/* ── BODY: step list + detail ── */}
-      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0}}>
+      <div style={{flex:1,display:'flex',overflow:'hidden',minHeight:0,flexDirection:isMobile?'column':'row'}}>
 
-        {/* LEFT – Steps sidebar */}
-        <div ref={sidebarRef} style={{width:190,flexShrink:0,borderRight:'1px solid var(--border)',overflowY:'auto',background:'var(--bg-sidebar)'}}>
-          {steps.map((s,i)=>{
-            const done   = i < step;
-            const active = i === step;
-            const bgTimer = stepTimers[i];
-            const bgRunning = bgTimer?.running && bgTimer.remaining > 0;
-            return (
-              <div key={i} ref={el=>{ stepRowRefs.current[i]=el; }} onClick={()=>setStep(i)}
-                style={{display:'flex',alignItems:'flex-start',gap:9,padding:'10px 10px',
-                  background: active?'rgba(58,125,94,0.13)':'transparent',
-                  borderLeft: active?'3px solid var(--accent)':'3px solid transparent',
-                  borderBottom:'1px solid var(--border)',cursor:'pointer',transition:'background .15s'}}>
-                {/* Circle */}
-                <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,marginTop:1,
-                  background: done?'#5aad8e': active?'var(--accent)':'var(--nm-input-bg)',
-                  color: done||active?'#fff':'var(--text-muted)',
-                  display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,
-                  boxShadow: active?'0 0 0 3px rgba(90,173,142,0.28)':'var(--nm-raised-sm)'}}>
-                  {done?'✓':i+1}
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{color: active?'var(--accent)': done?'var(--text-muted)':'var(--text)',
-                    fontSize:11,lineHeight:1.35,fontWeight:active?700:400,
-                    overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',
-                    textDecoration:done?'line-through':'none',textDecorationColor:'var(--text-muted)'}}>
-                    {s.text}
+        {/* SIDEBAR – vertical on desktop, horizontal strip on mobile */}
+        {isMobile ? (
+          /* Mobile: horizontal scrollable step bubbles */
+          <div ref={sidebarRef} style={{display:'flex',overflowX:'auto',flexShrink:0,background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',padding:'8px 10px',gap:6,WebkitOverflowScrolling:'touch'}}>
+            {steps.map((s,i)=>{
+              const done=i<step, active=i===step;
+              const bgTimer=stepTimers[i], bgRunning=bgTimer?.running&&bgTimer.remaining>0;
+              return (
+                <div key={i} ref={el=>{stepRowRefs.current[i]=el;}} onClick={()=>setStep(i)}
+                  style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,flexShrink:0,cursor:'pointer',padding:'2px 4px'}}>
+                  <div style={{width:32,height:32,borderRadius:'50%',flexShrink:0,
+                    background:done?'#5aad8e':active?'var(--accent)':'var(--nm-input-bg)',
+                    color:done||active?'#fff':'var(--text-muted)',
+                    display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,
+                    boxShadow:active?'0 0 0 3px rgba(90,173,142,0.35)':'var(--nm-raised-sm)',
+                    outline:active?'2px solid var(--accent)':'none',outlineOffset:2,
+                    transition:'all .15s'}}>
+                    {done?'✓':i+1}
                   </div>
-                  <div style={{display:'flex',gap:5,marginTop:3,flexWrap:'wrap'}}>
-                    {s.timeMin && <span style={{fontSize:9,fontWeight:600,color:bgRunning?'#ffd580':'var(--text-muted)'}}>
-                      {bgRunning ? '⏱ '+fmtTime(bgTimer.remaining) : '⏱ '+s.timeMin+'m'}
-                    </span>}
+                  {s.timeMin&&<span style={{fontSize:8,color:bgRunning?'#ffd580':'var(--text-muted)',fontWeight:600,whiteSpace:'nowrap'}}>
+                    {bgRunning?fmtTime(bgTimer.remaining):s.timeMin+'m'}
+                  </span>}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Desktop: vertical sidebar */
+          <div ref={sidebarRef} style={{width:190,flexShrink:0,borderRight:'1px solid var(--border)',overflowY:'auto',background:'var(--bg-sidebar)'}}>
+            {steps.map((s,i)=>{
+              const done=i<step, active=i===step;
+              const bgTimer=stepTimers[i], bgRunning=bgTimer?.running&&bgTimer.remaining>0;
+              return (
+                <div key={i} ref={el=>{stepRowRefs.current[i]=el;}} onClick={()=>setStep(i)}
+                  style={{display:'flex',alignItems:'flex-start',gap:9,padding:'10px 10px',
+                    background:active?'rgba(58,125,94,0.13)':'transparent',
+                    borderLeft:active?'3px solid var(--accent)':'3px solid transparent',
+                    borderBottom:'1px solid var(--border)',cursor:'pointer',transition:'background .15s'}}>
+                  <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,marginTop:1,
+                    background:done?'#5aad8e':active?'var(--accent)':'var(--nm-input-bg)',
+                    color:done||active?'#fff':'var(--text-muted)',
+                    display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,
+                    boxShadow:active?'0 0 0 3px rgba(90,173,142,0.28)':'var(--nm-raised-sm)'}}>
+                    {done?'✓':i+1}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:active?'var(--accent)':done?'var(--text-muted)':'var(--text)',
+                      fontSize:11,lineHeight:1.35,fontWeight:active?700:400,
+                      overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',
+                      textDecoration:done?'line-through':'none',textDecorationColor:'var(--text-muted)'}}>
+                      {s.text}
+                    </div>
+                    <div style={{display:'flex',gap:5,marginTop:3,flexWrap:'wrap'}}>
+                      {s.timeMin&&<span style={{fontSize:9,fontWeight:600,color:bgRunning?'#ffd580':'var(--text-muted)'}}>
+                        {bgRunning?'⏱ '+fmtTime(bgTimer.remaining):'⏱ '+s.timeMin+'m'}
+                      </span>}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* RIGHT – Current step detail */}
-        <div style={{flex:1,overflowY:'auto',padding:'16px 16px 100px'}}>
+        <div style={{flex:1,overflowY:'auto',padding:isMobile?'12px 12px 100px':'16px 16px 100px'}}>
 
           {/* Step images */}
           {getStepImages(current).length > 0 && (
@@ -3956,11 +3990,11 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           )}
 
           {/* ── MAIN STEP CARD ── */}
-          <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:22,padding:'22px 18px 24px',marginBottom:14,textAlign:'center'}}>
-            <div style={{width:54,height:54,borderRadius:'50%',
+          <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:22,padding:isMobile?'16px 14px 18px':'22px 18px 24px',marginBottom:14,textAlign:'center'}}>
+            <div style={{width:isMobile?42:54,height:isMobile?42:54,borderRadius:'50%',
               background:STEP_COLORS[step%STEP_COLORS.length],
               color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
-              fontWeight:800,fontSize:24,margin:'0 auto 8px',
+              fontWeight:800,fontSize:isMobile?18:24,margin:'0 auto 8px',
               boxShadow:'0 6px 20px rgba(0,0,0,0.2)'}}>
               {step+1}
             </div>
@@ -3968,7 +4002,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
               Step {step+1} of {steps.length}
               {eatAtSchedule[step] && <span style={{color:'#5a8fd4',marginLeft:8,fontSize:10}}>▶ {eatAtSchedule[step].startLabel}</span>}
             </div>
-            <p style={{color:'var(--text)',fontSize:17,lineHeight:1.75,margin:0,fontFamily:"'Playfair Display',serif"}}>
+            <p style={{color:'var(--text)',fontSize:isMobile?15:17,lineHeight:1.7,margin:0,fontFamily:"'Playfair Display',serif"}}>
               {afMode && afStep ? afStep.text : current.text}
             </p>
             {afMode && afStep?.changed && (
@@ -4028,7 +4062,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                   {/* NEOMORPHIC BURNER RING */}
                   <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
                     <div style={{
-                      width:140,height:140,borderRadius:'50%',position:'relative',
+                      width:isMobile?112:140,height:isMobile?112:140,borderRadius:'50%',position:'relative',
                       background:'var(--bg)',
                       boxShadow: f.glow+', 8px 8px 18px rgba(0,0,0,0.18), -8px -8px 18px rgba(255,255,255,0.65)',
                       transition:'box-shadow 0.5s ease'
@@ -4367,7 +4401,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
               </div>
               {/* Big countdown */}
               <div style={{textAlign:'center',fontFamily:'monospace',fontWeight:800,lineHeight:1,marginBottom:14,
-                fontSize:60,letterSpacing:3,
+                fontSize:isMobile?44:60,letterSpacing:isMobile?2:3,
                 color: cmDone?'#5aad8e': cmRunning?'var(--accent)':'var(--text)',
                 textShadow: cmRunning?'0 0 32px rgba(90,173,142,0.45)':'none',
                 transition:'color .3s'}}>
