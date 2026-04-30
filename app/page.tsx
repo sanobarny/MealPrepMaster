@@ -3828,6 +3828,15 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
 
   return (
     <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:2000,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <style>{`
+        .nm-range{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;outline:none;cursor:pointer;background:var(--border)}
+        .nm-range::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.25),0 0 0 3px rgba(77,166,255,0.2);transition:box-shadow .2s}
+        .nm-range::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--accent);cursor:pointer;border:none;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+        .nm-range-orange::-webkit-slider-thumb{background:#f5a623;box-shadow:0 2px 8px rgba(0,0,0,0.25),0 0 0 3px rgba(245,166,35,0.25)}
+        .nm-range-orange::-moz-range-thumb{background:#f5a623}
+        .nm-range-green::-webkit-slider-thumb{background:#5aad8e;box-shadow:0 2px 8px rgba(0,0,0,0.25),0 0 0 3px rgba(90,173,142,0.25)}
+        .nm-range-green::-moz-range-thumb{background:#5aad8e}
+      `}</style>
 
       {/* ── TOP BAR ── */}
       <div style={{padding:isMobile?'7px 8px':'9px 12px',background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:isMobile?4:7,flexShrink:0,flexWrap:'nowrap',overflowX:'auto'}}>
@@ -4100,32 +4109,20 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                     </div>
                   </div>
 
-                  {/* Heat level buttons */}
-                  <div style={{display:'flex',gap:7}}>
-                    {[
-                      {key:'low',    label:'Low',     color:'#5a8fd4',bars:1},
-                      {key:'med',    label:'Medium',  color:'#f5c842',bars:2},
-                      {key:'medhigh',label:'Med High',color:'#f5a623',bars:3},
-                      {key:'high',   label:'High',    color:'#4da6ff',bars:4},
-                    ].map(lv=>{
-                      const isActive=lv.bars===ab;
-                      return (
-                        <button key={lv.key} onClick={()=>setCookCardMode(m=>({...m,stove:lv.bars}))}
-                          style={{flex:1,border:'none',borderRadius:14,padding:'11px 4px',
-                            cursor:'pointer',fontFamily:'inherit',transition:'all .25s',
-                            background:isActive?lv.color+'2a':'var(--nm-input-bg)',
-                            boxShadow:isActive?'var(--nm-raised-sm)':'none'}}>
-                          <div style={{
-                            width:15,height:15,borderRadius:'50%',margin:'0 auto 5px',
-                            background:lv.bars===4?'radial-gradient(circle,#a8d8ff,#4da6ff)':lv.color,
-                            boxShadow:isActive?'0 2px 8px '+lv.color+'bb':'none',
-                            transition:'box-shadow .25s'
-                          }}/>
-                          <div style={{fontSize:10,fontWeight:700,letterSpacing:.3,
-                            color:isActive?lv.color:'var(--text-muted)'}}>{lv.label}</div>
-                        </button>
-                      );
-                    })}
+                  {/* Heat slider */}
+                  <div style={{padding:'0 4px'}}>
+                    <input type="range" min="1" max="4" step="1" value={ab}
+                      className={`nm-range ${ab>=4?'nm-range':'nm-range-orange'}`}
+                      onChange={e=>setCookCardMode(m=>({...m,stove:parseInt(e.target.value)}))}
+                      style={{background:`linear-gradient(to right,${ab>=4?'#4da6ff':ab===3?'#f5a623':ab===2?'#f5c842':'#5a8fd4'} 0%,${ab>=4?'#4da6ff':ab===3?'#f5a623':ab===2?'#f5c842':'#5a8fd4'} ${(ab-1)/3*100}%,var(--border) ${(ab-1)/3*100}%,var(--border) 100%)`}}
+                    />
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5}}>
+                      {['Low','Medium','Med High','High'].map((l,i)=>(
+                        <span key={l} style={{fontSize:9,fontWeight:ab===i+1?700:400,
+                          color:ab===i+1?(i===0?'#5a8fd4':i===1?'#f5c842':i===2?'#f5a623':'#4da6ff'):'var(--text-muted)',
+                          letterSpacing:.2}}>{l}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </>
@@ -4151,28 +4148,66 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Oven</div>
                 </div>
               </div>
-              <div style={{display:'flex',justifyContent:'center',flexDirection:'column',alignItems:'center',gap:6}}>
-                <div style={{position:'relative',width:130,height:72}}>
-                  <svg width="130" height="72" viewBox="0 0 130 72" style={{overflow:'visible'}}>
-                    <path d="M 10 68 A 55 55 0 0 1 120 68" fill="none" stroke="var(--border)" strokeWidth="10" strokeLinecap="round"/>
-                    <path d="M 10 68 A 55 55 0 0 1 120 68" fill="none"
-                      stroke={stepTemp?(stepTemp.c>=220?'#e05050':stepTemp.c>=180?'#f5a623':stepTemp.c>=150?'#ffd580':'#5a8fd4'):'#ffd580'}
-                      strokeWidth="10" strokeLinecap="round"
-                      strokeDasharray={`${Math.min(172,(stepTemp?(stepTemp.c/280):0.5)*172)} 172`}
-                      style={{transition:'stroke-dasharray .5s'}}/>
-                  </svg>
-                  <div style={{position:'absolute',bottom:2,left:'50%',transform:'translateX(-50%)',textAlign:'center',lineHeight:1.1}}>
-                    <div style={{fontWeight:900,fontSize:22,fontFamily:'monospace',
-                      color:stepTemp?(stepTemp.c>=220?'#e05050':stepTemp.c>=180?'#f5a623':stepTemp.c>=150?'#ffd580':'#5a8fd4'):'#ffd580'}}>
-                      {stepTemp?stepTemp.c+'°C':'—'}
+              {(()=>{
+                const tc = cookCardMode.tempC != null ? cookCardMode.tempC : (stepTemp ? stepTemp.c : 180);
+                const tf = Math.round(tc*9/5+32);
+                const tlabel = tc>=230?'High Heat':tc>=190?'Medium High':tc>=160?'Medium':'Low / Simmer';
+                const tcolor = tc>=230?'#e05050':tc>=190?'#f5a623':tc>=160?'#ffd580':'#5a8fd4';
+                const angle = -135 + ((tc-100)/(280-100))*270;
+                return (
+                  <div style={{textAlign:'center'}}>
+                    {/* Rotating knob */}
+                    <div style={{width:110,height:110,borderRadius:'50%',margin:'0 auto 14px',position:'relative',
+                      background:'var(--bg)',
+                      boxShadow:`0 0 20px ${tcolor}55, 8px 8px 18px rgba(0,0,0,0.18), -8px -8px 18px rgba(255,255,255,0.65)`,
+                      transition:'box-shadow .4s'}}>
+                      {/* Tick marks */}
+                      {Array.from({length:9}).map((_,i)=>{
+                        const a = -135 + i*270/8;
+                        const r = 46;
+                        const x = 55 + r*Math.cos(a*Math.PI/180);
+                        const y = 55 + r*Math.sin(a*Math.PI/180);
+                        return <div key={i} style={{position:'absolute',width:3,height:i===0||i===8?8:5,
+                          background:i<=Math.round((tc-100)/(280-100)*8)?tcolor:'var(--border)',
+                          borderRadius:2,left:x,top:y,transform:`translate(-50%,-50%) rotate(${a+90}deg)`,
+                          transition:'background .3s'}}/>;
+                      })}
+                      {/* Needle */}
+                      <div style={{
+                        position:'absolute',top:14,left:'50%',
+                        width:4,height:36,
+                        background:`linear-gradient(to bottom,${tcolor},${tcolor}88)`,
+                        borderRadius:'2px 2px 0 0',
+                        transformOrigin:'bottom center',
+                        transform:`translateX(-50%) rotate(${angle}deg)`,
+                        transition:'transform .35s ease,background .4s',
+                        boxShadow:`0 0 8px ${tcolor}88`
+                      }}/>
+                      {/* Center cap */}
+                      <div style={{position:'absolute',top:'50%',left:'50%',width:22,height:22,borderRadius:'50%',
+                        transform:'translate(-50%,-50%)',
+                        background:'var(--bg-sidebar)',
+                        boxShadow:'inset 2px 2px 5px rgba(0,0,0,0.3),inset -2px -2px 5px rgba(255,255,255,0.1)'}}>
+                        <div style={{position:'absolute',top:'50%',left:'50%',width:6,height:6,borderRadius:'50%',
+                          transform:'translate(-50%,-50%)',background:tcolor,
+                          boxShadow:`0 0 6px ${tcolor}99`}}/>
+                      </div>
                     </div>
-                    {stepTemp&&<div style={{color:'var(--text-muted)',fontSize:11}}>{stepTemp.f}°F</div>}
+                    {/* Temp display */}
+                    <div style={{color:tcolor,fontWeight:800,fontSize:26,fontFamily:'monospace',lineHeight:1,marginBottom:2,transition:'color .4s'}}>{tc}°C</div>
+                    <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:12}}>{tf}°F · <span style={{fontWeight:700,color:tcolor}}>{tlabel}</span></div>
+                    {/* Slider */}
+                    <input type="range" min="100" max="280" step="5" value={tc}
+                      className="nm-range nm-range-orange"
+                      onChange={e=>setCookCardMode(m=>({...m,tempC:parseInt(e.target.value)}))}
+                      style={{background:`linear-gradient(to right,${tcolor} 0%,${tcolor} ${(tc-100)/180*100}%,var(--border) ${(tc-100)/180*100}%,var(--border) 100%)`}}
+                    />
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:9,color:'var(--text-muted)'}}>
+                      <span>100°C</span><span>190°C</span><span>280°C</span>
+                    </div>
                   </div>
-                </div>
-                <div style={{color:'var(--text-sub)',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:.8}}>
-                  {stepTemp?stepTemp.label:heatHint?heatHint.label:'Preheat'}
-                </div>
-              </div>
+                );
+              })()}
             </div>
           )}
 
@@ -4221,16 +4256,26 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Speed Setting</div>
                 </div>
               </div>
-              <div style={{display:'flex',gap:7}}>
-                {['Low','Medium','High','Pulse'].map(s=>{
-                  const isActive=(cookCardMode.blender||'Medium')===s;
-                  return (<button key={s} onClick={()=>setCookCardMode(m=>({...m,blender:s}))}
-                    style={{flex:1,border:isActive?'1.5px solid rgba(90,143,212,0.6)':'1.5px solid transparent',borderRadius:12,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:11,fontWeight:700,transition:'all .2s',
-                      background:isActive?'rgba(90,143,212,0.22)':'var(--nm-input-bg)',
-                      color:isActive?'#5a8fd4':'var(--text-muted)',
-                      boxShadow:isActive?'0 0 10px rgba(90,143,212,0.3)':'none'}}>{s}</button>);
-                })}
-              </div>
+              {(()=>{
+                const spd = cookCardMode.blendSpeed != null ? cookCardMode.blendSpeed : 5;
+                const spLabel = spd===0?'Off':spd<=3?'Low':spd<=6?'Medium':spd<=9?'High':'Pulse/Max';
+                return (
+                  <div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:8}}>
+                      <span style={{color:'var(--text)',fontWeight:700,fontSize:14}}>Speed: {spd}</span>
+                      <span style={{color:'#5a8fd4',fontWeight:700,fontSize:11}}>{spLabel}</span>
+                    </div>
+                    <input type="range" min="0" max="10" step="1" value={spd}
+                      className="nm-range"
+                      onChange={e=>setCookCardMode(m=>({...m,blendSpeed:parseInt(e.target.value)}))}
+                      style={{background:`linear-gradient(to right,#5a8fd4 0%,#5a8fd4 ${spd/10*100}%,var(--border) ${spd/10*100}%,var(--border) 100%)`}}
+                    />
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:9,color:'var(--text-muted)'}}>
+                      <span>Off</span><span>Low</span><span>Med</span><span>High</span><span>Max</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -4348,6 +4393,27 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Pressure Setting</div>
                 </div>
               </div>
+              {/* Pressure toggle */}
+              {(()=>{
+                const pressureOn = cookCardMode.pressureOn !== false;
+                return (
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,padding:'10px 14px',
+                    background:pressureOn?'rgba(224,80,80,0.1)':'var(--nm-input-bg)',borderRadius:14,transition:'background .3s'}}>
+                    <div>
+                      <div style={{color:pressureOn?'#e05050':'var(--text-muted)',fontWeight:700,fontSize:13,transition:'color .3s'}}>Pressure</div>
+                      <div style={{color:'var(--text-muted)',fontSize:10}}>{pressureOn?'High pressure active':'Pressure off'}</div>
+                    </div>
+                    <div onClick={()=>setCookCardMode(m=>({...m,pressureOn:!(m.pressureOn!==false)}))}
+                      style={{width:48,height:26,borderRadius:13,position:'relative',cursor:'pointer',transition:'background .3s',
+                        background:pressureOn?'#e05050':'var(--border)',
+                        boxShadow:'inset 1px 1px 4px rgba(0,0,0,0.2)'}}>
+                      <div style={{position:'absolute',top:3,width:20,height:20,borderRadius:'50%',
+                        background:'#fff',boxShadow:'0 2px 5px rgba(0,0,0,0.3)',
+                        left:pressureOn?25:3,transition:'left .3s'}}/>
+                    </div>
+                  </div>
+                );
+              })()}
               <div style={{display:'flex',gap:7,marginBottom:10}}>
                 {['Pressure Cook','Slow Cook','Sauté'].map(m=>{
                   const isActive=(cookCardMode.instantpot_mode||'Pressure Cook')===m;
