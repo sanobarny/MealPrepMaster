@@ -3984,21 +3984,35 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {(stepAppliance==='stove'||(!stepAppliance&&heatHint)) && (
             <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <div style={{fontSize:36,lineHeight:1}}>🔥</div>
+                <svg width="36" height="40" viewBox="0 0 36 40" fill="none">
+                  <path d="M18 2C14 8 9 15 9 22C9 28.627 13.1 33 18 33C22.9 33 27 28.627 27 22C27 15 22 8 18 2Z" fill="url(#fg1)"/>
+                  <path d="M18 15C16 18 14 21 14 24C14 26.761 15.791 29 18 29C20.209 29 22 26.761 22 24C22 21 20 18 18 15Z" fill="url(#fg2)"/>
+                  <defs>
+                    <linearGradient id="fg1" x1="18" y1="2" x2="18" y2="33" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#FFD580"/>
+                      <stop offset="55%" stopColor="#F5A623"/>
+                      <stop offset="100%" stopColor="#E05050"/>
+                    </linearGradient>
+                    <linearGradient id="fg2" x1="18" y1="15" x2="18" y2="29" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#FFFDE7" stopOpacity="0.95"/>
+                      <stop offset="100%" stopColor="#FFD580" stopOpacity="0.5"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
                 <div>
                   <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Stove &amp; Flame</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Let's Cook</div>
                 </div>
               </div>
               <div style={{display:'flex',gap:8}}>
-                {[{key:'low',label:'Low',emoji:'🔵',color:'#5a8fd4',bars:1},{key:'med',label:'Medium',emoji:'🟡',color:'#ffd580',bars:2},{key:'medhigh',label:'Med High',emoji:'🟠',color:'#f5a623',bars:3},{key:'high',label:'High',emoji:'🔴',color:'#e05050',bars:4}].map(lv=>{
+                {[{key:'low',label:'Low',color:'#5a8fd4',bars:1},{key:'med',label:'Medium',color:'#f5c842',bars:2},{key:'medhigh',label:'Med High',color:'#f5a623',bars:3},{key:'high',label:'High',color:'#e05050',bars:4}].map(lv=>{
                   const activeBars=cookCardMode.stove!=null?cookCardMode.stove:(heatHint?heatHint.bars:2);
                   const isActive=lv.bars===activeBars;
                   return (<button key={lv.key} onClick={()=>setCookCardMode(m=>({...m,stove:lv.bars}))}
-                    style={{flex:1,border:isActive?'1.5px solid '+lv.color+'88':'1.5px solid transparent',borderRadius:14,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',transition:'all .2s',
-                      background:isActive?lv.color+'33':'var(--nm-input-bg)',
-                      boxShadow:isActive?'0 0 12px '+lv.color+'44':'none'}}>
-                    <div style={{fontSize:18,marginBottom:3}}>{lv.emoji}</div>
+                    style={{flex:1,border:'none',borderRadius:14,padding:'12px 6px',cursor:'pointer',fontFamily:'inherit',transition:'all .2s',
+                      background:isActive?lv.color+'28':'var(--nm-input-bg)'}}>
+                    <div style={{width:16,height:16,borderRadius:'50%',background:lv.color,margin:'0 auto 6px',
+                      boxShadow:isActive?'0 2px 8px '+lv.color+'99':'none',transition:'box-shadow .2s'}}/>
                     <div style={{fontSize:10,fontWeight:700,color:isActive?lv.color:'var(--text-muted)',letterSpacing:.3}}>{lv.label}</div>
                   </button>);
                 })}
@@ -4007,7 +4021,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                 {[3,5,7,9,7,5,3].map((h,i)=>{
                   const ab=cookCardMode.stove!=null?cookCardMode.stove:(heatHint?heatHint.bars:2);
                   const lit=(i+1)/7<=ab/4+0.15;
-                  const fc=ab>=4?'#e05050':ab===3?'#f5a623':ab===2?'#ffd580':'#5a8fd4';
+                  const fc=ab>=4?'#e05050':ab===3?'#f5a623':ab===2?'#f5c842':'#5a8fd4';
                   return <div key={i} style={{width:10,borderRadius:5,transition:'all .3s',height:h*3+'px',background:lit?fc:'var(--border)'}}/>;
                 })}
               </div>
@@ -4018,7 +4032,16 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {stepAppliance==='oven' && (
             <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
-                <div style={{fontSize:32}}>🌡️</div>
+                <svg width="32" height="36" viewBox="0 0 32 36" fill="none">
+                  <rect x="10" y="2" width="12" height="22" rx="6" stroke="#f5a623" strokeWidth="2" fill="none"/>
+                  <rect x="13" y="5" width="6" height="14" rx="3" fill="#f5a623" opacity="0.35"/>
+                  <rect x="13" y="13" width="6" height="6" rx="3" fill="#f5a623" opacity="0.8"/>
+                  <circle cx="16" cy="29" r="5" fill="#f5a623"/>
+                  <circle cx="16" cy="29" r="2.5" fill="#fff" opacity="0.5"/>
+                  <line x1="22" y1="8" x2="25" y2="8" stroke="#f5a623" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="22" y1="13" x2="24" y2="13" stroke="#f5a623" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="22" y1="18" x2="25" y2="18" stroke="#f5a623" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
                 <div>
                   <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Temperature Control</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Oven</div>
@@ -4053,7 +4076,12 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {stepTechniques.length>0&&!stepAppliance&&!heatHint&&(
             <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <div style={{fontSize:32}}>🔪</div>
+                <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+                  <path d="M7 27L25 5L31 11L15 31Z" fill="#888" opacity="0.75"/>
+                  <path d="M7 27L3 31" stroke="#666" strokeWidth="3" strokeLinecap="round"/>
+                  <path d="M25 5L29 1L33 5L31 11Z" fill="#bbb"/>
+                  <path d="M12 22L10 24" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
                 <div>
                   <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Chopping Board</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Prep Technique</div>
@@ -4076,7 +4104,14 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {stepAppliance==='blender'&&(
             <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <div style={{fontSize:32}}>🫙</div>
+                <svg width="30" height="36" viewBox="0 0 30 36" fill="none">
+                  <path d="M5 7H25L22 26H8Z" fill="#5a8fd4" opacity="0.7"/>
+                  <rect x="5" y="4" width="20" height="4" rx="2" fill="#5a8fd4"/>
+                  <rect x="8" y="26" width="14" height="4" rx="2" fill="#5a8fd4" opacity="0.8"/>
+                  <rect x="10" y="30" width="10" height="4" rx="2" fill="#5a8fd4" opacity="0.6"/>
+                  <line x1="10" y1="13" x2="14" y2="18" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+                  <line x1="15" y1="11" x2="15" y2="17" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
+                </svg>
                 <div>
                   <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Blender</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Speed Setting</div>
@@ -4099,7 +4134,15 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {stepAppliance==='microwave'&&(
             <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <div style={{fontSize:32}}>📡</div>
+                <svg width="38" height="30" viewBox="0 0 38 30" fill="none">
+                  <rect x="1" y="2" width="36" height="26" rx="4" stroke="#888" strokeWidth="2" fill="none"/>
+                  <rect x="4" y="5" width="22" height="20" rx="2" stroke="#888" strokeWidth="1.5" fill="none"/>
+                  <circle cx="32" cy="11" r="2.5" fill="#888" opacity="0.5"/>
+                  <circle cx="32" cy="19" r="2.5" fill="#5aad8e" opacity="0.7"/>
+                  <path d="M9 13C9 13 11 12 11 15C11 18 9 17 9 17" stroke="#888" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6"/>
+                  <path d="M14 13C14 13 16 12 16 15C16 18 14 17 14 17" stroke="#888" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6"/>
+                  <path d="M19 13C19 13 21 12 21 15C21 18 19 17 19 17" stroke="#888" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6"/>
+                </svg>
                 <div>
                   <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Microwave</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Power Level</div>
@@ -4123,7 +4166,15 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {stepAppliance==='airfryer'&&!afMode&&(
             <div style={{background:'rgba(255,160,50,0.08)',border:'1px solid rgba(255,160,50,0.3)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <div style={{fontSize:32}}>🌬️</div>
+                <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                  <rect x="4" y="8" width="28" height="22" rx="5" stroke="#f5a623" strokeWidth="2" fill="none"/>
+                  <circle cx="18" cy="19" r="7" stroke="#f5a623" strokeWidth="1.5" fill="none"/>
+                  <circle cx="18" cy="19" r="3" fill="#f5a623" opacity="0.5"/>
+                  <path d="M14 5C14 5 15 3 18 3C21 3 22 5 22 5" stroke="#f5a623" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                  <line x1="8" y1="14" x2="11" y2="14" stroke="#f5a623" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="8" y1="19" x2="11" y2="19" stroke="#f5a623" strokeWidth="1.5" strokeLinecap="round"/>
+                  <line x1="8" y1="24" x2="11" y2="24" stroke="#f5a623" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
                 <div>
                   <div style={{color:'#f5a623',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Air Fryer</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Cook Mode</div>
@@ -4150,7 +4201,13 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {stepAppliance==='ricecooker'&&(
             <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <div style={{fontSize:32}}>🍚</div>
+                <svg width="36" height="34" viewBox="0 0 36 34" fill="none">
+                  <path d="M4 18C4 11 10.268 7 18 7C25.732 7 32 11 32 18V26H4V18Z" fill="#5aad8e" opacity="0.65"/>
+                  <ellipse cx="18" cy="18" rx="14" ry="5" fill="#5aad8e" opacity="0.4"/>
+                  <rect x="3" y="26" width="30" height="6" rx="3" fill="#5aad8e" opacity="0.5"/>
+                  <path d="M13 7C13 4 15 2 18 2C21 2 23 4 23 7" stroke="#5aad8e" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                  <circle cx="18" cy="2" r="1.5" fill="#5aad8e"/>
+                </svg>
                 <div>
                   <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Rice Cooker</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Cook Mode</div>
@@ -4174,7 +4231,14 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
           {stepAppliance==='instantpot'&&(
             <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 18px',marginBottom:14}}>
               <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:14}}>
-                <div style={{fontSize:32}}>⚡</div>
+                <svg width="34" height="36" viewBox="0 0 34 36" fill="none">
+                  <path d="M5 14C5 9 10.5 6 17 6C23.5 6 29 9 29 14V28H5V14Z" fill="#e05050" opacity="0.65"/>
+                  <ellipse cx="17" cy="14" rx="12" ry="5" fill="#e05050" opacity="0.4"/>
+                  <rect x="4" y="28" width="26" height="5" rx="2.5" fill="#e05050" opacity="0.45"/>
+                  <path d="M13 6C13 3.5 14.5 2 17 2C19.5 2 21 3.5 21 6" stroke="#e05050" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                  <circle cx="17" cy="14" r="4" fill="#fff" opacity="0.2"/>
+                  <path d="M15 13L17 11L19 13L17 15Z" fill="#fff" opacity="0.6"/>
+                </svg>
                 <div>
                   <div style={{color:'var(--text)',fontWeight:800,fontSize:16,fontFamily:"'Playfair Display',serif"}}>Instant Pot</div>
                   <div style={{color:'var(--text-muted)',fontSize:11}}>Pressure Setting</div>
@@ -4197,7 +4261,7 @@ function CookMode({recipe, onClose, onMarkCooked=null, language='en'}) {
                     style={{flex:1,border:isActive?'1.5px solid rgba(245,166,35,0.6)':'1.5px solid transparent',borderRadius:14,padding:'10px 4px',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700,transition:'all .2s',
                       background:isActive?'rgba(245,166,35,0.2)':'var(--nm-input-bg)',
                       color:isActive?'#f5a623':'var(--text-muted)',
-                      boxShadow:isActive?'0 0 10px rgba(245,166,35,0.3)':'none'}}>{lv==='High'?'🔴 High':'🔵 Low'}</button>);
+                      boxShadow:isActive?'0 0 10px rgba(245,166,35,0.3)':'none'}}>{lv}</button>);
                 })}
               </div>
             </div>
