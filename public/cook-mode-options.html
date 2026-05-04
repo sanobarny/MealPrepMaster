@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cook Mode – 5 Design Options</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}
+body{background:#f0f0f0;padding:32px 24px;color:#333}
+h1{text-align:center;font-size:28px;margin-bottom:8px;color:#222}
+.subtitle{text-align:center;color:#888;font-size:14px;margin-bottom:48px}
+.section-label{font-size:22px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.section-sub{font-size:13px;color:#999;margin-bottom:24px}
+.option-block{margin-bottom:64px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;max-width:780px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:780px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:800px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;max-width:900px}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;max-width:900px}
+/* divider */
+hr.div{border:none;border-top:2px solid #ddd;margin:56px 0}
+
+/* ═══════════════════════════════════════════════════════
+   OPTION 1 – WARM CREAM NEOMORPHISM (Light)
+═══════════════════════════════════════════════════════ */
+.o1{--bg:#e8e2d9;--bg2:#ede8df;--shadow-d:#ccc6bc;--shadow-l:#ffffff;--text:#3a3530;--sub:#8a8078;--accent:#e07a30;--accent2:#c85a20;--blue:#5a7fd4;--green:#5aad6a;--border:#d4cfc8}
+.o1 .card{background:var(--bg);border-radius:22px;padding:0;overflow:hidden;box-shadow:8px 8px 20px var(--shadow-d),-8px -8px 20px var(--shadow-l)}
+.o1 .card-ill{display:flex;align-items:center;justify-content:center;height:140px;background:var(--bg);border-radius:22px 22px 0 0}
+.o1 .card-body{padding:14px 16px 16px}
+.o1 .card-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px}
+.o1 .card-sub{font-size:10px;color:var(--sub);margin-bottom:10px}
+.o1 .nm-btn{background:var(--bg);border:none;border-radius:50px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:3px 3px 8px var(--shadow-d),-3px -3px 8px var(--shadow-l);color:var(--sub)}
+.o1 .nm-btn.active{color:var(--accent);box-shadow:inset 3px 3px 7px var(--shadow-d),inset -3px -3px 7px var(--shadow-l)}
+.o1 .bar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px}
+.o1 .bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.o1 .pill{display:inline-block;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:600}
+.o1 .pill.on{background:rgba(224,122,48,0.15);color:var(--accent);box-shadow:inset 2px 2px 5px rgba(0,0,0,0.06)}
+.o1 .pill.off{background:var(--bg);color:var(--sub);box-shadow:2px 2px 6px var(--shadow-d),-2px -2px 6px var(--shadow-l)}
+.o1 .step-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.o1 .step-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.o1 .sc-done{background:var(--green);color:#fff}
+.o1 .sc-active{background:var(--accent);color:#fff;box-shadow:0 0 0 3px rgba(224,122,48,0.25)}
+.o1 .sc-idle{background:var(--bg);box-shadow:3px 3px 7px var(--shadow-d),-3px -3px 7px var(--shadow-l);color:var(--sub)}
+.o1 .step-text-main{font-size:11px;font-weight:700;color:var(--text)}
+.o1 .step-text-sub{font-size:10px;color:var(--sub);margin-top:1px}
+
+/* ═══════════════════════════════════════════════════════
+   OPTION 2 – DARK CHARCOAL NEOMORPHISM
+═══════════════════════════════════════════════════════ */
+.o2{--bg:#1e2530;--bg2:#242d3a;--shadow-d:#161d28;--shadow-l:#263040;--text:#d0dae8;--sub:#6a7a90;--accent:#f5a020;--accent2:#e07010;--blue:#5a90f0;--green:#4aad7a;--border:#2a3545}
+.o2 .card{background:var(--bg);border-radius:22px;padding:0;overflow:hidden;box-shadow:8px 8px 20px var(--shadow-d),-8px -8px 20px var(--shadow-l)}
+.o2 .card-ill{display:flex;align-items:center;justify-content:center;height:140px;background:var(--bg2);border-radius:22px 22px 0 0}
+.o2 .card-body{padding:14px 16px 16px}
+.o2 .card-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px}
+.o2 .card-sub{font-size:10px;color:var(--sub);margin-bottom:10px}
+.o2 .nm-btn{background:var(--bg);border:none;border-radius:50px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:3px 3px 8px var(--shadow-d),-3px -3px 8px var(--shadow-l);color:var(--sub)}
+.o2 .nm-btn.active{color:var(--accent);box-shadow:inset 3px 3px 7px var(--shadow-d),inset -3px -3px 7px var(--shadow-l)}
+.o2 .bar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px}
+.o2 .bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.o2 .pill{display:inline-block;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:600}
+.o2 .pill.on{background:rgba(245,160,32,0.2);color:var(--accent)}
+.o2 .pill.off{background:var(--bg);color:var(--sub);box-shadow:2px 2px 5px var(--shadow-d),-2px -2px 5px var(--shadow-l)}
+.o2 .step-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.o2 .step-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.o2 .sc-done{background:var(--green);color:#fff}
+.o2 .sc-active{background:var(--accent);color:#fff;box-shadow:0 0 0 3px rgba(245,160,32,0.3)}
+.o2 .sc-idle{background:var(--bg);box-shadow:3px 3px 7px var(--shadow-d),-3px -3px 7px var(--shadow-l);color:var(--sub)}
+.o2 .step-text-main{font-size:11px;font-weight:700;color:var(--text)}
+.o2 .step-text-sub{font-size:10px;color:var(--sub);margin-top:1px}
+
+/* ═══════════════════════════════════════════════════════
+   OPTION 3 – PURE WHITE / FRESH GREEN
+═══════════════════════════════════════════════════════ */
+.o3{--bg:#f4f6f2;--bg2:#ebede8;--shadow-d:#d0d4cc;--shadow-l:#ffffff;--text:#2a3325;--sub:#7a8a72;--accent:#3a9a5a;--accent2:#2a7a42;--blue:#4a80d0;--green:#3a9a5a;--border:#d8ddd4}
+.o3 .card{background:var(--bg);border-radius:22px;overflow:hidden;box-shadow:8px 8px 20px var(--shadow-d),-8px -8px 20px var(--shadow-l)}
+.o3 .card-ill{display:flex;align-items:center;justify-content:center;height:140px;background:var(--bg2);border-radius:22px 22px 0 0}
+.o3 .card-body{padding:14px 16px 16px}
+.o3 .card-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px}
+.o3 .card-sub{font-size:10px;color:var(--sub);margin-bottom:10px}
+.o3 .nm-btn{background:var(--bg);border:none;border-radius:50px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:3px 3px 8px var(--shadow-d),-3px -3px 8px var(--shadow-l);color:var(--sub)}
+.o3 .nm-btn.active{color:var(--accent);box-shadow:inset 3px 3px 7px var(--shadow-d),inset -3px -3px 7px var(--shadow-l)}
+.o3 .bar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px}
+.o3 .bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.o3 .pill{display:inline-block;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:600}
+.o3 .pill.on{background:rgba(58,154,90,0.15);color:var(--accent)}
+.o3 .pill.off{background:var(--bg);color:var(--sub);box-shadow:2px 2px 5px var(--shadow-d),-2px -2px 5px var(--shadow-l)}
+.o3 .step-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.o3 .step-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.o3 .sc-done{background:var(--green);color:#fff}
+.o3 .sc-active{background:var(--accent);color:#fff}
+.o3 .sc-idle{background:var(--bg);box-shadow:3px 3px 7px var(--shadow-d),-3px -3px 7px var(--shadow-l);color:var(--sub)}
+.o3 .step-text-main{font-size:11px;font-weight:700;color:var(--text)}
+.o3 .step-text-sub{font-size:10px;color:var(--sub);margin-top:1px}
+
+/* ═══════════════════════════════════════════════════════
+   OPTION 4 – DEEP NAVY / AMBER
+═══════════════════════════════════════════════════════ */
+.o4{--bg:#0f1520;--bg2:#151e2d;--shadow-d:#090f18;--shadow-l:#192030;--text:#c8d8f0;--sub:#506080;--accent:#f0b030;--accent2:#d09020;--blue:#60a0f0;--green:#40b080;--border:#1a2535}
+.o4 .card{background:var(--bg);border-radius:22px;overflow:hidden;box-shadow:8px 8px 20px var(--shadow-d),-8px -8px 20px var(--shadow-l)}
+.o4 .card-ill{display:flex;align-items:center;justify-content:center;height:140px;background:var(--bg2)}
+.o4 .card-body{padding:14px 16px 16px}
+.o4 .card-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px}
+.o4 .card-sub{font-size:10px;color:var(--sub);margin-bottom:10px}
+.o4 .nm-btn{background:var(--bg);border:none;border-radius:50px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:3px 3px 8px var(--shadow-d),-3px -3px 8px var(--shadow-l);color:var(--sub)}
+.o4 .nm-btn.active{color:var(--accent);box-shadow:inset 3px 3px 7px var(--shadow-d),inset -3px -3px 7px var(--shadow-l)}
+.o4 .bar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px}
+.o4 .bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.o4 .pill{display:inline-block;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:600}
+.o4 .pill.on{background:rgba(240,176,48,0.2);color:var(--accent)}
+.o4 .pill.off{background:var(--bg);color:var(--sub);box-shadow:2px 2px 5px var(--shadow-d),-2px -2px 5px var(--shadow-l)}
+.o4 .step-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.o4 .step-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.o4 .sc-done{background:var(--green);color:#fff}
+.o4 .sc-active{background:var(--accent);color:#1a1000;box-shadow:0 0 12px rgba(240,176,48,0.5)}
+.o4 .sc-idle{background:var(--bg);box-shadow:3px 3px 7px var(--shadow-d),-3px -3px 7px var(--shadow-l);color:var(--sub)}
+.o4 .step-text-main{font-size:11px;font-weight:700;color:var(--text)}
+.o4 .step-text-sub{font-size:10px;color:var(--sub);margin-top:1px}
+
+/* ═══════════════════════════════════════════════════════
+   OPTION 5 – SOFT LAVENDER / CORAL
+═══════════════════════════════════════════════════════ */
+.o5{--bg:#edeaf5;--bg2:#e5e2f0;--shadow-d:#c8c5d8;--shadow-l:#ffffff;--text:#2a2840;--sub:#8080a8;--accent:#e05870;--accent2:#c03858;--blue:#6060d0;--green:#40a870;--border:#d8d5e8}
+.o5 .card{background:var(--bg);border-radius:22px;overflow:hidden;box-shadow:8px 8px 20px var(--shadow-d),-8px -8px 20px var(--shadow-l)}
+.o5 .card-ill{display:flex;align-items:center;justify-content:center;height:140px;background:var(--bg2)}
+.o5 .card-body{padding:14px 16px 16px}
+.o5 .card-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px}
+.o5 .card-sub{font-size:10px;color:var(--sub);margin-bottom:10px}
+.o5 .nm-btn{background:var(--bg);border:none;border-radius:50px;padding:5px 14px;font-size:11px;font-weight:700;cursor:pointer;box-shadow:3px 3px 8px var(--shadow-d),-3px -3px 8px var(--shadow-l);color:var(--sub)}
+.o5 .nm-btn.active{color:var(--accent);box-shadow:inset 3px 3px 7px var(--shadow-d),inset -3px -3px 7px var(--shadow-l)}
+.o5 .bar-bg{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px}
+.o5 .bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.o5 .pill{display:inline-block;border-radius:20px;padding:4px 11px;font-size:11px;font-weight:600}
+.o5 .pill.on{background:rgba(224,88,112,0.15);color:var(--accent)}
+.o5 .pill.off{background:var(--bg);color:var(--sub);box-shadow:2px 2px 5px var(--shadow-d),-2px -2px 5px var(--shadow-l)}
+.o5 .step-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.o5 .step-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.o5 .sc-done{background:var(--green);color:#fff}
+.o5 .sc-active{background:var(--accent);color:#fff}
+.o5 .sc-idle{background:var(--bg);box-shadow:3px 3px 7px var(--shadow-d),-3px -3px 7px var(--shadow-l);color:var(--sub)}
+.o5 .step-text-main{font-size:11px;font-weight:700;color:var(--text)}
+.o5 .step-text-sub{font-size:10px;color:var(--sub);margin-top:1px}
+
+/* shared helpers */
+.flex-row{display:flex;gap:6px;flex-wrap:wrap}
+.mt4{margin-top:4px} .mt8{margin-top:8px} .mt12{margin-top:12px}
+.text-center{text-align:center}
+.badge{border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700}
+.nm-icon-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:600}
+.nm-icon-box{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px}
+</style>
+</head>
+<body>
+
+<h1>🍳 Cook Mode — 5 Design Options</h1>
+<p class="subtitle">Neomorphism UI · Light &amp; Dark · All appliance cards · UI element samples</p>
+
+<!-- ═══════ OPTION 1 ═══════ -->
+<div class="option-block o1">
+  <div class="section-label" style="color:#3a3530">Option 1 &nbsp;·&nbsp; <span style="color:#e07a30">Warm Cream</span> Neomorphism</div>
+  <div class="section-sub">Background #E8E2D9 · Shadows warm white + tan · Accent orange</div>
+
+  <div class="row">
+    <!-- Stove & Flame -->
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="58" fill="#ddd8cf"/>
+          <circle cx="65" cy="65" r="58" fill="none" stroke="#c8c2b8" stroke-width="2"/>
+          <!-- 8 burner arms -->
+          <line x1="65" y1="24" x2="65" y2="44" stroke="#b0a898" stroke-width="7" stroke-linecap="round"/>
+          <line x1="65" y1="86" x2="65" y2="106" stroke="#b0a898" stroke-width="7" stroke-linecap="round"/>
+          <line x1="24" y1="65" x2="44" y2="65" stroke="#b0a898" stroke-width="7" stroke-linecap="round"/>
+          <line x1="86" y1="65" x2="106" y2="65" stroke="#b0a898" stroke-width="7" stroke-linecap="round"/>
+          <line x1="35" y1="35" x2="49" y2="49" stroke="#b0a898" stroke-width="5" stroke-linecap="round"/>
+          <line x1="81" y1="81" x2="95" y2="95" stroke="#b0a898" stroke-width="5" stroke-linecap="round"/>
+          <line x1="95" y1="35" x2="81" y2="49" stroke="#b0a898" stroke-width="5" stroke-linecap="round"/>
+          <line x1="35" y1="95" x2="49" y2="81" stroke="#b0a898" stroke-width="5" stroke-linecap="round"/>
+          <!-- flame rings -->
+          <circle cx="65" cy="65" r="28" fill="none" stroke="#f5a020" stroke-width="3" opacity=".9"/>
+          <circle cx="65" cy="65" r="34" fill="none" stroke="#f5a020" stroke-width="1.5" opacity=".35"/>
+          <!-- center knob -->
+          <circle cx="65" cy="65" r="13" fill="#e8e2d9" stroke="#c8c2b8" stroke-width="2"/>
+          <circle cx="65" cy="65" r="5" fill="#b0a898"/>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔥 Stove &amp; Flame</div>
+        <div class="card-sub">Let&apos;s Cook · Good food, good mood.</div>
+        <div style="display:flex;justify-content:space-around;margin-bottom:8px">
+          <div class="text-center"><div style="font-size:14px;filter:grayscale(1) opacity(.3)">🔥</div><div style="font-size:9px;color:#b0a898;margin-top:2px">Low</div></div>
+          <div class="text-center"><div style="font-size:18px;filter:grayscale(1) opacity(.5)">🔥</div><div style="font-size:9px;color:#b0a898;margin-top:2px">Medium</div></div>
+          <div class="text-center"><div style="font-size:24px">🔥</div><div style="font-size:9px;color:#e07a30;font-weight:700;margin-top:2px">High</div></div>
+        </div>
+        <div style="display:flex;gap:3px;align-items:flex-end;justify-content:center">
+          <div style="width:8px;height:10px;background:#d0cac0;border-radius:2px"></div>
+          <div style="width:8px;height:16px;background:#d0cac0;border-radius:2px"></div>
+          <div style="width:8px;height:22px;background:#f5a020;border-radius:2px"></div>
+          <div style="width:8px;height:28px;background:#e07a30;border-radius:2px"></div>
+        </div>
+        <div class="text-center mt4" style="font-size:10px;font-weight:700;color:#e07a30">Heat Level</div>
+      </div>
+    </div>
+
+    <!-- Temperature Control -->
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <svg width="140" height="120" viewBox="0 0 140 110">
+          <!-- big arc gauge -->
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#cec8be" stroke-width="9" stroke-linecap="round"
+            stroke-dasharray="219 60" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#e07a30" stroke-width="9" stroke-linecap="round"
+            stroke-dasharray="150 129" transform="rotate(126 70 78)"/>
+          <!-- indicator dot -->
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#c85a20" stroke-width="4"
+            stroke-dasharray="4 275" stroke-dashoffset="-147" transform="rotate(126 70 78)"/>
+          <text x="70" y="72" text-anchor="middle" fill="#3a3530" font-size="20" font-weight="800" font-family="inherit">180°C</text>
+          <text x="70" y="87" text-anchor="middle" fill="#e07a30" font-size="9" font-family="inherit">Medium High</text>
+          <text x="14" y="106" fill="#b0a898" font-size="8" font-family="inherit">160°C</text>
+          <text x="100" y="106" fill="#b0a898" font-size="8" font-family="inherit">200°C</text>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🌡️ Temperature Control</div>
+        <div class="card-sub">Set the perfect heat.</div>
+        <div style="background:rgba(224,122,48,0.1);border-radius:10px;padding:7px 10px;display:flex;align-items:center;gap:6px">
+          <span style="font-size:16px">🔥</span>
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#e07a30">Ideal for sautéing</div>
+            <div style="font-size:9px;color:#b0a898">160°C – 200°C</div>
+          </div>
+        </div>
+        <div class="flex-row mt8" style="justify-content:space-between">
+          <button class="nm-btn">−</button>
+          <button class="nm-btn active">Preset</button>
+          <button class="nm-btn">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chopping Board -->
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:linear-gradient(145deg,#f0e8d8,#e0d8c8)">
+        <div style="position:relative;width:110px;height:90px;background:linear-gradient(135deg,#d4a96a,#b88848);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:4px 4px 12px rgba(0,0,0,0.2)">
+          <span style="font-size:48px;filter:drop-shadow(2px 2px 3px rgba(0,0,0,0.3))">🥬</span>
+          <span style="font-size:36px;position:absolute;right:-10px;top:10px;filter:drop-shadow(2px 2px 3px rgba(0,0,0,0.3))">🔪</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔪 Chopping Board</div>
+        <div class="card-sub">Prep &amp; Cut · Chop it like a chef.</div>
+        <div class="flex-row">
+          <span class="pill off">Dice</span>
+          <span class="pill on">Slice</span>
+          <span class="pill off">Julienne</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cooking Process -->
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:linear-gradient(145deg,#ede8df,#e0d8cc)">
+        <div style="text-align:center">
+          <div style="font-size:68px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.15))">🍲</div>
+          <div style="font-size:13px;color:#a09080;margin-top:4px;letter-spacing:2px">~ ~ ~</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🍳 Cooking Process</div>
+        <div class="card-sub">Great things take time.</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:#8a8078">Cooking...</span>
+          <span style="color:#e07a30;font-weight:700">65%</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:65%"></div></div>
+      </div>
+    </div>
+
+    <!-- Recipe Steps -->
+    <div class="card" style="width:200px">
+      <div class="card-body" style="padding:14px 0 0">
+        <div style="padding:0 14px 10px;border-bottom:1px solid #d4cfc8">
+          <div class="card-title">📋 Recipe Steps</div>
+          <div class="card-sub" style="margin-bottom:0">Follow. Cook. Enjoy.</div>
+        </div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Prep Ingredients</div><div class="step-text-sub">Wash and cut everything.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Heat Pan</div><div class="step-text-sub">Add oil and warm it up.</div></div></div>
+        <div class="step-row" style="background:rgba(224,122,48,0.07)"><div class="step-circle sc-active">3</div><div><div class="step-text-main" style="color:#e07a30">Cook</div><div class="step-text-sub">Add ingredients and cook.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-idle">4</div><div><div class="step-text-main">Serve</div><div class="step-text-sub">Plate it and enjoy!</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Appliance icon strip -->
+  <div style="margin-top:20px;font-size:11px;font-weight:700;color:#8a8078;letter-spacing:.6px;text-transform:uppercase;margin-bottom:10px">Appliance Icons (Neomorphism)</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    {[['🫕','Stove'],['🏺','Oven'],['🌬️','Air Fryer'],['🍚','Rice Cooker'],['🫗','Blender'],['📦','Microwave'],['⚡','Instant Pot']].map(a=>a)}
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🫕</div><span style="color:#8a8078">Stove</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🔥</div><span style="color:#8a8078">Oven</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🌬️</div><span style="color:#8a8078">Air Fryer</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🍚</div><span style="color:#8a8078">Rice Cooker</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🥤</div><span style="color:#8a8078">Blender</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">📡</div><span style="color:#8a8078">Microwave</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">⚡</div><span style="color:#8a8078">Instant Pot</span></div>
+    <div style="width:20px"></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🍳</div><span style="color:#8a8078">Pan</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🥘</div><span style="color:#8a8078">Pot</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🔪</div><span style="color:#8a8078">Knife</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🥄</div><span style="color:#8a8078">Spatula</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🫙</div><span style="color:#8a8078">Whisk</span></div>
+    <div class="nm-icon-wrap"><div class="nm-icon-box" style="background:#e8e2d9;box-shadow:5px 5px 12px #ccc6bc,-5px -5px 12px #ffffff">🧪</div><span style="color:#8a8078">Measure</span></div>
+  </div>
+</div>
+
+<hr class="div"/>
+
+<!-- ═══════ OPTION 2 ═══════ -->
+<div class="option-block o2" style="background:#1a2030;padding:28px;border-radius:24px;max-width:960px">
+  <div class="section-label" style="color:#d0dae8">Option 2 &nbsp;·&nbsp; <span style="color:#f5a020">Dark Charcoal</span> Neomorphism</div>
+  <div class="section-sub" style="color:#506080">Background #1E2530 · Shadows deep blue-black · Accent amber</div>
+
+  <div class="row">
+    <!-- Stove & Flame dark -->
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="58" fill="#1a2230"/>
+          <circle cx="65" cy="65" r="58" fill="none" stroke="#263040" stroke-width="3"/>
+          <line x1="65" y1="24" x2="65" y2="44" stroke="#2a3a50" stroke-width="7" stroke-linecap="round"/>
+          <line x1="65" y1="86" x2="65" y2="106" stroke="#2a3a50" stroke-width="7" stroke-linecap="round"/>
+          <line x1="24" y1="65" x2="44" y2="65" stroke="#2a3a50" stroke-width="7" stroke-linecap="round"/>
+          <line x1="86" y1="65" x2="106" y2="65" stroke="#2a3a50" stroke-width="7" stroke-linecap="round"/>
+          <line x1="35" y1="35" x2="49" y2="49" stroke="#2a3a50" stroke-width="5" stroke-linecap="round"/>
+          <line x1="81" y1="81" x2="95" y2="95" stroke="#2a3a50" stroke-width="5" stroke-linecap="round"/>
+          <line x1="95" y1="35" x2="81" y2="49" stroke="#2a3a50" stroke-width="5" stroke-linecap="round"/>
+          <line x1="35" y1="95" x2="49" y2="81" stroke="#2a3a50" stroke-width="5" stroke-linecap="round"/>
+          <!-- blue flame ring (dark mode style) -->
+          <circle cx="65" cy="65" r="28" fill="none" stroke="#4080f0" stroke-width="3" opacity=".7"/>
+          <circle cx="65" cy="65" r="34" fill="none" stroke="#4080f0" stroke-width="1.5" opacity=".25"/>
+          <circle cx="65" cy="65" r="22" fill="none" stroke="#f5a020" stroke-width="2" opacity=".5"/>
+          <circle cx="65" cy="65" r="13" fill="#1e2530" stroke="#2a3a50" stroke-width="2"/>
+          <circle cx="65" cy="65" r="5" fill="#2a3a50"/>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔥 Stove &amp; Flame</div>
+        <div class="card-sub">Let&apos;s Cook · Good food, good mood.</div>
+        <div style="display:flex;justify-content:space-around;margin-bottom:8px">
+          <div class="text-center"><div style="font-size:14px;filter:grayscale(1) opacity(.3)">🔥</div><div style="font-size:9px;color:#506080;margin-top:2px">Low</div></div>
+          <div class="text-center"><div style="font-size:18px;filter:grayscale(1) opacity(.5)">🔥</div><div style="font-size:9px;color:#506080;margin-top:2px">Medium</div></div>
+          <div class="text-center"><div style="font-size:24px">🔥</div><div style="font-size:9px;color:#f5a020;font-weight:700;margin-top:2px">High</div></div>
+        </div>
+        <div style="display:flex;gap:3px;align-items:flex-end;justify-content:center">
+          <div style="width:8px;height:10px;background:#2a3545;border-radius:2px"></div>
+          <div style="width:8px;height:16px;background:#2a3545;border-radius:2px"></div>
+          <div style="width:8px;height:22px;background:#f5a020;border-radius:2px"></div>
+          <div style="width:8px;height:28px;background:#e07010;border-radius:2px"></div>
+        </div>
+        <div class="text-center mt4" style="font-size:10px;font-weight:700;color:#f5a020">Heat Level</div>
+      </div>
+    </div>
+
+    <!-- Temperature dark -->
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <svg width="140" height="120" viewBox="0 0 140 110">
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#2a3545" stroke-width="9" stroke-linecap="round"
+            stroke-dasharray="219 60" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#f5a020" stroke-width="9" stroke-linecap="round"
+            stroke-dasharray="150 129" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#fff" stroke-width="4"
+            stroke-dasharray="4 275" stroke-dashoffset="-147" transform="rotate(126 70 78)"/>
+          <text x="70" y="72" text-anchor="middle" fill="#d0dae8" font-size="20" font-weight="800" font-family="inherit">190°C</text>
+          <text x="70" y="87" text-anchor="middle" fill="#f5a020" font-size="9" font-family="inherit">Medium High</text>
+          <text x="14" y="106" fill="#506080" font-size="8" font-family="inherit">160°C</text>
+          <text x="100" y="106" fill="#506080" font-size="8" font-family="inherit">200°C</text>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🌡️ Temperature Control</div>
+        <div class="card-sub">Set the perfect heat.</div>
+        <div style="background:rgba(245,160,32,0.12);border-radius:10px;padding:7px 10px;display:flex;align-items:center;gap:6px">
+          <span style="font-size:16px">🔥</span>
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#f5a020">Ideal for sautéing</div>
+            <div style="font-size:9px;color:#506080">150°C – 260°C</div>
+          </div>
+        </div>
+        <div class="flex-row mt8" style="justify-content:space-between">
+          <button class="nm-btn">−</button>
+          <button class="nm-btn" style="color:#f5a020;box-shadow:inset 3px 3px 7px #161d28,inset -3px -3px 7px #263040">45 min</button>
+          <button class="nm-btn">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chopping dark -->
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:#1a2030">
+        <div style="position:relative;width:110px;height:90px;background:linear-gradient(135deg,#5c3a1e,#3d2510);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:4px 4px 14px rgba(0,0,0,0.5)">
+          <span style="font-size:48px;filter:drop-shadow(0 0 8px rgba(0,0,0,0.6))">🥦</span>
+          <span style="font-size:36px;position:absolute;right:-10px;top:10px">🔪</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔪 Prep &amp; Cut</div>
+        <div class="card-sub">Chop it like a chef.</div>
+        <div class="flex-row">
+          <span class="pill off">Dice</span>
+          <span class="pill on">Slice</span>
+          <span class="pill off">Julienne</span>
+        </div>
+        <div class="flex-row mt8">
+          <span class="pill on">Mince</span>
+          <span class="pill off">Chiffonade</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blender dark -->
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <!-- speed knob -->
+          <circle cx="65" cy="65" r="50" fill="#1a2230"/>
+          <circle cx="65" cy="65" r="50" fill="none" stroke="#263040" stroke-width="3"/>
+          <circle cx="65" cy="65" r="42" fill="none" stroke="#2a3545" stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="176 88" transform="rotate(126 65 65)"/>
+          <circle cx="65" cy="65" r="42" fill="none" stroke="#4aad7a" stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="88 176" transform="rotate(126 65 65)"/>
+          <text x="30" y="106" fill="#506080" font-size="8" font-family="inherit">Low</text>
+          <text x="56" y="20" fill="#506080" font-size="8" font-family="inherit">Medium</text>
+          <text x="90" y="106" fill="#506080" font-size="8" font-family="inherit">High</text>
+          <circle cx="65" cy="65" r="20" fill="#1e2530" stroke="#2a3545" stroke-width="2"/>
+          <text x="65" y="62" text-anchor="middle" fill="#d0dae8" font-size="8" font-family="inherit">Speed</text>
+          <text x="65" y="75" text-anchor="middle" fill="#4aad7a" font-size="16" font-weight="800" font-family="inherit">3</text>
+          <text x="95" y="78" fill="#506080" font-size="7" font-family="inherit">Pulse</text>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🥤 Blender</div>
+        <div class="card-sub">Speed Control · Medium</div>
+        <div class="flex-row">
+          <span class="pill off">Smoothie</span>
+          <span class="pill on">Ice Crush</span>
+          <span class="pill off">Puree</span>
+        </div>
+        <div class="mt8" style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px">⏱</span>
+          <span style="color:#4aad7a;font-weight:800;font-size:18px;font-family:monospace">01:12</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recipe Steps dark -->
+    <div class="card" style="width:200px">
+      <div class="card-body" style="padding:14px 0 0">
+        <div style="padding:0 14px 10px;border-bottom:1px solid #2a3545">
+          <div class="card-title">📋 Recipe Steps</div>
+          <div class="card-sub" style="margin-bottom:0">Follow. Cook. Enjoy.</div>
+        </div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Prep Ingredients</div><div class="step-text-sub">Wash and cut everything.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Heat Pan</div><div class="step-text-sub">Add oil and warm it up.</div></div></div>
+        <div class="step-row" style="background:rgba(245,160,32,0.08)"><div class="step-circle sc-active">3</div><div><div class="step-text-main" style="color:#f5a020">Cook</div><div class="step-text-sub">Add ingredients and cook.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-idle">4</div><div><div class="step-text-main">Serve</div><div class="step-text-sub">Plate it and enjoy!</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- dark appliance icons -->
+  <div style="margin-top:20px;font-size:11px;font-weight:700;color:#506080;letter-spacing:.6px;text-transform:uppercase;margin-bottom:10px">Appliance Icons (Dark Neomorphism)</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🫕</div>Stove</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🔥</div>Oven</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🌬️</div>Air Fryer</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🍚</div>Rice Cooker</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🥤</div>Blender</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">📡</div>Microwave</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">⚡</div>Instant Pot</div>
+    <div style="width:20px"></div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🍳</div>Pan</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🥘</div>Pot</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🔪</div>Knife</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🥄</div>Spatula</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🫙</div>Whisk</div>
+    <div class="nm-icon-wrap" style="color:#6a7a90"><div class="nm-icon-box" style="background:#1e2530;box-shadow:5px 5px 12px #141920,-5px -5px 12px #283040">🧪</div>Measure</div>
+  </div>
+</div>
+
+<hr class="div"/>
+
+<!-- ═══════ OPTION 3 ═══════ -->
+<div class="option-block o3">
+  <div class="section-label" style="color:#2a3325">Option 3 &nbsp;·&nbsp; <span style="color:#3a9a5a">Fresh Green</span> Neomorphism</div>
+  <div class="section-sub">Background #F4F6F2 · Shadows cool gray · Accent forest green</div>
+  <div class="row">
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:#ebede8">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="55" fill="#e4e8e0"/><circle cx="65" cy="65" r="55" fill="none" stroke="#d0d4cc" stroke-width="2"/>
+          <line x1="65" y1="24" x2="65" y2="42" stroke="#c0c8b8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="65" y1="88" x2="65" y2="106" stroke="#c0c8b8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="24" y1="65" x2="42" y2="65" stroke="#c0c8b8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="88" y1="65" x2="106" y2="65" stroke="#c0c8b8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="35" y1="35" x2="48" y2="48" stroke="#c0c8b8" stroke-width="5" stroke-linecap="round"/>
+          <line x1="82" y1="82" x2="95" y2="95" stroke="#c0c8b8" stroke-width="5" stroke-linecap="round"/>
+          <line x1="95" y1="35" x2="82" y2="48" stroke="#c0c8b8" stroke-width="5" stroke-linecap="round"/>
+          <line x1="35" y1="95" x2="48" y2="82" stroke="#c0c8b8" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="65" cy="65" r="27" fill="none" stroke="#3a9a5a" stroke-width="3" opacity=".8"/>
+          <circle cx="65" cy="65" r="33" fill="none" stroke="#3a9a5a" stroke-width="1.5" opacity=".3"/>
+          <circle cx="65" cy="65" r="12" fill="#f4f6f2" stroke="#d0d4cc" stroke-width="2"/>
+          <circle cx="65" cy="65" r="5" fill="#c0c8b8"/>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔥 Stove &amp; Flame</div>
+        <div class="card-sub">Let&apos;s Cook</div>
+        <div style="display:flex;justify-content:space-around;margin-bottom:8px">
+          <div class="text-center"><div style="font-size:14px;filter:grayscale(1) opacity(.3)">🔥</div><div style="font-size:9px;color:#7a8a72;margin-top:2px">Low</div></div>
+          <div class="text-center"><div style="font-size:18px;filter:grayscale(1) opacity(.5)">🔥</div><div style="font-size:9px;color:#7a8a72;margin-top:2px">Medium</div></div>
+          <div class="text-center"><div style="font-size:24px">🔥</div><div style="font-size:9px;color:#3a9a5a;font-weight:700;margin-top:2px">High</div></div>
+        </div>
+        <div style="display:flex;gap:3px;align-items:flex-end;justify-content:center">
+          <div style="width:8px;height:10px;background:#d8ddd4;border-radius:2px"></div>
+          <div style="width:8px;height:16px;background:#d8ddd4;border-radius:2px"></div>
+          <div style="width:8px;height:22px;background:#3a9a5a;border-radius:2px"></div>
+          <div style="width:8px;height:28px;background:#2a7a42;border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:#ebede8">
+        <svg width="140" height="120" viewBox="0 0 140 110">
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#d0d4cc" stroke-width="9" stroke-linecap="round" stroke-dasharray="219 60" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#3a9a5a" stroke-width="9" stroke-linecap="round" stroke-dasharray="130 149" transform="rotate(126 70 78)"/>
+          <text x="70" y="72" text-anchor="middle" fill="#2a3325" font-size="20" font-weight="800" font-family="inherit">165°C</text>
+          <text x="70" y="87" text-anchor="middle" fill="#3a9a5a" font-size="9" font-family="inherit">Medium Heat</text>
+          <text x="14" y="106" fill="#7a8a72" font-size="8" font-family="inherit">100°C</text>
+          <text x="100" y="106" fill="#7a8a72" font-size="8" font-family="inherit">200°C</text>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🌡️ Temperature</div>
+        <div class="card-sub">Set the perfect heat.</div>
+        <div style="background:rgba(58,154,90,0.1);border-radius:10px;padding:7px 10px;display:flex;gap:6px;align-items:center">
+          <span>🔥</span><div><div style="font-size:10px;font-weight:700;color:#3a9a5a">Ideal for sautéing</div><div style="font-size:9px;color:#7a8a72">150°C – 180°C</div></div>
+        </div>
+        <div class="flex-row mt8" style="justify-content:space-between"><button class="nm-btn">−</button><button class="nm-btn active">Preset</button><button class="nm-btn">+</button></div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:linear-gradient(145deg,#e8eddf,#d8e0cc)">
+        <div style="position:relative;width:110px;height:90px;background:linear-gradient(135deg,#c8b878,#a89858);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:4px 4px 12px rgba(0,0,0,0.15)">
+          <span style="font-size:48px">🌿</span>
+          <span style="font-size:36px;position:absolute;right:-10px;top:10px">🔪</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔪 Prep &amp; Cut</div>
+        <div class="card-sub">Chop it like a chef.</div>
+        <div class="flex-row"><span class="pill on">Dice</span><span class="pill off">Slice</span><span class="pill off">Julienne</span></div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:#ebede8">
+        <div style="text-align:center"><div style="font-size:68px;line-height:1">🥘</div><div style="font-size:12px;color:#7a8a72;margin-top:4px;letter-spacing:2px">~ ~ ~</div></div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🍳 Cooking</div>
+        <div class="card-sub">Great things take time.</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#7a8a72">Cooking...</span><span style="color:#3a9a5a;font-weight:700">65%</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:65%"></div></div>
+      </div>
+    </div>
+    <div class="card" style="width:200px">
+      <div class="card-body" style="padding:14px 0 0">
+        <div style="padding:0 14px 10px;border-bottom:1px solid #d8ddd4"><div class="card-title">📋 Recipe Steps</div><div class="card-sub" style="margin-bottom:0">Follow. Cook. Enjoy.</div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Prep Ingredients</div><div class="step-text-sub">Wash and cut everything.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Heat Pan</div><div class="step-text-sub">Add oil and warm it up.</div></div></div>
+        <div class="step-row" style="background:rgba(58,154,90,0.07)"><div class="step-circle sc-active">3</div><div><div class="step-text-main" style="color:#3a9a5a">Cook</div><div class="step-text-sub">Add ingredients and cook.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-idle">4</div><div><div class="step-text-main">Serve</div><div class="step-text-sub">Plate it and enjoy!</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="div"/>
+
+<!-- ═══════ OPTION 4 ═══════ -->
+<div class="option-block o4" style="background:#0d1320;padding:28px;border-radius:24px;max-width:960px">
+  <div class="section-label" style="color:#c8d8f0">Option 4 &nbsp;·&nbsp; <span style="color:#f0b030">Deep Navy</span> Neomorphism</div>
+  <div class="section-sub" style="color:#506080">Background #0F1520 · Ultra-deep shadows · Accent amber gold</div>
+  <div class="row">
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="56" fill="#121b28"/>
+          <line x1="65" y1="22" x2="65" y2="43" stroke="#1a2535" stroke-width="8" stroke-linecap="round"/>
+          <line x1="65" y1="87" x2="65" y2="108" stroke="#1a2535" stroke-width="8" stroke-linecap="round"/>
+          <line x1="22" y1="65" x2="43" y2="65" stroke="#1a2535" stroke-width="8" stroke-linecap="round"/>
+          <line x1="87" y1="65" x2="108" y2="65" stroke="#1a2535" stroke-width="8" stroke-linecap="round"/>
+          <line x1="34" y1="34" x2="48" y2="48" stroke="#1a2535" stroke-width="6" stroke-linecap="round"/>
+          <line x1="82" y1="82" x2="96" y2="96" stroke="#1a2535" stroke-width="6" stroke-linecap="round"/>
+          <line x1="96" y1="34" x2="82" y2="48" stroke="#1a2535" stroke-width="6" stroke-linecap="round"/>
+          <line x1="34" y1="96" x2="48" y2="82" stroke="#1a2535" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="65" cy="65" r="30" fill="none" stroke="#f0b030" stroke-width="3" opacity=".9"/>
+          <circle cx="65" cy="65" r="36" fill="none" stroke="#f0b030" stroke-width="1" opacity=".3"/>
+          <!-- glow effect -->
+          <circle cx="65" cy="65" r="30" fill="none" stroke="#f0b030" stroke-width="8" opacity=".08"/>
+          <circle cx="65" cy="65" r="13" fill="#0f1520" stroke="#1a2535" stroke-width="2"/>
+          <circle cx="65" cy="65" r="5" fill="#1a2535"/>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔥 Stove &amp; Flame</div>
+        <div class="card-sub">Let&apos;s Cook</div>
+        <div style="display:flex;justify-content:space-around;margin-bottom:8px">
+          <div class="text-center"><div style="font-size:14px;filter:grayscale(1) opacity(.25)">🔥</div><div style="font-size:9px;color:#506080;margin-top:2px">Low</div></div>
+          <div class="text-center"><div style="font-size:18px;filter:opacity(.5)">🔥</div><div style="font-size:9px;color:#506080;margin-top:2px">Medium</div></div>
+          <div class="text-center"><div style="font-size:24px;filter:drop-shadow(0 0 6px #f0b030)">🔥</div><div style="font-size:9px;color:#f0b030;font-weight:700;margin-top:2px">High</div></div>
+        </div>
+        <div style="display:flex;gap:3px;align-items:flex-end;justify-content:center">
+          <div style="width:9px;height:10px;background:#1a2535;border-radius:2px"></div>
+          <div style="width:9px;height:16px;background:#1a2535;border-radius:2px"></div>
+          <div style="width:9px;height:22px;background:#f0b030;border-radius:2px;box-shadow:0 0 8px #f0b030"></div>
+          <div style="width:9px;height:29px;background:#d09020;border-radius:2px;box-shadow:0 0 8px #d09020"></div>
+        </div>
+        <div class="text-center mt4" style="font-size:10px;font-weight:700;color:#f0b030">Heat Level</div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <svg width="140" height="120" viewBox="0 0 140 110">
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#1a2535" stroke-width="10" stroke-linecap="round" stroke-dasharray="219 60" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#f0b030" stroke-width="10" stroke-linecap="round" stroke-dasharray="160 119" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#f0b030" stroke-width="10" opacity=".15" stroke-linecap="round" stroke-dasharray="162 117" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="5 274" stroke-dashoffset="-157" transform="rotate(126 70 78)"/>
+          <text x="70" y="70" text-anchor="middle" fill="#c8d8f0" font-size="21" font-weight="800" font-family="inherit">200°C</text>
+          <text x="70" y="86" text-anchor="middle" fill="#f0b030" font-size="9" font-family="inherit">High Heat</text>
+          <text x="14" y="106" fill="#506080" font-size="8" font-family="inherit">160°C</text>
+          <text x="100" y="106" fill="#506080" font-size="8" font-family="inherit">230°C</text>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🌡️ Temperature</div>
+        <div class="card-sub">Set the perfect heat.</div>
+        <div style="background:rgba(240,176,48,0.1);border-radius:10px;padding:7px 10px;display:flex;gap:6px;align-items:center">
+          <span>🔥</span><div><div style="font-size:10px;font-weight:700;color:#f0b030">Ideal for searing</div><div style="font-size:9px;color:#506080">200°C – 230°C</div></div>
+        </div>
+        <div class="flex-row mt8" style="justify-content:space-between"><button class="nm-btn">−</button><button class="nm-btn active">Preset</button><button class="nm-btn">+</button></div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%">
+          <div style="position:relative;width:110px;height:88px;background:linear-gradient(135deg,#3d2808,#251505);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(240,176,48,0.15),4px 4px 14px rgba(0,0,0,0.6)">
+            <span style="font-size:48px">🫑</span>
+            <span style="font-size:36px;position:absolute;right:-10px;top:10px">🔪</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔪 Prep &amp; Cut</div>
+        <div class="card-sub">Chop it like a chef.</div>
+        <div class="flex-row"><span class="pill off">Dice</span><span class="pill on">Slice</span><span class="pill off">Julienne</span></div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill">
+        <div style="text-align:center;padding-top:10px">
+          <div style="font-size:64px;line-height:1;filter:drop-shadow(0 0 12px rgba(240,176,48,0.3))">🍲</div>
+          <div style="font-size:11px;color:#f0b030;margin-top:4px;letter-spacing:3px;opacity:.7">~ ~ ~</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🍳 Cooking</div>
+        <div class="card-sub">Great things take time.</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#506080">Cooking...</span><span style="color:#f0b030;font-weight:700">65%</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:65%"></div></div>
+      </div>
+    </div>
+    <div class="card" style="width:200px">
+      <div class="card-body" style="padding:14px 0 0">
+        <div style="padding:0 14px 10px;border-bottom:1px solid #1a2535"><div class="card-title">📋 Recipe Steps</div><div class="card-sub" style="margin-bottom:0">Follow. Cook. Enjoy.</div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Prep Ingredients</div><div class="step-text-sub">Wash and cut everything.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Heat Pan</div><div class="step-text-sub">Add oil and warm it up.</div></div></div>
+        <div class="step-row" style="background:rgba(240,176,48,0.07)"><div class="step-circle sc-active">3</div><div><div class="step-text-main" style="color:#f0b030">Cook</div><div class="step-text-sub">Add ingredients and cook.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-idle">4</div><div><div class="step-text-main">Serve</div><div class="step-text-sub">Plate it and enjoy!</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="div"/>
+
+<!-- ═══════ OPTION 5 ═══════ -->
+<div class="option-block o5">
+  <div class="section-label" style="color:#2a2840">Option 5 &nbsp;·&nbsp; <span style="color:#e05870">Soft Lavender</span> / Coral</div>
+  <div class="section-sub">Background #EDEAF5 · Shadows violet-gray · Accent coral red</div>
+  <div class="row">
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:#e5e2f0">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r="55" fill="#dddaf0"/>
+          <line x1="65" y1="24" x2="65" y2="42" stroke="#c8c5d8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="65" y1="88" x2="65" y2="106" stroke="#c8c5d8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="24" y1="65" x2="42" y2="65" stroke="#c8c5d8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="88" y1="65" x2="106" y2="65" stroke="#c8c5d8" stroke-width="7" stroke-linecap="round"/>
+          <line x1="35" y1="35" x2="48" y2="48" stroke="#c8c5d8" stroke-width="5" stroke-linecap="round"/>
+          <line x1="82" y1="82" x2="95" y2="95" stroke="#c8c5d8" stroke-width="5" stroke-linecap="round"/>
+          <line x1="95" y1="35" x2="82" y2="48" stroke="#c8c5d8" stroke-width="5" stroke-linecap="round"/>
+          <line x1="35" y1="95" x2="48" y2="82" stroke="#c8c5d8" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="65" cy="65" r="27" fill="none" stroke="#e05870" stroke-width="3" opacity=".8"/>
+          <circle cx="65" cy="65" r="33" fill="none" stroke="#e05870" stroke-width="1.5" opacity=".3"/>
+          <circle cx="65" cy="65" r="12" fill="#edeaf5" stroke="#d8d5e8" stroke-width="2"/>
+          <circle cx="65" cy="65" r="5" fill="#c8c5d8"/>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔥 Stove &amp; Flame</div>
+        <div class="card-sub">Let&apos;s Cook</div>
+        <div style="display:flex;justify-content:space-around;margin-bottom:8px">
+          <div class="text-center"><div style="font-size:14px;filter:grayscale(1) opacity(.3)">🔥</div><div style="font-size:9px;color:#8080a8;margin-top:2px">Low</div></div>
+          <div class="text-center"><div style="font-size:18px;filter:grayscale(1) opacity(.5)">🔥</div><div style="font-size:9px;color:#8080a8;margin-top:2px">Medium</div></div>
+          <div class="text-center"><div style="font-size:24px">🔥</div><div style="font-size:9px;color:#e05870;font-weight:700;margin-top:2px">High</div></div>
+        </div>
+        <div style="display:flex;gap:3px;align-items:flex-end;justify-content:center">
+          <div style="width:8px;height:10px;background:#d8d5e8;border-radius:2px"></div>
+          <div style="width:8px;height:16px;background:#d8d5e8;border-radius:2px"></div>
+          <div style="width:8px;height:22px;background:#e05870;border-radius:2px"></div>
+          <div style="width:8px;height:28px;background:#c03858;border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:#e5e2f0">
+        <svg width="140" height="120" viewBox="0 0 140 110">
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#d8d5e8" stroke-width="9" stroke-linecap="round" stroke-dasharray="219 60" transform="rotate(126 70 78)"/>
+          <circle cx="70" cy="78" r="52" fill="none" stroke="#e05870" stroke-width="9" stroke-linecap="round" stroke-dasharray="110 169" transform="rotate(126 70 78)"/>
+          <text x="70" y="72" text-anchor="middle" fill="#2a2840" font-size="20" font-weight="800" font-family="inherit">120°C</text>
+          <text x="70" y="87" text-anchor="middle" fill="#e05870" font-size="9" font-family="inherit">Low / Simmer</text>
+          <text x="14" y="106" fill="#8080a8" font-size="8" font-family="inherit">80°C</text>
+          <text x="100" y="106" fill="#8080a8" font-size="8" font-family="inherit">160°C</text>
+        </svg>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🌡️ Temperature</div>
+        <div class="card-sub">Set the perfect heat.</div>
+        <div style="background:rgba(224,88,112,0.1);border-radius:10px;padding:7px 10px;display:flex;gap:6px;align-items:center">
+          <span>💧</span><div><div style="font-size:10px;font-weight:700;color:#e05870">Ideal for simmering</div><div style="font-size:9px;color:#8080a8">100°C – 140°C</div></div>
+        </div>
+        <div class="flex-row mt8" style="justify-content:space-between"><button class="nm-btn">−</button><button class="nm-btn active">Preset</button><button class="nm-btn">+</button></div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:linear-gradient(145deg,#e5e2f0,#d8d5e8)">
+        <div style="position:relative;width:110px;height:88px;background:linear-gradient(135deg,#c8a8d8,#a888b8);border-radius:14px;display:flex;align-items:center;justify-content:center;box-shadow:4px 4px 12px rgba(0,0,0,0.15)">
+          <span style="font-size:48px">🫚</span>
+          <span style="font-size:36px;position:absolute;right:-10px;top:10px">🔪</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🔪 Prep &amp; Cut</div>
+        <div class="card-sub">Chop it like a chef.</div>
+        <div class="flex-row"><span class="pill off">Dice</span><span class="pill off">Slice</span><span class="pill on">Julienne</span></div>
+      </div>
+    </div>
+    <div class="card" style="width:185px">
+      <div class="card-ill" style="background:#e5e2f0">
+        <div style="text-align:center"><div style="font-size:68px;line-height:1">🫕</div><div style="font-size:12px;color:#8080a8;margin-top:4px;letter-spacing:2px">~ ~ ~</div></div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">🍳 Cooking</div>
+        <div class="card-sub">Great things take time.</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:#8080a8">Cooking...</span><span style="color:#e05870;font-weight:700">65%</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:65%"></div></div>
+      </div>
+    </div>
+    <div class="card" style="width:200px">
+      <div class="card-body" style="padding:14px 0 0">
+        <div style="padding:0 14px 10px;border-bottom:1px solid #d8d5e8"><div class="card-title">📋 Recipe Steps</div><div class="card-sub" style="margin-bottom:0">Follow. Cook. Enjoy.</div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Prep Ingredients</div><div class="step-text-sub">Wash and cut everything.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-done">✓</div><div><div class="step-text-main">Heat Pan</div><div class="step-text-sub">Add oil and warm it up.</div></div></div>
+        <div class="step-row" style="background:rgba(224,88,112,0.07)"><div class="step-circle sc-active">3</div><div><div class="step-text-main" style="color:#e05870">Cook</div><div class="step-text-sub">Add ingredients and cook.</div></div></div>
+        <div class="step-row"><div class="step-circle sc-idle">4</div><div><div class="step-text-main">Serve</div><div class="step-text-sub">Plate it and enjoy!</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="div"/>
+
+<!-- ═══════ UI ELEMENT SAMPLES ═══════ -->
+<div style="max-width:900px">
+  <div class="section-label" style="color:#222;margin-bottom:4px">UI Element Samples</div>
+  <div class="section-sub">Shared across all 5 options — temperature controls, process steps, cooking indicators</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+    <!-- Temperature sliders -->
+    <div style="background:#e8e2d9;border-radius:18px;padding:18px;box-shadow:6px 6px 16px #ccc6bc,-6px -6px 16px #ffffff">
+      <div style="font-size:12px;font-weight:700;color:#3a3530;margin-bottom:14px">Temperature Controls</div>
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#8a8078;margin-bottom:4px"><span>Temperature</span><span style="color:#e07a30;font-weight:700">180°C</span></div>
+        <div style="height:6px;background:#d0cac0;border-radius:3px;position:relative;box-shadow:inset 2px 2px 5px #c0bab0,inset -2px -2px 5px #f0ece6">
+          <div style="height:100%;width:62%;background:linear-gradient(90deg,#c85a20,#f5a020);border-radius:3px"></div>
+          <div style="width:14px;height:14px;background:#e8e2d9;border-radius:50%;position:absolute;top:-4px;left:60%;box-shadow:2px 2px 6px #c0bab0,-2px -2px 6px #ffffff"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#b0a898;margin-top:3px"><span>Low</span><span>Medium</span><span>High</span></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#8a8078;margin-bottom:4px"><span>Time</span><span style="color:#5a7fd4;font-weight:700">25 min</span></div>
+        <div style="height:6px;background:#d0cac0;border-radius:3px;position:relative;box-shadow:inset 2px 2px 5px #c0bab0,inset -2px -2px 5px #f0ece6">
+          <div style="height:100%;width:40%;background:linear-gradient(90deg,#3a5fd4,#5a7fd4);border-radius:3px"></div>
+          <div style="width:14px;height:14px;background:#e8e2d9;border-radius:50%;position:absolute;top:-4px;left:38%;box-shadow:2px 2px 6px #c0bab0,-2px -2px 6px #ffffff"></div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#8a8078;margin-bottom:4px"><span>Whisking Speed</span><span style="color:#8a8078;font-weight:700">28°C</span></div>
+        <div style="height:6px;background:#d0cac0;border-radius:3px;position:relative;box-shadow:inset 2px 2px 5px #c0bab0,inset -2px -2px 5px #f0ece6">
+          <div style="height:100%;width:25%;background:linear-gradient(90deg,#3a5fd4,#5a7fd4);border-radius:3px"></div>
+          <div style="width:14px;height:14px;background:#e8e2d9;border-radius:50%;position:absolute;top:-4px;left:23%;box-shadow:2px 2px 6px #c0bab0,-2px -2px 6px #ffffff"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cooking Process Steps -->
+    <div style="background:#e8e2d9;border-radius:18px;padding:18px;box-shadow:6px 6px 16px #ccc6bc,-6px -6px 16px #ffffff">
+      <div style="font-size:12px;font-weight:700;color:#3a3530;margin-bottom:14px">Cooking Process Steps</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:0">
+        <div style="text-align:center">
+          <div style="width:44px;height:44px;border-radius:50%;background:#d0cac0;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:3px 3px 8px #c0bab0,-3px -3px 8px #f0ece6;margin:0 auto">⏱</div>
+          <div style="font-size:9px;color:#8a8078;margin-top:4px">Prepare</div>
+        </div>
+        <div style="flex:1;height:2px;background:linear-gradient(90deg,#d0cac0,#e07a30);margin:0 4px;margin-bottom:16px"></div>
+        <div style="text-align:center">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#c85a20,#e07a30);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(224,122,48,0.4);margin:0 auto">🔥</div>
+          <div style="font-size:9px;color:#e07a30;font-weight:700;margin-top:4px">Cook</div>
+        </div>
+        <div style="flex:1;height:2px;background:#d0cac0;margin:0 4px;margin-bottom:16px"></div>
+        <div style="text-align:center">
+          <div style="width:44px;height:44px;border-radius:50%;background:#d0cac0;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:3px 3px 8px #c0bab0,-3px -3px 8px #f0ece6;margin:0 auto">💧</div>
+          <div style="font-size:9px;color:#8a8078;margin-top:4px">Simmer</div>
+        </div>
+        <div style="flex:1;height:2px;background:#d0cac0;margin:0 4px;margin-bottom:16px"></div>
+        <div style="text-align:center">
+          <div style="width:44px;height:44px;border-radius:50%;background:#d0cac0;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:3px 3px 8px #c0bab0,-3px -3px 8px #f0ece6;margin:0 auto">🍽</div>
+          <div style="font-size:9px;color:#8a8078;margin-top:4px">Serve</div>
+        </div>
+      </div>
+      <div style="margin-top:18px;font-size:12px;font-weight:700;color:#3a3530;margin-bottom:10px">Ingredient &amp; Cutting Process</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="text-align:center;font-size:11px;color:#8a8078"><div style="font-size:22px">💧</div>Wash</div>
+        <div style="color:#b0a898;font-size:14px">›</div>
+        <div style="text-align:center;font-size:11px;color:#8a8078"><div style="font-size:22px">🔪</div>Cut</div>
+        <div style="color:#b0a898;font-size:14px">›</div>
+        <div style="text-align:center;font-size:11px;color:#e07a30;font-weight:700"><div style="font-size:22px">🍱</div>Chop</div>
+        <div style="color:#b0a898;font-size:14px">›</div>
+        <div style="text-align:center;font-size:11px;color:#8a8078"><div style="font-size:22px">🌿</div>Slice</div>
+        <div style="color:#b0a898;font-size:14px">›</div>
+        <div style="text-align:center;font-size:11px;color:#8a8078"><div style="font-size:22px">✨</div>Dice</div>
+      </div>
+    </div>
+
+    <!-- Heat & Temp indicators -->
+    <div style="background:#e8e2d9;border-radius:18px;padding:18px;box-shadow:6px 6px 16px #ccc6bc,-6px -6px 16px #ffffff">
+      <div style="font-size:12px;font-weight:700;color:#3a3530;margin-bottom:14px">Heat &amp; Temperature Indicators</div>
+      <div style="display:flex;gap:20px;align-items:center">
+        <div style="text-align:center">
+          <div style="font-size:40px;font-weight:900;color:#5a8fd4;font-family:monospace;line-height:1">28<span style="font-size:22px">°C</span></div>
+          <div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-top:6px"><span style="font-size:18px">💧</span><span style="font-size:11px;color:#5a8fd4;font-weight:700">Simmer</span></div>
+        </div>
+        <div style="width:1px;height:60px;background:#d0cac0"></div>
+        <div style="text-align:center">
+          <div style="font-size:40px;font-weight:900;color:#e07a30;font-family:monospace;line-height:1">200<span style="font-size:22px">°C</span></div>
+          <div style="display:flex;align-items:center;gap:4px;justify-content:center;margin-top:6px"><span style="font-size:18px">🔥</span><span style="font-size:11px;color:#e07a30;font-weight:700">High Heat</span></div>
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <div style="height:8px;border-radius:4px;background:linear-gradient(90deg,#5a8fd4 0%,#5aad6a 25%,#ffd580 50%,#f5a020 75%,#e05050 100%);box-shadow:inset 1px 1px 3px rgba(0,0,0,0.1)"></div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#8a8078;margin-top:3px"><span>🧊 Cold</span><span>💧 Warm</span><span>🌡 Medium</span><span>🔥 Hot</span><span>🔴 Sear</span></div>
+      </div>
+    </div>
+
+    <!-- Buttons & Toggles -->
+    <div style="background:#e8e2d9;border-radius:18px;padding:18px;box-shadow:6px 6px 16px #ccc6bc,-6px -6px 16px #ffffff">
+      <div style="font-size:12px;font-weight:700;color:#3a3530;margin-bottom:14px">Buttons &amp; UI Elements</div>
+      <div style="margin-bottom:10px;font-size:10px;color:#8a8078;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Buttons</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <button style="flex:1;padding:9px;border:none;border-radius:12px;background:linear-gradient(135deg,#c85a20,#e07a30);color:#fff;font-weight:700;font-size:12px;cursor:pointer">Primary</button>
+        <button style="flex:1;padding:9px;border:none;border-radius:12px;background:#e8e2d9;color:#8a8078;font-weight:700;font-size:12px;cursor:pointer;box-shadow:4px 4px 10px #ccc6bc,-4px -4px 10px #ffffff">Secondary</button>
+        <button style="width:36px;height:36px;border:none;border-radius:10px;background:#e8e2d9;font-weight:700;font-size:16px;cursor:pointer;box-shadow:4px 4px 10px #ccc6bc,-4px -4px 10px #ffffff;color:#e07a30">+</button>
+      </div>
+      <div style="margin-bottom:10px;font-size:10px;color:#8a8078;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Time Picker</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:14px">
+        <div style="background:#d8d2c8;border-radius:10px;padding:8px 14px;box-shadow:inset 3px 3px 7px #c0bab0,inset -3px -3px 7px #f0ece6;font-size:20px;font-weight:800;color:#3a3530;font-family:monospace">12</div>
+        <div style="font-size:20px;font-weight:800;color:#b0a898">:</div>
+        <div style="background:#d8d2c8;border-radius:10px;padding:8px 14px;box-shadow:inset 3px 3px 7px #c0bab0,inset -3px -3px 7px #f0ece6;font-size:20px;font-weight:800;color:#3a3530;font-family:monospace">30</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-left:6px">
+          <div style="width:28px;height:14px;background:linear-gradient(90deg,#c85a20,#e07a30);border-radius:10px;position:relative"><div style="width:12px;height:10px;background:#fff;border-radius:8px;position:absolute;right:2px;top:2px"></div></div>
+          <div style="font-size:10px;color:#e07a30;font-weight:700">🔥</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span style="background:rgba(224,122,48,0.15);color:#e07a30;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700">Boil</span>
+        <span style="background:#e8e2d9;color:#8a8078;border-radius:20px;padding:4px 12px;font-size:11px;box-shadow:2px 2px 6px #ccc6bc,-2px -2px 6px #ffffff">Fry</span>
+        <span style="background:#e8e2d9;color:#8a8078;border-radius:20px;padding:4px 12px;font-size:11px;box-shadow:2px 2px 6px #ccc6bc,-2px -2px 6px #ffffff">Bake</span>
+        <span style="background:#e8e2d9;color:#8a8078;border-radius:20px;padding:4px 12px;font-size:11px;box-shadow:2px 2px 6px #ccc6bc,-2px -2px 6px #ffffff">Steam</span>
+        <span style="background:#e8e2d9;color:#8a8078;border-radius:20px;padding:4px 12px;font-size:11px;box-shadow:2px 2px 6px #ccc6bc,-2px -2px 6px #ffffff">Chop</span>
+        <span style="background:#e8e2d9;color:#8a8078;border-radius:20px;padding:4px 12px;font-size:11px;box-shadow:2px 2px 6px #ccc6bc,-2px -2px 6px #ffffff">Mix</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;padding:48px 0 24px;color:#aaa;font-size:12px">
+  MealPrepMaster · Cook Mode Design Options · Neomorphism UI System
+</div>
+</body>
+</html>

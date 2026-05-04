@@ -3606,7 +3606,31 @@ function CookMode({recipe, onClose, language='en'}) {
   const hasInstantPot = recipeEquip.some(e => /instant.?pot|pressure/.test(e)) || /pressure cook|instant pot/.test(stepTxt);
 
   return (
-    <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:2000,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+    <div data-cm="1" style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:2000,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <style>{`
+        [data-theme="dark"] [data-cm="1"] .cm-ill-warm{background:linear-gradient(135deg,#1e1208,#140c04)}
+        [data-theme="light"] [data-cm="1"] .cm-ill-warm{background:linear-gradient(135deg,#f5e0c0,#eed8b0)}
+        [data-theme="dark"] [data-cm="1"] .cm-ill-cook{background:linear-gradient(135deg,#0e1a10,#0a120c)}
+        [data-theme="light"] [data-cm="1"] .cm-ill-cook{background:linear-gradient(135deg,#d5eddc,#c2e4cb)}
+        [data-theme="dark"] [data-cm="1"] .cm-ill-blue{background:linear-gradient(135deg,#0c1828,#08101e)}
+        [data-theme="light"] [data-cm="1"] .cm-ill-blue{background:linear-gradient(135deg,#ccd8f5,#d8e5ff)}
+        [data-theme="dark"] [data-cm="1"] .cm-stove-body{fill:#2a2018}
+        [data-theme="light"] [data-cm="1"] .cm-stove-body{fill:#f0e8de}
+        [data-theme="dark"] [data-cm="1"] .cm-stove-arm{stroke:#6a5a40}
+        [data-theme="light"] [data-cm="1"] .cm-stove-arm{stroke:#b0a080}
+        [data-theme="dark"] [data-cm="1"] .cm-knob-bg{fill:#1a1410}
+        [data-theme="light"] [data-cm="1"] .cm-knob-bg{fill:#e8e0d5}
+        [data-theme="dark"] [data-cm="1"] .cm-knob-dot{fill:#3a3020}
+        [data-theme="light"] [data-cm="1"] .cm-knob-dot{fill:#c0b090}
+        [data-theme="dark"] [data-cm="1"] .cm-gauge-bg{stroke:#2a2030}
+        [data-theme="light"] [data-cm="1"] .cm-gauge-bg{stroke:#d8d0e8}
+        [data-theme="dark"] [data-cm="1"] .cm-step-panel{background:#161924}
+        [data-theme="light"] [data-cm="1"] .cm-step-panel{background:#dde1ed}
+        [data-theme="dark"] [data-cm="1"] .cm-step-active{background:rgba(224,122,48,0.12);border-left:3px solid #e07a30}
+        [data-theme="light"] [data-cm="1"] .cm-step-active{background:rgba(224,122,48,0.1);border-left:3px solid #e07a30}
+        [data-theme="dark"] [data-cm="1"] .cm-nm-card{box-shadow:10px 10px 24px #0d1020,-10px -10px 24px #27304a}
+        [data-theme="light"] [data-cm="1"] .cm-nm-card{box-shadow:10px 10px 24px #c0c8d8,-10px -10px 24px #ffffff}
+      `}</style>
 
       {/* ── TOP BAR ── */}
       <div style={{padding:'9px 14px',background:'var(--bg-sidebar)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
@@ -3638,27 +3662,28 @@ function CookMode({recipe, onClose, language='en'}) {
           {STAGE_LABELS.map((s,i)=>(
             <div key={s} style={{display:'flex',alignItems:'center'}}>
               <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:20,
-                background:i===stageIdx?'var(--accent)':i<stageIdx?'rgba(90,173,142,0.12)':'transparent',transition:'all .3s'}}>
+                background:i===stageIdx?'linear-gradient(135deg,#c85a20,#e07a30)':i<stageIdx?'rgba(90,173,142,0.12)':'transparent',
+                transition:'all .3s',boxShadow:i===stageIdx?'0 3px 10px rgba(224,122,48,0.35)':'none'}}>
                 <div style={{width:18,height:18,borderRadius:'50%',flexShrink:0,
-                  background:i<stageIdx?'#5aad8e':i===stageIdx?'rgba(255,255,255,0.9)':'var(--nm-input-bg)',
-                  color:i<stageIdx?'#fff':i===stageIdx?'var(--accent)':'var(--text-muted)',
+                  background:i<stageIdx?'#5aad8e':i===stageIdx?'rgba(255,255,255,0.95)':'var(--nm-input-bg)',
+                  color:i<stageIdx?'#fff':i===stageIdx?'#e07a30':'var(--text-muted)',
                   display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:800}}>
                   {i<stageIdx?'✓':i+1}
                 </div>
                 <span style={{fontSize:11,fontWeight:i===stageIdx?700:400,whiteSpace:'nowrap',
-                  color:i===stageIdx?'#fff':i<stageIdx?'var(--accent)':'var(--text-muted)'}}>
+                  color:i===stageIdx?'#fff':i<stageIdx?'#5aad8e':'var(--text-muted)'}}>
                   {s}
                 </span>
               </div>
-              {i<3 && <div style={{width:18,height:1.5,background:i<stageIdx?'var(--accent)':'var(--border)',flexShrink:0}}/>}
+              {i<3 && <div style={{width:18,height:1.5,background:i<stageIdx?'#e07a30':'var(--border)',flexShrink:0}}/>}
             </div>
           ))}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <div style={{flex:1,height:4,background:'var(--border)',borderRadius:2,overflow:'hidden'}}>
-            <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,var(--accent2),var(--accent))',borderRadius:2,transition:'width .4s'}}/>
+          <div style={{flex:1,height:5,background:'var(--nm-input-bg)',borderRadius:3,overflow:'hidden',boxShadow:'inset 2px 2px 4px var(--shadow-dark),inset -2px -2px 4px var(--shadow-light)'}}>
+            <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,#c85a20,#e07a30)',borderRadius:3,transition:'width .4s',boxShadow:'0 0 8px rgba(224,122,48,0.4)'}}/>
           </div>
-          <span style={{color:'var(--accent)',fontWeight:700,fontSize:11,minWidth:30,textAlign:'right'}}>{progress}%</span>
+          <span style={{color:'#e07a30',fontWeight:800,fontSize:11,minWidth:32,textAlign:'right'}}>{progress}%</span>
         </div>
       </div>
 
@@ -3698,28 +3723,28 @@ function CookMode({recipe, onClose, language='en'}) {
           )}
 
           {/* ── CURRENT STEP CARD ── */}
-          <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:20,padding:'16px 16px 18px',marginBottom:10}}>
+          <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,padding:'16px 16px 18px',marginBottom:10}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{width:36,height:36,borderRadius:'50%',
-                  background:'linear-gradient(135deg,var(--accent2),var(--accent))',
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:40,height:40,borderRadius:'50%',
+                  background:'linear-gradient(135deg,#c85a20,#e07a30)',
                   color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',
-                  fontWeight:800,fontSize:16,flexShrink:0,
-                  boxShadow:'0 4px 12px rgba(58,125,94,0.35)'}}>
+                  fontWeight:800,fontSize:17,flexShrink:0,
+                  boxShadow:'0 4px 14px rgba(224,122,48,0.45), inset 0 1px 0 rgba(255,255,255,0.2)'}}>
                   {step+1}
                 </div>
                 <div>
-                  <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:600,letterSpacing:.8,textTransform:'uppercase'}}>Step {step+1} of {steps.length}</div>
-                  {eatAtSchedule[step] && <div style={{color:'#5a8fd4',fontSize:10,fontWeight:700}}>▶ {eatAtSchedule[step].startLabel}</div>}
+                  <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,letterSpacing:.8,textTransform:'uppercase'}}>Step {step+1} of {steps.length}</div>
+                  {eatAtSchedule[step] && <div style={{color:'#5a90f0',fontSize:10,fontWeight:700}}>▶ {eatAtSchedule[step].startLabel}</div>}
                 </div>
               </div>
-              <span style={{background:'rgba(90,173,142,0.15)',color:'var(--accent)',borderRadius:20,padding:'3px 10px',fontSize:11,fontWeight:700}}>{progress}% done</span>
+              <span style={{background:'rgba(224,122,48,0.15)',color:'#e07a30',borderRadius:20,padding:'4px 12px',fontSize:11,fontWeight:800,border:'1px solid rgba(224,122,48,0.25)'}}>{progress}%</span>
             </div>
-            <p style={{color:'var(--text)',fontSize:15,lineHeight:1.7,margin:0,fontFamily:"'Playfair Display',serif"}}>
+            <p style={{color:'var(--text)',fontSize:15,lineHeight:1.75,margin:0,fontFamily:"'Playfair Display',serif"}}>
               {afMode && afStep ? afStep.text : current.text}
             </p>
             {afMode && afStep?.changed && (
-              <div style={{marginTop:8,padding:'4px 12px',background:'rgba(255,160,50,0.12)',borderRadius:8,display:'inline-block',fontSize:11,color:'#f5a623'}}>🌬️ Converted for air fryer</div>
+              <div style={{marginTop:8,padding:'5px 12px',background:'rgba(245,166,35,0.12)',borderRadius:8,display:'inline-block',fontSize:11,color:'#f5a623',border:'1px solid rgba(245,166,35,0.2)'}}>🌬️ Converted for air fryer</div>
             )}
           </div>
 
@@ -3727,81 +3752,89 @@ function CookMode({recipe, onClose, language='en'}) {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
 
             {/* ── COOKING PROCESS CARD ── */}
-            <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+            <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
               {/* Illustration area */}
-              <div style={{background:'linear-gradient(135deg,rgba(90,173,142,0.12),rgba(58,125,94,0.08))',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 0 10px',position:'relative'}}>
+              <div className="cm-ill-cook" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'16px 0 10px',position:'relative',minHeight:130}}>
                 <div style={{textAlign:'center'}}>
-                  <div style={{fontSize:56,lineHeight:1,filter:'drop-shadow(0 4px 8px rgba(0,0,0,0.15))'}}>🍲</div>
-                  <div style={{fontSize:14,marginTop:4,opacity:.6,letterSpacing:2}}>〜 〜 〜</div>
+                  <div style={{fontSize:62,lineHeight:1,filter:'drop-shadow(0 6px 12px rgba(0,0,0,0.35))'}}>🍲</div>
+                  <div style={{fontSize:16,marginTop:6,letterSpacing:4,opacity:.7}}>〜 〜 〜</div>
                 </div>
+                {/* Bubble accents */}
+                <div style={{position:'absolute',top:8,right:10,fontSize:11,opacity:.5}}>●</div>
+                <div style={{position:'absolute',top:18,right:20,fontSize:8,opacity:.35}}>●</div>
               </div>
               {/* Content */}
               <div style={{padding:'10px 12px 14px'}}>
-                <div style={{color:'var(--text)',fontWeight:700,fontSize:12}}>🍳 Cooking</div>
-                <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:8}}>Great things take time.</div>
-                <div style={{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:4}}>
-                  <span style={{color:'var(--text-sub)'}}>Cooking...</span>
-                  <span style={{color:'var(--accent)',fontWeight:700}}>{progress}%</span>
+                <div style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>🍳 Cooking Process</div>
+                <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:8}}>Step {step+1} of {steps.length}</div>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:10,marginBottom:5}}>
+                  <span style={{color:'var(--text-sub)'}}>Progress</span>
+                  <span style={{color:'var(--accent)',fontWeight:800}}>{progress}%</span>
                 </div>
-                <div style={{height:5,background:'var(--border)',borderRadius:3,overflow:'hidden'}}>
-                  <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,var(--accent2),var(--accent))',borderRadius:3,transition:'width .4s'}}/>
+                <div style={{height:6,background:'var(--nm-input-bg)',borderRadius:3,overflow:'hidden',boxShadow:'inset 2px 2px 5px var(--shadow-dark),inset -2px -2px 5px var(--shadow-light)'}}>
+                  <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,#3a9a5a,#5aad8e)',borderRadius:3,transition:'width .5s'}}/>
+                </div>
+                <div style={{display:'flex',gap:4,marginTop:8}}>
+                  {STAGE_LABELS.map((l,i)=>(
+                    <div key={l} style={{flex:1,height:3,borderRadius:2,background:i<stageIdx?'#5aad8e':i===stageIdx?'#e07a30':'var(--border)',transition:'background .3s'}}/>
+                  ))}
                 </div>
               </div>
             </div>
 
             {/* ── STOVE & FLAME CARD ── */}
             {heatHint ? (
-              <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+              <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
                 {/* SVG Stove Burner Illustration */}
-                <div style={{background:'linear-gradient(135deg,rgba(0,0,0,0.04),rgba(0,0,0,0.02))',display:'flex',alignItems:'center',justifyContent:'center',padding:'12px 0 6px'}}>
-                  <svg width="110" height="110" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="55" fill="var(--nm-input-bg)" stroke="var(--border)" strokeWidth="1.5"/>
+                <div className="cm-ill-warm" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'10px 0 6px',minHeight:130}}>
+                  <svg width="122" height="122" viewBox="0 0 130 130">
+                    {/* Outer ring */}
+                    <circle cx="65" cy="65" r="60" className="cm-stove-body" strokeWidth="0"/>
+                    <circle cx="65" cy="65" r="58" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5"/>
+                    {/* 8 burner arms */}
                     {[0,45,90,135,180,225,270,315].map((deg,idx) => {
                       const rd = deg * Math.PI / 180;
-                      return <line key={deg} x1={60+22*Math.cos(rd)} y1={60+22*Math.sin(rd)} x2={60+50*Math.cos(rd)} y2={60+50*Math.sin(rd)} stroke="var(--border)" strokeWidth={idx%2===0?7:4} strokeLinecap="round"/>;
+                      return <line key={deg} x1={65+24*Math.cos(rd)} y1={65+24*Math.sin(rd)} x2={65+52*Math.cos(rd)} y2={65+52*Math.sin(rd)} className="cm-stove-arm" strokeWidth={idx%2===0?8:5} strokeLinecap="round"/>;
                     })}
-                    <circle cx="60" cy="60" r="21" fill="none" stroke={heatHint.color} strokeWidth="5" opacity="0.85"/>
-                    <circle cx="60" cy="60" r="30" fill="none" stroke={heatHint.color} strokeWidth="2" opacity="0.25"/>
-                    <circle cx="60" cy="60" r="11" fill="var(--bg-card)" stroke="var(--border)" strokeWidth="2"/>
-                    <circle cx="60" cy="60" r="5" fill="var(--border)"/>
+                    {/* Flame rings */}
+                    <circle cx="65" cy="65" r="36" fill="none" stroke={heatHint.color} strokeWidth="2" opacity="0.3"/>
+                    <circle cx="65" cy="65" r="26" fill="none" stroke={heatHint.color} strokeWidth="5" opacity="0.9" strokeLinecap="round"
+                      strokeDasharray={heatHint.bars>=3?"none":"60 103"}/>
+                    <circle cx="65" cy="65" r="18" fill="none" stroke={heatHint.color} strokeWidth="2.5" opacity="0.5"/>
+                    {/* Center knob */}
+                    <circle cx="65" cy="65" r="12" className="cm-knob-bg" strokeWidth="0"/>
+                    <circle cx="65" cy="65" r="7" className="cm-knob-dot" strokeWidth="0"/>
+                    <circle cx="65" cy="65" r="3" fill={heatHint.color} opacity="0.8"/>
                   </svg>
                 </div>
                 {/* Content */}
                 <div style={{padding:'8px 12px 12px'}}>
-                  <div style={{color:'var(--text)',fontWeight:700,fontSize:12}}>🔥 Stove &amp; Flame</div>
-                  <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:8}}>Let&apos;s Cook · Good food, good mood.</div>
-                  <div style={{display:'flex',justifyContent:'space-around',marginBottom:6}}>
-                    {[{l:'Low',v:1},{l:'Medium',v:2},{l:'High',v:3}].map(({l,v})=>{
-                      const active = v===1?heatHint.bars===1:v===2?(heatHint.bars===2||heatHint.bars===3):heatHint.bars===4;
-                      return (
-                        <div key={l} style={{textAlign:'center'}}>
-                          <div style={{fontSize:active?20:13,lineHeight:'1',filter:active?'none':'grayscale(1) opacity(0.25)',transition:'font-size .2s'}}>🔥</div>
-                          <div style={{fontSize:9,color:active?heatHint.color:'var(--text-muted)',fontWeight:active?700:400,marginTop:2}}>{l}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{textAlign:'center',fontWeight:700,fontSize:11,color:heatHint.color}}>Heat Level</div>
-                  <div style={{display:'flex',gap:3,alignItems:'flex-end',justifyContent:'center',marginTop:4}}>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>🔥 Stove &amp; Flame</div>
+                  <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:8}}>Good food, good mood.</div>
+                  <div style={{display:'flex',gap:3,alignItems:'flex-end',justifyContent:'center',marginBottom:6}}>
                     {[1,2,3,4].map(lvl=>(
-                      <div key={lvl} style={{width:9,height:5+lvl*5,borderRadius:3,background:lvl<=heatHint.bars?heatHint.color:'var(--border)',transition:'background .3s'}}/>
+                      <div key={lvl} style={{width:11,height:6+lvl*6,borderRadius:3,
+                        background:lvl<=heatHint.bars?heatHint.color:'var(--nm-input-bg)',
+                        boxShadow:lvl<=heatHint.bars?`0 0 8px ${heatHint.color}60`:'none',
+                        transition:'all .3s'}}/>
                     ))}
                   </div>
+                  <div style={{textAlign:'center',fontSize:11,fontWeight:800,color:heatHint.color,letterSpacing:.5}}>{heatHint.label}</div>
                 </div>
               </div>
             ) : stepIngredients.length>0 ? (
-              <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                <div style={{background:'linear-gradient(135deg,rgba(90,173,142,0.1),rgba(90,173,142,0.04))',display:'flex',alignItems:'center',justifyContent:'center',padding:'18px 0 10px'}}>
-                  <div style={{fontSize:52,lineHeight:1}}>🥗</div>
+              <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <div className="cm-ill-cook" style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:130}}>
+                  <div style={{fontSize:58,lineHeight:1,filter:'drop-shadow(0 6px 12px rgba(0,0,0,0.35))'}}>🥗</div>
                 </div>
                 <div style={{padding:'10px 12px 14px'}}>
-                  <div style={{color:'var(--text)',fontWeight:700,fontSize:12,marginBottom:7}}>This Step</div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:12,marginBottom:7}}>This Step</div>
                   {stepIngredients.slice(0,3).map((ing,i)=>(
                     <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
-                      <span style={{fontSize:15}}>{getItemEmoji(ing.name)}</span>
+                      <span style={{fontSize:16}}>{getItemEmoji(ing.name)}</span>
                       <div>
                         <div style={{color:'var(--text)',fontSize:11,fontWeight:600}}>{ing.name}</div>
-                        <div style={{color:'var(--accent)',fontSize:10}}>{ing.amount} {ing.unit}</div>
+                        <div style={{color:'var(--accent)',fontSize:10,fontWeight:700}}>{ing.amount} {ing.unit}</div>
                       </div>
                     </div>
                   ))}
@@ -3811,43 +3844,44 @@ function CookMode({recipe, onClose, language='en'}) {
 
             {/* ── TEMPERATURE CONTROL CARD ── */}
             {heatHint && (
-              <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+              <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
                 {/* Large SVG arc dial */}
-                <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'10px 0 4px',background:'linear-gradient(135deg,rgba(0,0,0,0.03),transparent)'}}>
-                  <svg width="140" height="100" viewBox="0 0 140 105" style={{overflow:'visible'}}>
-                    {/* bg arc: r=52, cx=70, cy=82, 240°, rotate 120 */}
-                    <circle cx="70" cy="82" r="52" fill="none" stroke="var(--border)" strokeWidth="10" strokeLinecap="round"
-                      strokeDasharray={`${(2*Math.PI*52*240/360).toFixed(1)} ${(2*Math.PI*52*(1-240/360)).toFixed(1)}`}
-                      transform="rotate(120 70 82)"/>
+                <div className="cm-ill-warm" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'14px 0 6px',minHeight:130}}>
+                  <svg width="150" height="110" viewBox="0 0 150 115" style={{overflow:'visible'}}>
+                    {/* Tick marks */}
+                    {[0,1,2,3,4,5,6,7,8].map(i=>{
+                      const a=(i/8)*240-120;const r=a*Math.PI/180;
+                      return <line key={i} x1={75+48*Math.cos(r)} y1={88+48*Math.sin(r)} x2={75+54*Math.cos(r)} y2={88+54*Math.sin(r)} stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" strokeLinecap="round"/>;
+                    })}
+                    {/* bg arc */}
+                    <circle cx="75" cy="88" r="50" fill="none" className="cm-gauge-bg" strokeWidth="11" strokeLinecap="round"
+                      strokeDasharray={`${(2*Math.PI*50*240/360).toFixed(1)} ${(2*Math.PI*50*(1-240/360)).toFixed(1)}`}
+                      transform="rotate(120 75 88)"/>
+                    {/* glow layer */}
+                    <circle cx="75" cy="88" r="50" fill="none" stroke={heatHint.color} strokeWidth="18" strokeLinecap="round" opacity="0.12"
+                      strokeDasharray={`${(2*Math.PI*50*240/360*tgPct).toFixed(1)} ${(2*Math.PI*50).toFixed(1)}`}
+                      transform="rotate(120 75 88)"/>
                     {/* filled arc */}
-                    <circle cx="70" cy="82" r="52" fill="none" stroke={heatHint.color} strokeWidth="10" strokeLinecap="round"
-                      strokeDasharray={`${(2*Math.PI*52*240/360*tgPct).toFixed(1)} ${(2*Math.PI*52*(1-240/360*tgPct)).toFixed(1)}`}
-                      transform="rotate(120 70 82)"/>
-                    {/* indicator dot */}
-                    {tgPct > 0.02 && (
-                      <circle cx="70" cy="82" r="52" fill="none" stroke={heatHint.color} strokeWidth="3"
-                        strokeDasharray={`3 ${(2*Math.PI*52-3).toFixed(1)}`}
-                        strokeDashoffset={-(2*Math.PI*52*240/360*tgPct - 3)}
-                        transform="rotate(120 70 82)"/>
-                    )}
-                    <text x="70" y="75" textAnchor="middle" fill="var(--text)" fontSize="22" fontWeight="800" fontFamily="inherit">{heatHint.temp}°C</text>
-                    <text x="70" y="91" textAnchor="middle" fill={heatHint.color} fontSize="9" fontFamily="inherit">{heatHint.label}</text>
-                    <text x="10" y="100" fill="var(--text-muted)" fontSize="8" fontFamily="inherit">160°C</text>
-                    <text x="107" y="100" fill="var(--text-muted)" fontSize="8" fontFamily="inherit">200°C</text>
+                    <circle cx="75" cy="88" r="50" fill="none" stroke={heatHint.color} strokeWidth="11" strokeLinecap="round"
+                      strokeDasharray={`${(2*Math.PI*50*240/360*tgPct).toFixed(1)} ${(2*Math.PI*50).toFixed(1)}`}
+                      transform="rotate(120 75 88)"/>
+                    {/* center text */}
+                    <text x="75" y="80" textAnchor="middle" fill="rgba(255,255,255,0.9)" fontSize="24" fontWeight="800" fontFamily="inherit">{heatHint.temp}°</text>
+                    <text x="75" y="97" textAnchor="middle" fill={heatHint.color} fontSize="9.5" fontWeight="700" fontFamily="inherit">{heatHint.label}</text>
+                    {/* range labels */}
+                    <text x="16" y="108" fill="rgba(255,255,255,0.35)" fontSize="8" fontFamily="inherit">80°</text>
+                    <text x="118" y="108" fill="rgba(255,255,255,0.35)" fontSize="8" fontFamily="inherit">250°</text>
                   </svg>
                 </div>
                 <div style={{padding:'6px 12px 12px'}}>
-                  <div style={{color:'var(--text)',fontWeight:700,fontSize:12}}>🌡️ Temperature</div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>🌡️ Temperature</div>
                   <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:6}}>Set the perfect heat.</div>
-                  <div style={{background:'rgba(255,160,50,0.08)',borderRadius:8,padding:'5px 8px',display:'flex',alignItems:'center',gap:5}}>
+                  <div style={{background:`${heatHint.color}18`,borderRadius:8,padding:'5px 8px',display:'flex',alignItems:'center',gap:6,border:`1px solid ${heatHint.color}30`}}>
                     <span style={{fontSize:14}}>🔥</span>
-                    <span style={{color:'var(--text-sub)',fontSize:10}}>Ideal for {heatHint.label.toLowerCase()}</span>
-                  </div>
-                  <div style={{color:'var(--text-muted)',fontSize:10,textAlign:'center',marginTop:5}}>{heatHint.range}</div>
-                  <div style={{display:'flex',gap:6,marginTop:8,justifyContent:'center'}}>
-                    <button style={{...GB,padding:'4px 10px',fontSize:13,borderRadius:8}}>−</button>
-                    <span style={{...GB,padding:'4px 14px',fontSize:10,borderRadius:8,color:'var(--text-muted)'}}>Preset</span>
-                    <button style={{...GB,padding:'4px 10px',fontSize:13,borderRadius:8}}>+</button>
+                    <div>
+                      <div style={{color:heatHint.color,fontSize:10,fontWeight:700}}>{heatHint.label}</div>
+                      <div style={{color:'var(--text-muted)',fontSize:9}}>{heatHint.range}</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3855,26 +3889,38 @@ function CookMode({recipe, onClose, language='en'}) {
 
             {/* ── CHOPPING BOARD CARD ── */}
             {cuttingMethods && (
-              <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                {/* Board illustration */}
-                <div style={{background:'linear-gradient(135deg,#c8a06a,#a07840)',display:'flex',alignItems:'center',justifyContent:'center',padding:'14px 0',gap:8}}>
-                  <span style={{fontSize:42,filter:'drop-shadow(0 2px 6px rgba(0,0,0,0.3))'}}>🔪</span>
-                  <span style={{fontSize:34,filter:'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'}}>🥬</span>
+              <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                {/* Wood board illustration */}
+                <div style={{background:'linear-gradient(160deg,#b87c3a,#9a6428,#c88840)',display:'flex',alignItems:'center',justifyContent:'center',padding:'10px 0 6px',minHeight:130,position:'relative',overflow:'hidden'}}>
+                  {/* Wood grain lines */}
+                  {[20,36,52,68,84,100,116].map(y=>(
+                    <div key={y} style={{position:'absolute',left:0,right:0,top:y,height:1,background:'rgba(0,0,0,0.08)'}}/>
+                  ))}
+                  {/* Board rect */}
+                  <svg width="120" height="90" viewBox="0 0 120 90" style={{position:'absolute',opacity:.25}}>
+                    <rect x="10" y="8" width="100" height="74" rx="6" fill="#6a3810" stroke="#4a2808" strokeWidth="1"/>
+                    <rect x="18" y="16" width="84" height="58" rx="4" fill="none" stroke="#8a5020" strokeWidth="1" opacity=".5"/>
+                  </svg>
+                  {/* Knife + ingredient */}
+                  <div style={{position:'relative',display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{fontSize:46,filter:'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',transform:'rotate(-20deg)'}}>🔪</span>
+                    <span style={{fontSize:36,filter:'drop-shadow(0 3px 6px rgba(0,0,0,0.4))'}}>🥕</span>
+                  </div>
                 </div>
                 <div style={{padding:'10px 12px 12px'}}>
-                  <div style={{color:'var(--text)',fontWeight:700,fontSize:12}}>🔪 Prep &amp; Cut</div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>🔪 Prep &amp; Cut</div>
                   <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:8}}>Chop it like a chef.</div>
-                  <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                    {['Dice','Slice','Julienne'].map(m=>{
+                  <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                    {['Dice','Slice','Julienne','Mince'].map(m=>{
                       const active = cuttingMethods.includes(m);
                       return (
-                        <span key={m} style={{background:active?'rgba(90,173,142,0.2)':'var(--nm-input-bg)',border:active?'1px solid rgba(90,173,142,0.45)':'1px solid transparent',color:active?'var(--accent)':'var(--text-muted)',borderRadius:20,padding:'4px 11px',fontSize:11,fontWeight:active?700:400}}>
+                        <span key={m} style={{background:active?'rgba(200,136,64,0.2)':'var(--nm-input-bg)',border:active?'1px solid rgba(200,136,64,0.5)':'1px solid transparent',color:active?'#c88840':'var(--text-muted)',borderRadius:20,padding:'4px 10px',fontSize:10,fontWeight:active?800:400}}>
                           {m}
                         </span>
                       );
                     })}
-                    {cuttingMethods.filter(m=>!['Dice','Slice','Julienne'].includes(m)).map(m=>(
-                      <span key={m} style={{background:'rgba(90,173,142,0.2)',border:'1px solid rgba(90,173,142,0.45)',color:'var(--accent)',borderRadius:20,padding:'4px 11px',fontSize:11,fontWeight:700}}>{m}</span>
+                    {cuttingMethods.filter(m=>!['Dice','Slice','Julienne','Mince'].includes(m)).map(m=>(
+                      <span key={m} style={{background:'rgba(200,136,64,0.2)',border:'1px solid rgba(200,136,64,0.5)',color:'#c88840',borderRadius:20,padding:'4px 10px',fontSize:10,fontWeight:800}}>{m}</span>
                     ))}
                   </div>
                 </div>
@@ -3883,34 +3929,41 @@ function CookMode({recipe, onClose, language='en'}) {
 
             {/* ── BLENDER CARD ── */}
             {hasBlender && (
-              <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                <div style={{background:'linear-gradient(135deg,rgba(58,125,94,0.1),rgba(90,143,212,0.08))',display:'flex',alignItems:'center',justifyContent:'center',padding:'14px 0 8px'}}>
-                  {/* Blender speed knob SVG */}
+              <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <div className="cm-ill-blue" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'12px 0 8px',minHeight:130}}>
                   <div style={{position:'relative',display:'inline-block'}}>
-                    <svg width="100" height="100" viewBox="0 0 100 100">
-                      <circle cx="50" cy="50" r="45" fill="var(--nm-input-bg)" stroke="var(--border)" strokeWidth="2"/>
-                      <circle cx="50" cy="50" r="38" fill="none" stroke="var(--border)" strokeWidth="6" strokeLinecap="round"
-                        strokeDasharray={`${(2*Math.PI*38*270/360).toFixed(1)} ${(2*Math.PI*38*(1-270/360)).toFixed(1)}`}
-                        transform="rotate(135 50 50)"/>
-                      <circle cx="50" cy="50" r="38" fill="none" stroke="var(--accent)" strokeWidth="6" strokeLinecap="round"
-                        strokeDasharray={`${(2*Math.PI*38*270/360*0.5).toFixed(1)} ${(2*Math.PI*38).toFixed(1)}`}
-                        transform="rotate(135 50 50)"/>
-                      <circle cx="50" cy="50" r="14" fill="var(--bg-card)" stroke="var(--border)" strokeWidth="2"/>
-                      <line x1="50" y1="50" x2="50" y2="38" stroke="var(--text)" strokeWidth="2.5" strokeLinecap="round"
-                        transform="rotate(90 50 50)"/>
-                      <text x="50" y="54" textAnchor="middle" fill="var(--text-muted)" fontSize="7">MED</text>
+                    <svg width="110" height="110" viewBox="0 0 110 110">
+                      {/* outer ring */}
+                      <circle cx="55" cy="55" r="50" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5"/>
+                      {/* track arc 270° */}
+                      <circle cx="55" cy="55" r="42" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" strokeLinecap="round"
+                        strokeDasharray={`${(2*Math.PI*42*270/360).toFixed(1)} ${(2*Math.PI*42).toFixed(1)}`}
+                        transform="rotate(135 55 55)"/>
+                      {/* filled speed arc (med = 50%) */}
+                      <circle cx="55" cy="55" r="42" fill="none" stroke="#5a90f0" strokeWidth="8" strokeLinecap="round"
+                        strokeDasharray={`${(2*Math.PI*42*270/360*0.5).toFixed(1)} ${(2*Math.PI*42).toFixed(1)}`}
+                        transform="rotate(135 55 55)"/>
+                      {/* glow */}
+                      <circle cx="55" cy="55" r="42" fill="none" stroke="#5a90f0" strokeWidth="14" strokeLinecap="round" opacity="0.12"
+                        strokeDasharray={`${(2*Math.PI*42*270/360*0.5).toFixed(1)} ${(2*Math.PI*42).toFixed(1)}`}
+                        transform="rotate(135 55 55)"/>
+                      {/* knob center */}
+                      <circle cx="55" cy="55" r="18" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5"/>
+                      <line x1="55" y1="55" x2="55" y2="40" stroke="#5a90f0" strokeWidth="3" strokeLinecap="round"
+                        transform="rotate(90 55 55)"/>
+                      <text x="55" y="59" textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="7" fontFamily="inherit" fontWeight="700">MED</text>
                     </svg>
-                    <div style={{position:'absolute',top:4,left:4,fontSize:9,color:'var(--text-muted)'}}>Low</div>
-                    <div style={{position:'absolute',top:4,right:4,fontSize:9,color:'var(--text-muted)'}}>High</div>
-                    <div style={{position:'absolute',bottom:4,left:'50%',transform:'translateX(-50%)',fontSize:9,color:'var(--text-muted)'}}>Pulse</div>
+                    <div style={{position:'absolute',top:6,left:6,fontSize:9,color:'rgba(255,255,255,0.45)',fontWeight:600}}>Low</div>
+                    <div style={{position:'absolute',top:6,right:6,fontSize:9,color:'rgba(255,255,255,0.45)',fontWeight:600}}>High</div>
+                    <div style={{position:'absolute',bottom:4,left:'50%',transform:'translateX(-50%)',fontSize:9,color:'rgba(255,255,255,0.45)',fontWeight:600,whiteSpace:'nowrap'}}>Pulse</div>
                   </div>
                 </div>
                 <div style={{padding:'8px 12px 12px'}}>
-                  <div style={{color:'var(--text)',fontWeight:700,fontSize:12}}>🫙 Blender</div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>🫙 Blender</div>
                   <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:6}}>Speed control</div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                     {['Smoothie','Ice Crush','Puree'].map((m,i)=>(
-                      <span key={m} style={{background:i===1?'rgba(90,173,142,0.2)':'var(--nm-input-bg)',border:i===1?'1px solid rgba(90,173,142,0.4)':'1px solid transparent',color:i===1?'var(--accent)':'var(--text-muted)',borderRadius:20,padding:'3px 9px',fontSize:10,fontWeight:i===1?700:400}}>{m}</span>
+                      <span key={m} style={{background:i===1?'rgba(90,144,240,0.2)':'var(--nm-input-bg)',border:i===1?'1px solid rgba(90,144,240,0.4)':'1px solid transparent',color:i===1?'#5a90f0':'var(--text-muted)',borderRadius:20,padding:'3px 9px',fontSize:10,fontWeight:i===1?800:400}}>{m}</span>
                     ))}
                   </div>
                 </div>
@@ -3919,36 +3972,44 @@ function CookMode({recipe, onClose, language='en'}) {
 
             {/* ── AIR FRYER CARD ── */}
             {hasAirFryer && (
-              <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                <div style={{background:'linear-gradient(135deg,rgba(245,166,35,0.12),rgba(224,80,80,0.06))',display:'flex',alignItems:'center',justifyContent:'center',gap:10,padding:'14px 0 8px'}}>
-                  <div style={{textAlign:'center',fontSize:9,color:'var(--text-muted)'}}>
-                    <svg width="44" height="44" viewBox="0 0 44 44">
-                      <circle cx="22" cy="22" r="20" fill="var(--nm-input-bg)" stroke="var(--border)" strokeWidth="1.5"/>
-                      <circle cx="22" cy="22" r="13" fill="none" stroke="#f5a623" strokeWidth="4" strokeLinecap="round"
-                        strokeDasharray={`${(2*Math.PI*13*270/360).toFixed(1)} ${(2*Math.PI*13).toFixed(1)}`}
-                        transform="rotate(135 22 22)"/>
-                      <circle cx="22" cy="22" r="5" fill="var(--bg-card)" stroke="var(--border)" strokeWidth="1.5"/>
+              <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <div style={{background:'linear-gradient(135deg,#1e1204,#150e02)',display:'flex',alignItems:'center',justifyContent:'center',gap:14,padding:'14px 0 10px',minHeight:130}}>
+                  {/* Temp knob */}
+                  <div style={{textAlign:'center'}}>
+                    <svg width="52" height="52" viewBox="0 0 52 52">
+                      <circle cx="26" cy="26" r="24" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5"/>
+                      <circle cx="26" cy="26" r="16" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6" strokeLinecap="round"
+                        strokeDasharray={`${(2*Math.PI*16*270/360).toFixed(1)} ${(2*Math.PI*16).toFixed(1)}`}
+                        transform="rotate(135 26 26)"/>
+                      <circle cx="26" cy="26" r="16" fill="none" stroke="#f5a623" strokeWidth="6" strokeLinecap="round"
+                        strokeDasharray={`${(2*Math.PI*16*270/360*0.7).toFixed(1)} ${(2*Math.PI*16).toFixed(1)}`}
+                        transform="rotate(135 26 26)"/>
+                      <circle cx="26" cy="26" r="6" fill="rgba(0,0,0,0.4)" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
                     </svg>
-                    <div style={{marginTop:2}}>Temp</div>
+                    <div style={{fontSize:9,color:'rgba(255,255,255,0.5)',marginTop:3,fontWeight:700}}>TEMP</div>
                   </div>
-                  <span style={{fontSize:44}}>🌬️</span>
-                  <div style={{textAlign:'center',fontSize:9,color:'var(--text-muted)'}}>
-                    <svg width="44" height="44" viewBox="0 0 44 44">
-                      <circle cx="22" cy="22" r="20" fill="var(--nm-input-bg)" stroke="var(--border)" strokeWidth="1.5"/>
-                      <circle cx="22" cy="22" r="13" fill="none" stroke="#5a8fd4" strokeWidth="4" strokeLinecap="round"
-                        strokeDasharray={`${(2*Math.PI*13*270/360*0.4).toFixed(1)} ${(2*Math.PI*13).toFixed(1)}`}
-                        transform="rotate(135 22 22)"/>
-                      <circle cx="22" cy="22" r="5" fill="var(--bg-card)" stroke="var(--border)" strokeWidth="1.5"/>
+                  <span style={{fontSize:48,filter:'drop-shadow(0 4px 10px rgba(0,0,0,0.6))'}}>🌬️</span>
+                  {/* Time knob */}
+                  <div style={{textAlign:'center'}}>
+                    <svg width="52" height="52" viewBox="0 0 52 52">
+                      <circle cx="26" cy="26" r="24" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5"/>
+                      <circle cx="26" cy="26" r="16" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="6" strokeLinecap="round"
+                        strokeDasharray={`${(2*Math.PI*16*270/360).toFixed(1)} ${(2*Math.PI*16).toFixed(1)}`}
+                        transform="rotate(135 26 26)"/>
+                      <circle cx="26" cy="26" r="16" fill="none" stroke="#5a90f0" strokeWidth="6" strokeLinecap="round"
+                        strokeDasharray={`${(2*Math.PI*16*270/360*0.35).toFixed(1)} ${(2*Math.PI*16).toFixed(1)}`}
+                        transform="rotate(135 26 26)"/>
+                      <circle cx="26" cy="26" r="6" fill="rgba(0,0,0,0.4)" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
                     </svg>
-                    <div style={{marginTop:2}}>Time</div>
+                    <div style={{fontSize:9,color:'rgba(255,255,255,0.5)',marginTop:3,fontWeight:700}}>TIME</div>
                   </div>
                 </div>
                 <div style={{padding:'8px 12px 12px'}}>
-                  <div style={{color:'var(--text)',fontWeight:700,fontSize:12}}>🌬️ Air Fryer</div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>🌬️ Air Fryer</div>
                   <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:6}}>−15°C · −25% time</div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {['Bake','Broil','Convection','Presets'].map((m,i)=>(
-                      <span key={m} style={{background:i===0?'rgba(245,166,35,0.2)':'var(--nm-input-bg)',border:i===0?'1px solid rgba(245,166,35,0.4)':'1px solid transparent',color:i===0?'#f5a623':'var(--text-muted)',borderRadius:20,padding:'3px 9px',fontSize:10,fontWeight:i===0?700:400}}>{m}</span>
+                    {['Bake','Broil','Convection'].map((m,i)=>(
+                      <span key={m} style={{background:i===0?'rgba(245,166,35,0.2)':'var(--nm-input-bg)',border:i===0?'1px solid rgba(245,166,35,0.4)':'1px solid transparent',color:i===0?'#f5a623':'var(--text-muted)',borderRadius:20,padding:'3px 9px',fontSize:10,fontWeight:i===0?800:400}}>{m}</span>
                     ))}
                   </div>
                 </div>
@@ -3957,16 +4018,20 @@ function CookMode({recipe, onClose, language='en'}) {
 
             {/* ── INSTANT POT CARD ── */}
             {hasInstantPot && (
-              <div style={{background:'var(--bg-card)',boxShadow:'var(--nm-raised)',borderRadius:18,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                <div style={{background:'linear-gradient(135deg,rgba(90,143,212,0.1),rgba(90,143,212,0.04))',display:'flex',alignItems:'center',justifyContent:'center',padding:'14px 0 8px'}}>
-                  <span style={{fontSize:56,filter:'drop-shadow(0 4px 8px rgba(0,0,0,0.18))'}}>🫕</span>
+              <div className="cm-nm-card" style={{background:'var(--bg-card)',borderRadius:20,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <div className="cm-ill-blue" style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'14px 0 8px',minHeight:130,flexDirection:'column',gap:6}}>
+                  <span style={{fontSize:58,filter:'drop-shadow(0 6px 12px rgba(0,0,0,0.5))'}}>🫕</span>
+                  {/* Steam lines */}
+                  <div style={{display:'flex',gap:8,opacity:.5}}>
+                    {['〜','〜','〜'].map((s,i)=><span key={i} style={{fontSize:12,color:'rgba(255,255,255,0.7)'}}>{s}</span>)}
+                  </div>
                 </div>
                 <div style={{padding:'8px 12px 12px'}}>
-                  <div style={{color:'var(--text)',fontWeight:700,fontSize:12}}>🫕 Instant Pot</div>
+                  <div style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>🫕 Instant Pot</div>
                   <div style={{color:'var(--text-muted)',fontSize:10,marginBottom:6}}>Follow. Cook. Enjoy.</div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
                     {['Pressure Cook','Slow Cook','Sauté'].map((m,i)=>(
-                      <span key={m} style={{background:i===0?'rgba(90,143,212,0.18)':'var(--nm-input-bg)',border:i===0?'1px solid rgba(90,143,212,0.4)':'1px solid transparent',color:i===0?'#5a8fd4':'var(--text-muted)',borderRadius:20,padding:'3px 9px',fontSize:10,fontWeight:i===0?700:400}}>{m}</span>
+                      <span key={m} style={{background:i===0?'rgba(90,144,240,0.2)':'var(--nm-input-bg)',border:i===0?'1px solid rgba(90,144,240,0.4)':'1px solid transparent',color:i===0?'#5a90f0':'var(--text-muted)',borderRadius:20,padding:'3px 9px',fontSize:10,fontWeight:i===0?800:400}}>{m}</span>
                     ))}
                   </div>
                 </div>
@@ -4055,43 +4120,51 @@ function CookMode({recipe, onClose, language='en'}) {
         </div>{/* end left */}
 
         {/* ── RIGHT: Recipe Steps ── */}
-        <div style={{width:210,flexShrink:0,borderLeft:'1px solid var(--border)',overflowY:'auto',background:'var(--bg-sidebar)',display:'flex',flexDirection:'column'}}>
-          <div style={{padding:'12px 12px 8px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
+        <div className="cm-step-panel" style={{width:215,flexShrink:0,borderLeft:'1px solid var(--border)',overflowY:'auto',display:'flex',flexDirection:'column'}}>
+          <div style={{padding:'13px 12px 10px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
             <div style={{display:'flex',alignItems:'center',gap:6}}>
-              <span style={{fontSize:14}}>📋</span>
-              <span style={{color:'var(--text)',fontWeight:700,fontSize:12}}>Recipe Steps</span>
+              <span style={{fontSize:15}}>📋</span>
+              <span style={{color:'var(--text)',fontWeight:800,fontSize:12,letterSpacing:.3}}>Recipe Steps</span>
             </div>
-            <div style={{color:'var(--text-muted)',fontSize:10,marginTop:1}}>Follow. Cook. Enjoy.</div>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:5}}>
+              <div style={{flex:1,height:3,background:'var(--nm-input-bg)',borderRadius:2,overflow:'hidden'}}>
+                <div style={{height:'100%',width:progress+'%',background:'linear-gradient(90deg,#c85a20,#e07a30)',borderRadius:2,transition:'width .4s'}}/>
+              </div>
+              <span style={{color:'#e07a30',fontSize:9,fontWeight:800}}>{progress}%</span>
+            </div>
           </div>
-          <div style={{flex:1,overflowY:'auto',padding:'6px 0'}}>
+          <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
             {steps.map((s,i)=>{
               const done=i<step, active=i===step;
               const bgTimer=stepTimers[i];
               const bgRunning=bgTimer?.running&&bgTimer.remaining>0;
               return (
                 <div key={i} onClick={()=>setStep(i)}
+                  className={active?'cm-step-active':''}
                   style={{display:'flex',alignItems:'flex-start',gap:9,padding:'10px 12px',cursor:'pointer',
-                    background:active?'rgba(58,125,94,0.1)':'transparent',
-                    borderLeft:active?'3px solid var(--accent)':'3px solid transparent',
+                    background:active?undefined:'transparent',
+                    borderLeft:active?undefined:'3px solid transparent',
                     borderBottom:'1px solid var(--border)',transition:'background .15s'}}>
                   <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,marginTop:1,
-                    background:done?'#5aad8e':active?'var(--accent)':'var(--nm-input-bg)',
-                    border:done||active?'none':'2px solid var(--border)',
+                    background:done?'#5aad8e':active?'#e07a30':'var(--nm-input-bg)',
+                    border:'none',
                     color:done||active?'#fff':'var(--text-muted)',
                     display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:800,
-                    boxShadow:active?'0 0 0 3px rgba(90,173,142,0.25)':'var(--nm-raised-sm)'}}>
+                    boxShadow:active?'0 0 0 3px rgba(224,122,48,0.3), 0 4px 10px rgba(224,122,48,0.3)':done?'0 2px 6px rgba(90,173,142,0.3)':'var(--nm-raised-sm)',
+                    transition:'all .2s'}}>
                     {done?'✓':i+1}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{color:active?'var(--accent)':done?'var(--text-muted)':'var(--text)',
-                      fontSize:11,lineHeight:1.4,fontWeight:active?700:400,
+                    <div style={{color:active?'#e07a30':done?'var(--text-muted)':'var(--text)',
+                      fontSize:11,lineHeight:1.45,fontWeight:active?700:400,
                       overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',
                       textDecoration:done?'line-through':'none',textDecorationColor:'var(--text-muted)'}}>
                       {s.text}
                     </div>
                     {s.timeMin && (
-                      <div style={{fontSize:9,fontWeight:600,color:bgRunning?'#ffd580':'var(--text-muted)',marginTop:3}}>
-                        {bgRunning?'⏱ '+fmtTime(bgTimer.remaining):'⏱ '+s.timeMin+'m'}
+                      <div style={{fontSize:9,fontWeight:600,color:bgRunning?'#f5a623':'var(--text-muted)',marginTop:3,display:'flex',alignItems:'center',gap:3}}>
+                        <span>{bgRunning?'⏱ '+fmtTime(bgTimer.remaining):'⏱ '+s.timeMin+'m'}</span>
+                        {bgRunning && <span style={{width:5,height:5,borderRadius:'50%',background:'#f5a623',animation:'pulse 1s infinite',display:'inline-block'}}/>}
                       </div>
                     )}
                   </div>
